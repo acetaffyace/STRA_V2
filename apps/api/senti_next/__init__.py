@@ -52,6 +52,14 @@ from .window_robustness import (
     build_window_robustness_report,
     matched_window_robustness,
 )
+from .activity_diagnostics import (
+    COORDINATION_SIMILARITY_CONFIG,
+    SPIKE_CONFIG,
+    analyze_review_activity,
+    build_activity_diagnostics,
+    normalize_review_text,
+    normalized_text_hash,
+)
 from .ingest import (
     SOURCE_DISCORD,
     SOURCE_REDDIT,
@@ -99,6 +107,12 @@ __all__ = [
     "WINDOW_SENSITIVITY_THRESHOLDS",
     "matched_window_robustness",
     "build_window_robustness_report",
+    "COORDINATION_SIMILARITY_CONFIG",
+    "SPIKE_CONFIG",
+    "analyze_review_activity",
+    "build_activity_diagnostics",
+    "normalize_review_text",
+    "normalized_text_hash",
     "fetch_reviews_multi_language",
     "build_reviews_dataframe",
 
