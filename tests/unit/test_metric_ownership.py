@@ -48,7 +48,7 @@ def test_legacy_playtime_buckets_are_not_canonical():
     entries = _by_id()
     assert [label for label, _, _ in PLAYTIME_COHORTS] == ["0–2h", "2–10h", "10–30h", "30–100h", "100h+"]
     assert entries["legacy.playtime_buckets"]["future_owner"] == LEGACY_COMPAT
-    assert entries["legacy.playtime_buckets"]["replacement_metric"] == "stage2a.playtime_cohort"
+    assert entries["legacy.playtime_buckets"]["replacement_metric"] == "stage2a.playtime_at_review_composition"
 
 
 def test_playtime_at_review_and_playtime_forever_are_distinct():
@@ -59,8 +59,30 @@ def test_playtime_at_review_and_playtime_forever_are_distinct():
     assert at_review["canonical_name"] == "playtime_at_review_cohort_composition"
     assert lifetime["status"] == LEGACY_COMPAT
     assert lifetime["future_owner"] == RESEARCH_CORE
-    assert lifetime["replacement_metric"] == "stage2a.playtime_at_review_composition"
-    assert "not interchangeable" in lifetime["notes"]
+    assert lifetime["replacement_metric"] is None
+    assert entries["presentation.playtime"]["replacement_metric"] is None
+    assert "Do not substitute" in lifetime["notes"]
+
+
+def test_version_legacy_migration_directions_are_correct():
+    entries = _by_id()
+    for metric_id, replacement in (
+        ("version.playtime_buckets", "stage2a.playtime_at_review_composition"),
+        ("version.purchase_segmentation", "stage2a.purchase_composition"),
+    ):
+        assert entries[metric_id]["status"] == LEGACY_COMPAT
+        assert entries[metric_id]["future_owner"] == RESEARCH_CORE
+        assert entries[metric_id]["replacement_metric"] == replacement
+
+
+def test_negative_recommendation_rate_is_canonical_and_preserves_units():
+    entries = _by_id()
+    rate = entries["stage2b.not_recommended_rate"]
+    assert rate["future_owner"] == RESEARCH_CORE
+    assert rate["canonical_name"] == "not_recommended_rate"
+    assert "not_recommended_n / valid_n" in rate["formula"]
+    assert entries["legacy.share_negative"]["replacement_metric"] == "stage2b.not_recommended_rate"
+    assert entries["legacy.share_negative"]["replacement_metric"] != "stage2b.not_recommended_n"
 
 
 def test_heuristic_risk_and_core_fan_are_deprecated_candidates():
@@ -87,6 +109,14 @@ def test_stage2_precedence_and_layer_ownership():
 def test_source_integrity_checks_resolve():
     assert CANONICAL_SOURCE_CHECKS
     assert validate_canonical_sources() == []
+
+
+def test_source_integrity_rejects_registry_source_mismatch():
+    registry = [dict(entry) for entry in METRIC_OWNERSHIP_REGISTRY]
+    target = next(entry for entry in registry if entry["metric_id"] == "stage2d.window_robustness")
+    target["current_source"] = "window_robustness.some_wrong_function"
+    errors = validate_canonical_sources(registry)
+    assert any("stage2d.window_robustness registry source mismatch" in error for error in errors)
 
 
 def test_player_segments_are_mixed_not_one_research_core_block():

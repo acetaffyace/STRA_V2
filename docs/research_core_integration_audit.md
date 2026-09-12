@@ -61,7 +61,8 @@ Stage 2A is the sole canonical definition for **`author.playtime_at_review`**:
 `0–2h`, `2–10h`, `10–30h`, `30–100h`, `100h+`.
 
 This means playtime already accumulated when the player wrote the review. It is
-the canonical comparison/composition variable. The separate
+the canonical comparison/composition variable and is not interchangeable with
+the separate
 **`author.playtime_forever`** field is Steam-reported cumulative lifetime
 playtime at acquisition time. The legacy `summarize_playtime()` output uses
 `playtime_forever`; it remains descriptive metadata only and must not replace
@@ -92,6 +93,22 @@ as research findings:
 The registry records formula, inputs, and the absence of empirical validation so
 future work can review or replace these functions without silently promoting
 them to Research Core.
+
+### Counts, rates, and compatibility mappings
+
+Research Core keeps the units explicit:
+
+* `recommended_n`, `not_recommended_n`, and `valid_n` are counts;
+* `recommendation_rate = recommended_n / valid_n`;
+* `not_recommended_rate = not_recommended_n / valid_n` (equivalently
+  `1 - recommendation_rate` for a binary valid denominator).
+
+Therefore the legacy `share_negative` proportion maps to
+`stage2b.not_recommended_rate`, not to the count `not_recommended_n`.
+Compatibility replacement mappings must preserve metric meaning and unit/type:
+a rate cannot directly replace a count, a distribution cannot directly replace
+a scalar, and lifetime `playtime_forever` cannot replace at-review
+`playtime_at_review` composition.
 
 ## `prepare_insights()` field map
 
@@ -166,9 +183,12 @@ The registry exports `RESEARCH_REPORT_CONTRACT` for later orchestrator work.
   silently treated as complete.
 
 The registry also exports explicit `CANONICAL_SOURCE_CHECKS`; tests import each
-listed module and verify the referenced callable or approved constant exists.
-This is intentionally a small source-integrity map rather than a general
-reflection system.
+listed module, verify the referenced callable or approved constant exists, and
+compare the normalized `module.attribute` with the registry's
+`current_source`. Transitional legacy helpers are kept in the separately named
+`TRANSITIONAL_SOURCE_CHECKS` map, so their existence does not imply canonical
+implementation ownership. This is intentionally a small source-integrity map,
+not a general reflection system.
 
 The future orchestrator should be named along the lines of
 `build_snapshot_research_report(...)` and
