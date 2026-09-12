@@ -73,6 +73,7 @@ import { formatSavedLabel } from "@/utils/format";
 import { REVIEW_COUNT_OPTIONS } from "@/lib/analysisDefaults";
 import { formatTaxonomyLabelZh, MAIN_CATEGORY_LABELS_ZH } from "@/lib/taxonomyLabels";
 import { getMetricObservation, metricSecondaryLabel, metricValue } from "@/lib/metricProvenance";
+import { ResearchOverview } from "@/components/research/ResearchOverview";
 
 ChartJS.register(
   BarController,
@@ -526,7 +527,13 @@ function DashboardContent() {
         readiness = payload.readiness;
         setDashboardReadiness(payload.readiness);
         const result = payload;
-        if (result.readiness.state === "ANALYSIS_READY" && result.metadata && result.insights) {
+        const researchReady = result.readiness.research_ready === true;
+        const semanticReady = result.readiness.semantic_ready === true;
+        if ((researchReady || semanticReady) && result.metadata) {
+          // The dashboard payload is the authoritative run-specific source.
+          // For the app-level view, fetch the read-only status envelope too so
+          // stale review-pool changes remain visible without recomputation.
+          const statusResult = runParam ? null : await fetchAnalysisResult(appId).catch(() => null);
           const fallbackName = game?.name || task?.game?.name || `App ${appId}`;
           const fallbackImage =
             result.metadata.header_image
@@ -543,8 +550,12 @@ function DashboardContent() {
           });
           setAnalysis({
             metadata: result.metadata,
-            insights: result.insights,
+            insights: statusResult?.insights ?? result.insights,
+            research_report: statusResult?.research_report ?? result.research_report ?? null,
+            semantic_status: statusResult?.semantic_status ?? result.semantic_status ?? null,
             reviews: result.reviews ?? [],
+            stale: statusResult?.stale ?? false,
+            stale_reason: statusResult?.stale_reason ?? null,
             run_id: result.readiness.run_id,
           });
           selectGameById(appId);
@@ -555,7 +566,7 @@ function DashboardContent() {
         // Ignore and show the not-found UI message below.
       }
       if (!cancelled) {
-        if (readiness && readiness.state !== "ANALYSIS_READY") {
+        if (readiness && !readiness.research_ready && !readiness.semantic_ready) {
           setError(`分析尚未就绪：${readiness.state}。已加载 ${readiness.review_count.toLocaleString()} 条原始评论；完成 Analyze 后才会显示洞察。`);
         } else {
           setError(runParam ? "该分析运行不存在或当前数据库不包含该运行。" : "已找到游戏，但暂无已完成分析。");
@@ -589,10 +600,8 @@ function DashboardContent() {
     });
   }, [runParam, selectedStarredGame, selectedGame, analysis]);
 
-  // Background freshness check: after loading from starred game cache, check
-  // if the underlying reviews have changed (e.g. another user refreshed the
-  // same game). If so, the backend auto-rebuilds insights and returns updated
-  // data with data_refreshed=true.
+  // Legacy starred-game compatibility refresh.  The backend read endpoint is
+  // now side-effect free; it may report stale data but never rebuilds it.
   useEffect(() => {
     if (runParam || !selectedStarredGame?.app_id || !selectedStarredGame.insights) return;
     let cancelled = false;
@@ -603,6 +612,8 @@ function DashboardContent() {
           setAnalysis({
             metadata: result.metadata ?? selectedStarredGame.metadata,
             insights: result.insights,
+            research_report: result.research_report ?? null,
+            semantic_status: result.semantic_status ?? null,
             reviews: result.reviews ?? [],
             run_id: result.run_id,
           });
@@ -1006,8 +1017,8 @@ function DashboardContent() {
           </>
         )}
 
-        {/* Show loading state when analysis is complete but insights not yet available */}
-        {dashboardReadiness && dashboardReadiness.state !== "ANALYSIS_READY" && !isAnalyzing && (
+        {/* Keep the legacy status panel only when neither analytical layer is available. */}
+        {dashboardReadiness && !dashboardReadiness.research_ready && !dashboardReadiness.semantic_ready && !isAnalyzing && (
           <div className="mx-auto max-w-5xl px-4 py-6">
             <Card className="border-amber-500/30 bg-amber-500/5 p-5">
               <p className="text-sm font-medium text-amber-200">分析状态：{dashboardReadiness.state}</p>
@@ -1019,7 +1030,7 @@ function DashboardContent() {
           </div>
         )}
 
-        {analysis && !analysis.insights && !isAnalyzing && dashboardReadiness?.state === "ANALYSIS_READY" && (
+        {analysis && !analysis.insights && !analysis.research_report && !isAnalyzing && dashboardReadiness?.state === "ANALYSIS_READY" && (
           <div className="flex items-center justify-center py-12">
             <div className="text-center space-y-4">
               <div className="animate-spin h-8 w-8 spinner-blue mx-auto" />
@@ -1028,13 +1039,33 @@ function DashboardContent() {
           </div>
         )}
 
-        {analysis && analysis.insights && (!dashboardReadiness || dashboardReadiness.state === "ANALYSIS_READY") && (
-          <AnalysisResults
-            analysis={analysis}
-            selectedGame={selectedGame}
-            updateSuccess={updateSuccess}
-            error={error}
-            onUpdate={async () => {
+        {analysis?.research_report && !isAnalyzing && (
+          <ResearchOverview
+            report={analysis.research_report}
+            semanticStatus={analysis.semantic_status}
+            readiness={dashboardReadiness}
+            stale={analysis.stale}
+            staleReason={analysis.stale_reason}
+          />
+        )}
+
+        {analysis && analysis.insights && (!dashboardReadiness || dashboardReadiness.semantic_ready || (!dashboardReadiness.research_ready && dashboardReadiness.state === "ANALYSIS_READY")) && (
+          <>
+            {!analysis.research_report && (!dashboardReadiness || dashboardReadiness.semantic_ready) && (
+              <div className="mx-auto max-w-6xl px-4 pb-4">
+                <Card className="border-slate-400/20 bg-slate-500/5 p-4 text-sm text-slate-300">
+                  {userLanguage === 'zh'
+                    ? '此分析早于当前 Research Core 方法。该历史运行没有可用的 Deterministic Research Report。'
+                    : 'This analysis predates the current Research Core methodology. A deterministic Research Report is unavailable for this historical run.'}
+                </Card>
+              </div>
+            )}
+            <AnalysisResults
+              analysis={analysis}
+              selectedGame={selectedGame}
+              updateSuccess={updateSuccess}
+              error={error}
+              onUpdate={async () => {
               if (!selectedGame) return;
 
               // Clear previous messages
@@ -1058,8 +1089,9 @@ function DashboardContent() {
                 const msg = (err as Error).message || "Failed to update analysis";
                 setError(msg);
               }
-            }}
-          />
+              }}
+            />
+          </>
         )}
       </div>
       </PageTransition>
@@ -2587,7 +2619,11 @@ function AnalysisResults({
 
         {/* Hero KPI cards */}
         <div className="mt-5 grid gap-2 sm:gap-3 grid-cols-3">
-          {filtersActive && <p className="col-span-3 text-[10px] text-amber-300/80">Filtered interactive view · rates are calculated for the selected review subset.</p>}
+          {filtersActive && (
+            <p className="col-span-3 text-[10px] text-amber-300/80">
+              Filtered interactive view · legacy semantic rates are calculated for the selected review subset. Research Core metrics above remain fixed to the full analyzed population.
+            </p>
+          )}
           {/* Recommendation Rate */}
           <div className={`rounded-xl border border-white/10 bg-slate-900/30 px-3 py-2 flex items-center gap-2 ${mounted ? 'animate-fade-slide-up animation-delay-100' : 'opacity-0'}`}>
             <p className="text-[10px] sm:text-xs uppercase tracking-[0.2em] text-slate-400">{t('dashboard.recommendation')}</p>

@@ -241,6 +241,8 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
                     fetched_at: '',
                   },
                   insights: analysis.insights,
+                  research_report: analysis.research_report,
+                  semantic_status: analysis.semantic_status,
                   reviews: analysis.reviews,
                 } as AnalyzeResponse,
                 progress: null,

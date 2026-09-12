@@ -25,10 +25,10 @@ export function AnalysisWidget() {
   const { tasks, clearTask } = useAnalysis();
   const { language } = useLanguage();
   const ui = language === 'zh'
-    ? { queue: '分析队列', expand: '展开', minimize: '最小化', cancel: '取消分析', remove: '移出队列', dismiss: '关闭', waiting: '排队中', another: '其他分析', fetching: '正在获取评论', fetched: '条评论', connecting: '正在连接 Steam API…', classifying: '正在分析评论', analyzed: '条评论', preparingClassify: '正在准备分析…', building: '正在生成指标', aggregating: '正在汇总指标', finalizing: '正在生成分析结果', saving: '正在保存分析结果…', starting: '正在准备分析', preparing: '准备中…', remaining: '剩余时间', fetch: '获取', classify: '分析', insights: '指标', save: '结果', complete: '分析完成', view: '查看结果' }
+    ? { queue: '分析队列', expand: '展开', minimize: '最小化', cancel: '取消分析', remove: '移出队列', dismiss: '关闭', waiting: '排队中', another: '其他分析', fetching: '正在获取评论', fetched: '条评论', connecting: '正在连接 Steam API…', researchCore: '正在进行定量研究分析', classifying: '正在进行语义分类', analyzed: '条评论', preparingClassify: '正在准备分析…', building: '正在生成指标', aggregating: '正在整理语义洞察', finalizing: '正在保存分析结果', saving: '正在保存分析结果…', starting: '正在准备分析', preparing: '准备中…', remaining: '剩余时间', fetch: '获取', research: '定量研究', classify: '语义分类', insights: '洞察', save: '保存', complete: '分析完成', view: '查看结果' }
     : language === 'ja'
-      ? { queue: '分析キュー', expand: '展開', minimize: '最小化', cancel: '分析をキャンセル', remove: 'キューから削除', dismiss: '閉じる', waiting: 'キューで待機中', another: '別の分析', fetching: 'Steamからレビューを取得中', fetched: '件取得済み', connecting: 'Steam APIに接続中…', classifying: 'AIでレビューを分類中', analyzed: '件を分析済み', preparingClassify: '分類を準備中…', building: 'インサイトを作成中', aggregating: 'カテゴリ、傾向、セグメントを集計中…', finalizing: '仕上げ中', saving: '結果を保存中…', starting: '分析を開始中', preparing: '準備中…', remaining: '残り時間', fetch: '取得', classify: '分類', insights: '洞察', save: '保存', complete: '分析完了', view: '表示' }
-      : { queue: 'Analysis Queue', expand: 'Expand', minimize: 'Minimize', cancel: 'Cancel analysis', remove: 'Remove from queue', dismiss: 'Dismiss', waiting: 'Waiting in queue', another: 'another analysis', fetching: 'Fetching reviews from Steam', fetched: 'reviews fetched', connecting: 'Connecting to Steam API...', classifying: 'Classifying reviews with AI', analyzed: 'reviews analyzed', preparingClassify: 'Preparing classification...', building: 'Building insights', aggregating: 'Aggregating categories, trends & segments...', finalizing: 'Finalizing', saving: 'Saving results...', starting: 'Starting analysis', preparing: 'Preparing...', remaining: 'Est. remaining', fetch: 'Fetch', classify: 'Classify', insights: 'Insights', save: 'Save', complete: 'Analysis complete', view: 'View' };
+      ? { queue: '分析キュー', expand: '展開', minimize: '最小化', cancel: '分析をキャンセル', remove: 'キューから削除', dismiss: '閉じる', waiting: 'キューで待機中', another: '別の分析', fetching: 'Steamからレビューを取得中', fetched: '件取得済み', connecting: 'Steam APIに接続中…', researchCore: '定量研究を実行中', classifying: 'セマンティック分類中', analyzed: '件を分析済み', preparingClassify: '分類を準備中…', building: 'インサイトを作成中', aggregating: 'セマンティック洞察を整理中', finalizing: '分析結果を保存中', saving: '結果を保存中…', starting: '分析を開始中', preparing: '準備中…', remaining: '残り時間', fetch: '取得', research: '定量研究', classify: '分類', insights: '洞察', save: '保存', complete: '分析完了', view: '表示' }
+      : { queue: 'Analysis Queue', expand: 'Expand', minimize: 'Minimize', cancel: 'Cancel analysis', remove: 'Remove from queue', dismiss: 'Dismiss', waiting: 'Waiting in queue', another: 'another analysis', fetching: 'Fetching reviews from Steam', fetched: 'reviews fetched', connecting: 'Connecting to Steam API...', researchCore: 'Running quantitative research', classifying: 'Classifying reviews semantically', analyzed: 'reviews analyzed', preparingClassify: 'Preparing classification...', building: 'Building insights', aggregating: 'Organizing semantic insights...', finalizing: 'Saving analysis result', saving: 'Saving results...', starting: 'Starting analysis', preparing: 'Preparing...', remaining: 'Est. remaining', fetch: 'Fetch', research: 'Research', classify: 'Classify', insights: 'Insights', save: 'Save', complete: 'Analysis complete', view: 'View' };
   const [isMinimized, setIsMinimized] = useState(false);
   const [remoteRuns, setRemoteRuns] = useState<AnalysisHistoryItem[]>([]);
   const [queueError, setQueueError] = useState<string | null>(null);
@@ -147,10 +147,16 @@ export function AnalysisWidget() {
                         let stepDetail = '';
                         let showProgress = false;
 
+                        let pipelineLabels = [ui.fetch, ui.classify, ui.insights, ui.save];
                         if (phase === 'ingesting' || phase === 'fetching' || (!phase && total === 0 && !task.progress)) {
                           stepNumber = 1;
                           stepLabel = ui.fetching;
                           stepDetail = fetchedCount > 0 ? (language === 'zh' ? `已获取 ${fetchedCount} 条 / 目标最多 ${task.requestedLimit} 条` : `${fetchedCount} ${ui.fetched}`) : (language === 'zh' ? `目标最多 ${task.requestedLimit} 条` : ui.connecting);
+                        } else if (phase === 'research_core') {
+                          stepNumber = 2;
+                          stepLabel = ui.researchCore;
+                          stepDetail = language === 'zh' ? 'Research Core 正在整理观测总体、推荐率与评论活动' : 'Assembling population, recommendation, and activity evidence';
+                          pipelineLabels = [ui.fetch, ui.research, ui.save];
                         } else if (phase === 'classifying' || (!phase && processed < total)) {
                           stepNumber = 2;
                           stepLabel = ui.classifying;
@@ -208,7 +214,7 @@ export function AnalysisWidget() {
 
                             {/* Pipeline steps overview */}
                             <div className="flex items-center gap-1 pt-1">
-                              {[1, 2, 3, 4].map((step) => (
+                              {pipelineLabels.map((_, index) => index + 1).map((step) => (
                                 <div
                                   key={step}
                                   className={clsx(
@@ -221,10 +227,7 @@ export function AnalysisWidget() {
                               ))}
                             </div>
                             <div className="flex justify-between text-[9px] text-slate-500">
-                              <span>{ui.fetch}</span>
-                              <span>{ui.classify}</span>
-                              <span>{ui.insights}</span>
-                              <span>{ui.save}</span>
+                              {pipelineLabels.map((label) => <span key={label}>{label}</span>)}
                             </div>
                           </>
                         );
