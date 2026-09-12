@@ -2,7 +2,9 @@
 
 ## 0–10 秒：定位
 
-“这是 STRA，一个 Steam 玩家反馈与版本变化智能分析工具。它不只告诉你推荐率，而是把玩家为什么满意或不满意连接到证据、行动和验证方式。”
+“这是 STRA，一个 Evidence-Driven Player Insights & Version Research Workbench。它先用
+确定性的 Research Core 交付 Steam 推荐率、总体和可追溯的定量证据；如果 Semantic
+Runtime 可用，再把文本连接到证据、行动和验证方式。”
 
 ## 10–25 秒：Overview / Game Analysis
 
