@@ -201,3 +201,100 @@ def test_report_is_deterministically_json_serializable() -> None:
     first = json.dumps(report, sort_keys=True)
     second = json.dumps(compare_populations([review("a")], [review("b")], reference_metadata=metadata(), comparison_metadata=metadata()), sort_keys=True)
     assert first == second
+
+
+def test_missing_playtime_in_both_populations_is_unknown_not_zero_distance() -> None:
+    report = compare_populations(
+        [review("a", playtime_minutes=None)],
+        [review("b", playtime_minutes=None)],
+        reference_metadata=metadata(),
+        comparison_metadata=metadata(),
+    )
+    playtime = report["dimensions"]["playtime"]
+    assert playtime["reference"]["valid_n"] == playtime["comparison"]["valid_n"] == 0
+    assert playtime["reference"]["coverage"] == playtime["comparison"]["coverage"] == 0.0
+    assert playtime["observability"] == "none"
+    assert playtime["reason"] == "insufficient_observed_data"
+    assert playtime["composition_distance"] is None
+    assert playtime["level"] == "unknown"
+
+
+def test_missing_playtime_in_one_population_is_unknown() -> None:
+    report = compare_populations(
+        [review("a", playtime_minutes=None)],
+        [review("b", playtime_minutes=60)],
+        reference_metadata=metadata(),
+        comparison_metadata=metadata(),
+    )
+    playtime = report["dimensions"]["playtime"]
+    assert playtime["observability"] == "partial"
+    assert playtime["level"] == "unknown"
+    assert playtime["distance"] is None
+
+
+def test_identical_observed_playtime_remains_high() -> None:
+    report = compare_populations(
+        [review("a", playtime_minutes=60)],
+        [review("b", playtime_minutes=60)],
+        reference_metadata=metadata(),
+        comparison_metadata=metadata(),
+    )
+    assert report["dimensions"]["playtime"]["observability"] == "both"
+    assert report["dimensions"]["playtime"]["level"] == "high"
+
+
+def test_fully_missing_optional_metadata_is_unknown_but_missingness_shift_is_low() -> None:
+    reference = [review("a", steam_purchase=None, received_for_free=None, early_access=None, steam_deck=None)]
+    comparison = [review("b", steam_purchase=None, received_for_free=None, early_access=None, steam_deck=None)]
+    report = compare_populations(reference, comparison, reference_metadata=metadata(), comparison_metadata=metadata())
+    assert report["dimensions"]["purchase_source"]["level"] == "unknown"
+    assert report["dimensions"]["free_copy"]["level"] == "unknown"
+    assert report["dimensions"]["early_access"]["level"] == "unknown"
+    assert report["dimensions"]["steam_deck"]["level"] == "unknown"
+    assert report["dimensions"]["missingness"]["shift_level"] == "low"
+    assert report["data_quality"]["observability"]["purchase_source"] == "none"
+
+
+def test_activity_shift_is_reported_without_downgrading_composition() -> None:
+    report = compare_populations(
+        [review("a")],
+        [review(str(index)) for index in range(10)],
+        reference_metadata=metadata(start="2025-01-01", end="2025-01-01"),
+        comparison_metadata=metadata(start="2025-01-01", end="2025-01-01"),
+    )
+    activity = report["review_activity"]
+    assert activity["reviews_per_day_ratio"] == 10.0
+    assert activity["shift_level"] == "large"
+    assert report["composition_comparability"]["level"] == "high"
+    assert report["comparability"]["level"] == "high"
+    assert "review_activity_shift" in report["comparability"]["warnings"]
+
+
+def test_unavailable_steam_deck_does_not_invalidate_other_dimensions() -> None:
+    reference = [review("a", steam_deck=None)]
+    comparison = [review("b", steam_deck=None)]
+    report = compare_populations(reference, comparison, reference_metadata=metadata(), comparison_metadata=metadata())
+    assert report["dimensions"]["steam_deck"]["level"] == "unknown"
+    assert report["dimensions"]["language"]["level"] == "high"
+    assert report["dimensions"]["playtime"]["level"] == "high"
+    assert report["composition_comparability"]["level"] == "high"
+
+
+def test_incomplete_acquisition_blocks_strong_top_level_claim_but_not_observed_composition() -> None:
+    report = compare_populations(
+        [review("a")],
+        [review("b")],
+        reference_metadata=metadata(),
+        comparison_metadata=metadata(complete=False),
+    )
+    assert report["composition_comparability"]["level"] == "high"
+    assert report["comparability"]["level"] == "low"
+    assert report["acquisition_validity"]["level"] == "low"
+
+
+def test_empty_populations_have_unknown_composition_and_null_distributions() -> None:
+    report = compare_populations([], [], reference_metadata=metadata(), comparison_metadata=metadata())
+    assert report["dimensions"]["language"]["reference_distribution"] is None
+    assert report["dimensions"]["language"]["comparison_distribution"] is None
+    assert report["dimensions"]["language"]["reason"] == "insufficient_observed_data"
+    assert report["composition_comparability"]["level"] == "unknown"

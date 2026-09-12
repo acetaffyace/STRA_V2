@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone
 from math import isfinite
-from statistics import median
 from typing import Any, Iterable, Mapping, Optional
 
 
@@ -229,8 +228,20 @@ def _distribution(values: Iterable[str]) -> dict[str, float]:
     return {key: counts[key] / total for key in sorted(counts)}
 
 
-def _tvd(a: Mapping[str, float], b: Mapping[str, float]) -> Optional[float]:
-    if not a and not b:
+def _coverage(valid_n: int, population_count: int) -> Optional[float]:
+    return valid_n / population_count if population_count else None
+
+
+def _observability(valid_a: int, valid_b: int) -> tuple[str, Optional[str]]:
+    if valid_a == 0 and valid_b == 0:
+        return "none", "insufficient_observed_data"
+    if valid_a == 0 or valid_b == 0:
+        return "partial", "insufficient_observed_data"
+    return "both", None
+
+
+def _tvd(a: Optional[Mapping[str, float]], b: Optional[Mapping[str, float]]) -> Optional[float]:
+    if a is None or b is None or (not a and not b):
         return None
     keys = set(a) | set(b)
     return 0.5 * sum(abs(float(a.get(key, 0.0)) - float(b.get(key, 0.0))) for key in keys)
@@ -248,15 +259,31 @@ def _level_from_shift(shift: Optional[float], threshold_key: str) -> str:
 
 
 def _language_dimension(a: list[Mapping[str, Any]], b: list[Mapping[str, Any]]) -> dict[str, Any]:
-    distribution_a = _distribution(_review_value(row, "language") for row in a if not _is_missing(_review_value(row, "language")))
-    distribution_b = _distribution(_review_value(row, "language") for row in b if not _is_missing(_review_value(row, "language")))
+    values_a = [_review_value(row, "language") for row in a if not _is_missing(_review_value(row, "language"))]
+    values_b = [_review_value(row, "language") for row in b if not _is_missing(_review_value(row, "language"))]
+    valid_a, valid_b = len(values_a), len(values_b)
+    distribution_a = _distribution(values_a) if valid_a else None
+    distribution_b = _distribution(values_b) if valid_b else None
     distance = _tvd(distribution_a, distribution_b)
+    observability, reason = _observability(valid_a, valid_b)
     return {
         "reference_distribution": distribution_a,
         "comparison_distribution": distribution_b,
+        "reference": {
+            "valid_n": valid_a,
+            "missing_n": len(a) - valid_a,
+            "coverage": _coverage(valid_a, len(a)),
+        },
+        "comparison": {
+            "valid_n": valid_b,
+            "missing_n": len(b) - valid_b,
+            "coverage": _coverage(valid_b, len(b)),
+        },
         "total_variation_distance": distance,
         "distance": distance,
-        "level": _level_from_shift(distance, "language_tvd"),
+        "observability": observability,
+        "reason": reason,
+        "level": _level_from_shift(distance, "language_tvd") if reason is None else "unknown",
     }
 
 
@@ -284,7 +311,7 @@ def _playtime_dimension(a: list[Mapping[str, Any]], b: list[Mapping[str, Any]]) 
         "reference": [value for row in a if (value := _playtime_value(row)) is not None],
         "comparison": [value for row in b if (value := _playtime_value(row)) is not None],
     }
-    shares: dict[str, dict[str, float]] = {}
+    shares: dict[str, Optional[dict[str, float]]] = {}
     for key, cohort_values in values.items():
         counts = {label: 0 for label, _, _ in PLAYTIME_COHORTS}
         for value in cohort_values:
@@ -293,20 +320,37 @@ def _playtime_dimension(a: list[Mapping[str, Any]], b: list[Mapping[str, Any]]) 
                     counts[label] += 1
                     break
         denominator = len(cohort_values)
-        shares[key] = {label: (count / denominator if denominator else 0.0) for label, count in counts.items()}
+        shares[key] = (
+            {label: count / denominator for label, count in counts.items()}
+            if denominator
+            else None
+        )
     distance = _tvd(shares["reference"], shares["comparison"])
+    observability, reason = _observability(len(values["reference"]), len(values["comparison"]))
     return {
         "source_field": "author.playtime_at_review",
         "source_unit": "minutes",
         "reported_unit": "hours",
-        "reference": {"valid_n": len(values["reference"]), "missing_n": len(a) - len(values["reference"]), **_quantiles(values["reference"])},
-        "comparison": {"valid_n": len(values["comparison"]), "missing_n": len(b) - len(values["comparison"]), **_quantiles(values["comparison"])},
+        "reference": {
+            "valid_n": len(values["reference"]),
+            "missing_n": len(a) - len(values["reference"]),
+            "coverage": _coverage(len(values["reference"]), len(a)),
+            **_quantiles(values["reference"]),
+        },
+        "comparison": {
+            "valid_n": len(values["comparison"]),
+            "missing_n": len(b) - len(values["comparison"]),
+            "coverage": _coverage(len(values["comparison"]), len(b)),
+            **_quantiles(values["comparison"]),
+        },
         "cohort_definition": [label for label, _, _ in PLAYTIME_COHORTS],
         "reference_cohort_share": shares["reference"],
         "comparison_cohort_share": shares["comparison"],
         "composition_distance": distance,
         "distance": distance,
-        "level": _level_from_shift(distance, "playtime_tvd"),
+        "observability": observability,
+        "reason": reason,
+        "level": _level_from_shift(distance, "playtime_tvd") if reason is None else "unknown",
     }
 
 
@@ -316,7 +360,13 @@ def _boolean_dimension(a: list[Mapping[str, Any]], b: list[Mapping[str, Any]], f
         valid = [value for value in values if value is not None]
         true_share = sum(value is True for value in valid) / len(valid) if valid else None
         false_share = sum(value is False for value in valid) / len(valid) if valid else None
-        return {"valid_n": len(valid), "missing_n": len(rows) - len(valid), "share_true": true_share, "share_false": false_share}
+        return {
+            "valid_n": len(valid),
+            "missing_n": len(rows) - len(valid),
+            "coverage": _coverage(len(valid), len(rows)),
+            "share_true": true_share,
+            "share_false": false_share,
+        }
     reference = summarize(a)
     comparison = summarize(b)
     difference = (
@@ -324,12 +374,15 @@ def _boolean_dimension(a: list[Mapping[str, Any]], b: list[Mapping[str, Any]], f
         if reference["share_true"] is not None and comparison["share_true"] is not None
         else None
     )
+    observability, reason = _observability(reference["valid_n"], comparison["valid_n"])
     return {
         "field": field,
         "reference": reference,
         "comparison": comparison,
         "absolute_percentage_point_difference": difference,
-        "level": _level_from_shift(difference, "percentage_point_difference"),
+        "observability": observability,
+        "reason": reason,
+        "level": _level_from_shift(difference, "percentage_point_difference") if reason is None else "unknown",
     }
 
 
@@ -352,7 +405,27 @@ def _missingness_dimension(a: list[Mapping[str, Any]], b: list[Mapping[str, Any]
         if differences[output_field] is not None and differences[output_field] > COMPARABILITY_THRESHOLDS["missingness_difference"]["moderate_shift"]:
             warnings.append(output_field)
     max_difference = max((value for value in differences.values() if value is not None), default=None)
-    return {"reference_missing_rate": reference, "comparison_missing_rate": comparison, "absolute_difference": differences, "warning_fields": sorted(warnings), "level": _level_from_shift(max_difference, "missingness_difference")}
+    missingness_level = _level_from_shift(max_difference, "missingness_difference")
+    # This is a shift in missingness, not a claim that the underlying field is
+    # observable. Two entirely missing fields can have zero missingness shift.
+    shift_level = (
+        "unknown"
+        if max_difference is None
+        else "low"
+        if max_difference <= COMPARABILITY_THRESHOLDS["missingness_difference"]["moderate_shift"]
+        else "moderate"
+        if max_difference <= COMPARABILITY_THRESHOLDS["missingness_difference"]["large_shift"]
+        else "large"
+    )
+    return {
+        "reference_missing_rate": reference,
+        "comparison_missing_rate": comparison,
+        "absolute_difference": differences,
+        "warning_fields": sorted(warnings),
+        "level": missingness_level,
+        "missingness_shift": shift_level,
+        "shift_level": shift_level,
+    }
 
 
 def _volume_dimension(acquisition_a: Mapping[str, Any], acquisition_b: Mapping[str, Any]) -> dict[str, Any]:
@@ -364,14 +437,45 @@ def _volume_dimension(acquisition_a: Mapping[str, Any], acquisition_b: Mapping[s
     rate_b = count_b / float(days_b) if days_b and float(days_b) > 0 else None
     ratio = rate_b / rate_a if rate_a and rate_b is not None else None
     relative_difference = max(ratio, 1 / ratio) - 1 if ratio and ratio > 0 else None
+    level = _level_from_shift(relative_difference, "review_rate_relative_difference")
+    shift_level = (
+        "unknown"
+        if relative_difference is None
+        else "low"
+        if relative_difference <= COMPARABILITY_THRESHOLDS["review_rate_relative_difference"]["moderate_shift"]
+        else "moderate"
+        if relative_difference <= COMPARABILITY_THRESHOLDS["review_rate_relative_difference"]["large_shift"]
+        else "large"
+    )
     return {
         "reference": {"review_count": count_a, "window_days": days_a, "reviews_per_day": rate_a},
         "comparison": {"review_count": count_b, "window_days": days_b, "reviews_per_day": rate_b},
         "absolute_volume_difference": abs(count_b - count_a),
         "reviews_per_day_ratio": ratio,
         "relative_rate_difference": relative_difference,
-        "level": _level_from_shift(relative_difference, "review_rate_relative_difference"),
+        "activity_shift": shift_level,
+        "shift_level": shift_level,
+        "level": level,
     }
+
+
+def _aggregate_composition_level(dimensions: Mapping[str, Mapping[str, Any]]) -> tuple[str, list[str]]:
+    """Aggregate only observed composition dimensions.
+
+    Unknown/partial optional fields are surfaced to callers but do not become
+    evidence of a composition shift. A composition claim is unknown only when
+    no composition dimension has usable observations in both populations.
+    """
+    levels = {name: value.get("level", "unknown") for name, value in dimensions.items()}
+    observed = {name: level for name, level in levels.items() if level != "unknown"}
+    unknown = sorted(name for name, level in levels.items() if level == "unknown")
+    if not observed:
+        return "unknown", unknown
+    if any(level == "low" for level in observed.values()):
+        return "low", unknown
+    if any(level == "moderate" for level in observed.values()):
+        return "moderate", unknown
+    return "high", unknown
 
 
 def compare_populations(
@@ -396,46 +500,86 @@ def compare_populations(
         if summary["failed_languages"]:
             warnings.append(f"{label}_language_acquisition_failed")
 
-    dimensions: dict[str, Any] = {
-        "acquisition": {
-            "level": (
-                "low"
-                if any(item["collection_complete"] is False for item in acquisition.values())
-                else "unknown"
-                if any(item["collection_complete"] is None for item in acquisition.values())
-                else "high"
-            ),
-            "warnings": sorted(set(warnings)),
-        },
-        "review_volume": _volume_dimension(acquisition["reference"], acquisition["comparison"]),
+    acquisition_validity = {
+        "level": (
+            "low"
+            if any(item["collection_complete"] is False for item in acquisition.values())
+            else "unknown"
+            if any(item["collection_complete"] is None for item in acquisition.values())
+            else "high"
+        ),
+        "warnings": sorted(set(warnings)),
+    }
+    review_activity = _volume_dimension(acquisition["reference"], acquisition["comparison"])
+    composition_dimensions: dict[str, Any] = {
         "language": _language_dimension(reference, comparison),
         "playtime": _playtime_dimension(reference, comparison),
     }
     for dimension_name, field in _METADATA_FIELDS:
-        dimensions[dimension_name] = _boolean_dimension(reference, comparison, field)
-    dimensions["missingness"] = _missingness_dimension(reference, comparison)
-    if dimensions["missingness"]["warning_fields"]:
-        warnings.append("missingness_shift")
+        composition_dimensions[dimension_name] = _boolean_dimension(reference, comparison, field)
 
-    dimension_levels = [value.get("level") for value in dimensions.values() if isinstance(value, Mapping)]
-    if any(level == "low" for level in dimension_levels) or dimensions["acquisition"]["level"] == "low":
+    missingness = _missingness_dimension(reference, comparison)
+    observability = {
+        name: dimension.get("observability", "unknown")
+        for name, dimension in composition_dimensions.items()
+    }
+    data_quality = {
+        "missingness": missingness,
+        "observability": observability,
+        "level": missingness["level"],
+        "warnings": ["missingness_shift"] if missingness["warning_fields"] else [],
+    }
+    composition_level, unknown_composition = _aggregate_composition_level(composition_dimensions)
+
+    # Keep the original dimensions surface for existing API consumers while
+    # adding explicit report sections with non-overlapping meanings.
+    dimensions: dict[str, Any] = {
+        "acquisition": acquisition_validity,
+        "review_volume": review_activity,
+        "review_activity": review_activity,
+        **composition_dimensions,
+    }
+    dimensions["missingness"] = missingness
+
+    if missingness["warning_fields"]:
+        warnings.append("missingness_shift")
+    if review_activity["shift_level"] in {"moderate", "large"}:
+        warnings.append("review_activity_shift")
+
+    # Acquisition validity gates strong top-level interpretation. Review
+    # activity and missingness are reported separately and never downgrade a
+    # composition result by themselves.
+    acquisition_level = acquisition_validity["level"]
+    if acquisition_level == "low":
         overall_level = "low"
-    elif dimensions["acquisition"]["level"] == "unknown" or any(level == "unknown" for level in dimension_levels):
+    elif acquisition_level == "unknown":
         overall_level = "unknown"
-    elif any(level == "moderate" for level in dimension_levels):
-        overall_level = "moderate"
-    elif dimension_levels and all(level == "high" for level in dimension_levels):
-        overall_level = "high"
     else:
-        overall_level = "unknown"
+        overall_level = composition_level
+
+    comparability_dimensions = {
+        "acquisition": acquisition_level,
+        **{name: value.get("level", "unknown") for name, value in composition_dimensions.items()},
+        "review_activity": review_activity["level"],
+        "data_quality": data_quality["level"],
+    }
 
     return {
         "schema_version": "population-comparability-v1",
         "acquisition": acquisition,
+        "acquisition_validity": acquisition_validity,
+        "composition_comparability": {
+            "level": composition_level,
+            "dimensions": {name: value.get("level", "unknown") for name, value in composition_dimensions.items()},
+            "unknown_dimensions": unknown_composition,
+            "observability": observability,
+        },
+        "review_activity": review_activity,
+        "data_quality": data_quality,
         "dimensions": dimensions,
         "comparability": {
             "level": overall_level,
-            "dimensions": {key: value.get("level", "unknown") for key, value in dimensions.items()},
+            "dimensions": comparability_dimensions,
             "warnings": sorted(set(warnings)),
             "heuristic_thresholds": COMPARABILITY_THRESHOLDS,
         },
