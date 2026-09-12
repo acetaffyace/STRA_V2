@@ -33,6 +33,7 @@ from . import storage
 from . import llm
 from . import ingest
 from .sampling import ReviewQuery, SamplingContract
+from .population_validity import build_population_comparability_report, compare_populations
 from .ingest import (
     SOURCE_DISCORD,
     SOURCE_REDDIT,
@@ -66,6 +67,8 @@ __all__ = [
     "SteamAPIError",
     "SamplingContract",
     "ReviewQuery",
+    "compare_populations",
+    "build_population_comparability_report",
     "fetch_reviews_multi_language",
     "build_reviews_dataframe",
 

@@ -1,0 +1,459 @@
+"""Deterministic diagnostics for comparing two Steam review populations.
+
+This module describes population composition and acquisition validity only.  It
+does not use recommendation outcomes to decide comparability and it does not
+perform weighting, significance testing, or causal adjustment.
+"""
+from __future__ import annotations
+
+from datetime import date, datetime, timezone
+from math import isfinite
+from statistics import median
+from typing import Any, Iterable, Mapping, Optional
+
+
+# One centralized, descriptive cohort definition.  Steam playtime fields are
+# minutes; reports expose hours so these labels remain readable.
+PLAYTIME_COHORTS = (
+    ("0–2h", 0.0, 2.0),
+    ("2–10h", 2.0, 10.0),
+    ("10–30h", 10.0, 30.0),
+    ("30–100h", 30.0, 100.0),
+    ("100h+", 100.0, None),
+)
+
+
+# These are interpretation heuristics, not statistical significance thresholds.
+# Keep all heuristic cutoffs in one place so future methodology work can review
+# them without hunting through dimension-specific code.
+COMPARABILITY_THRESHOLDS = {
+    "language_tvd": {"moderate_shift": 0.10, "large_shift": 0.25},
+    "playtime_tvd": {"moderate_shift": 0.10, "large_shift": 0.25},
+    "percentage_point_difference": {"moderate_shift": 0.10, "large_shift": 0.25},
+    "missingness_difference": {"moderate_shift": 0.10, "large_shift": 0.25},
+    "review_rate_relative_difference": {"moderate_shift": 0.25, "large_shift": 1.00},
+}
+
+
+REVIEWER_SELECTION_LIMITATION = (
+    "Steam reviews represent self-selected reviewers, not all players. "
+    "STRA cannot infer the characteristics or opinions of players who did not write reviews."
+)
+
+_METADATA_FIELDS = (
+    ("purchase_source", "steam_purchase"),
+    ("free_copy", "received_for_free"),
+    ("early_access", "written_during_early_access"),
+    ("steam_deck", "primarily_steam_deck"),
+)
+
+
+def _is_missing(value: Any) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, str) and not value.strip():
+        return True
+    return False
+
+
+def _as_bool(value: Any) -> Optional[bool]:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)) and value in (0, 1):
+        return bool(value)
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"true", "1", "yes"}:
+            return True
+        if normalized in {"false", "0", "no"}:
+            return False
+    return None
+
+
+def _as_number(value: Any) -> Optional[float]:
+    if _is_missing(value) or isinstance(value, bool):
+        return None
+    try:
+        result = float(value)
+    except (TypeError, ValueError):
+        return None
+    return result if isfinite(result) else None
+
+
+def _review_value(review: Mapping[str, Any], key: str) -> Any:
+    """Read raw fields and the normalized top-level aliases used by STRA."""
+    if key in review:
+        return review.get(key)
+    if key.startswith("author."):
+        author = review.get("author")
+        if isinstance(author, Mapping):
+            return author.get(key.split(".", 1)[1])
+        alias = "author_" + key.split(".", 1)[1]
+        return review.get(alias)
+    return review.get(key)
+
+
+def _parse_date(value: Any) -> Optional[date]:
+    if isinstance(value, datetime):
+        return value.astimezone(timezone.utc).date() if value.tzinfo else value.date()
+    if isinstance(value, date):
+        return value
+    number = _as_number(value)
+    if number is not None and number > 0:
+        try:
+            return datetime.fromtimestamp(number, tz=timezone.utc).date()
+        except (OverflowError, OSError, ValueError):
+            return None
+    if isinstance(value, str):
+        text = value.strip().replace("Z", "+00:00")
+        try:
+            return datetime.fromisoformat(text).date()
+        except ValueError:
+            try:
+                return date.fromisoformat(text[:10])
+            except ValueError:
+                return None
+    return None
+
+
+def _metadata_value(metadata: Mapping[str, Any], key: str) -> Any:
+    value = metadata.get(key)
+    if value is not None:
+        return value
+    for container_key in ("active_filters", "population_provenance"):
+        container = metadata.get(container_key)
+        if isinstance(container, Mapping) and container.get(key) is not None:
+            return container.get(key)
+    return None
+
+
+def _requested_languages(metadata: Mapping[str, Any], population: list[Mapping[str, Any]]) -> list[str]:
+    contract = metadata.get("sampling_contract")
+    languages: Any = contract.get("languages") if isinstance(contract, Mapping) else None
+    languages = languages or metadata.get("requested_languages") or metadata.get("languages")
+    if isinstance(languages, str):
+        languages = [languages]
+    if not languages:
+        languages = sorted({str(_review_value(row, "language")).strip().lower() for row in population if not _is_missing(_review_value(row, "language"))})
+    return [str(language).strip().lower() for language in languages if not _is_missing(language)]
+
+
+def _acquisition_summary(population: list[Mapping[str, Any]], metadata: Optional[Mapping[str, Any]]) -> dict[str, Any]:
+    if metadata is not None and not isinstance(metadata, Mapping) and hasattr(metadata, "model_dump"):
+        metadata = metadata.model_dump(mode="json")
+    metadata = metadata if isinstance(metadata, Mapping) else {}
+    start = _parse_date(_metadata_value(metadata, "window_start"))
+    end = _parse_date(_metadata_value(metadata, "window_end"))
+    contract = metadata.get("sampling_contract")
+    if isinstance(contract, Mapping):
+        start = start or _parse_date(contract.get("start_time"))
+        end = end or _parse_date(contract.get("end_time"))
+    if start is None or end is None:
+        timestamps = [_parse_date(_review_value(row, "timestamp_created")) for row in population]
+        timestamps = [value for value in timestamps if value is not None]
+        if timestamps:
+            start = start or min(timestamps)
+            end = end or max(timestamps)
+
+    explicit_days = _as_number(_metadata_value(metadata, "window_days"))
+    window_days = explicit_days if explicit_days is not None and explicit_days > 0 else None
+    if window_days is None and start is not None and end is not None and end >= start:
+        window_days = float((end - start).days + 1)
+
+    contract_complete = _metadata_value(metadata, "collection_complete")
+    if contract_complete is None:
+        contract_complete = _metadata_value(metadata, "scope_complete")
+    collection_complete = contract_complete if isinstance(contract_complete, bool) else None
+    truncated = _metadata_value(metadata, "truncated_by_max_reviews")
+    truncated = bool(truncated) if truncated is not None else False
+    stop_reason = _metadata_value(metadata, "stop_reason")
+    language_stats = _metadata_value(metadata, "language_stats")
+    if not isinstance(language_stats, Mapping):
+        language_stats = {}
+
+    requested = _requested_languages(metadata, population)
+    explicit_successful = _metadata_value(metadata, "successful_languages")
+    explicit_failed = _metadata_value(metadata, "failed_languages")
+    if isinstance(explicit_successful, str):
+        explicit_successful = [explicit_successful]
+    if isinstance(explicit_failed, str):
+        explicit_failed = [explicit_failed]
+    if isinstance(explicit_successful, list):
+        successful = [str(language).strip().lower() for language in explicit_successful if not _is_missing(language)]
+    else:
+        successful = []
+    if isinstance(explicit_failed, list):
+        failed = [str(language).strip().lower() for language in explicit_failed if not _is_missing(language)]
+    else:
+        failed = []
+    incomplete: list[str] = []
+    for language in requested:
+        status = language_stats.get(language)
+        if isinstance(status, Mapping):
+            if status.get("status") == "complete" or status.get("collection_complete") is True:
+                successful.append(language)
+            elif status.get("status") == "failed":
+                failed.append(language)
+            else:
+                incomplete.append(language)
+    if requested and not language_stats and collection_complete is True:
+        successful = list(requested)
+
+    return {
+        "population_count": len(population),
+        "window_start": start.isoformat() if start else None,
+        "window_end": end.isoformat() if end else None,
+        "window_days": int(window_days) if window_days is not None and window_days.is_integer() else window_days,
+        "collection_complete": collection_complete,
+        "truncated_by_max_reviews": truncated,
+        "stop_reason": stop_reason,
+        "requested_languages": requested,
+        "successful_languages": sorted(set(successful)),
+        "failed_languages": sorted(set(failed)),
+        "incomplete_languages": sorted(set(incomplete)),
+        "language_stats": {str(key): dict(value) for key, value in sorted(language_stats.items()) if isinstance(value, Mapping)},
+    }
+
+
+def _distribution(values: Iterable[str]) -> dict[str, float]:
+    counts: dict[str, int] = {}
+    total = 0
+    for value in values:
+        key = str(value).strip().lower()
+        if not key:
+            continue
+        counts[key] = counts.get(key, 0) + 1
+        total += 1
+    if total == 0:
+        return {}
+    return {key: counts[key] / total for key in sorted(counts)}
+
+
+def _tvd(a: Mapping[str, float], b: Mapping[str, float]) -> Optional[float]:
+    if not a and not b:
+        return None
+    keys = set(a) | set(b)
+    return 0.5 * sum(abs(float(a.get(key, 0.0)) - float(b.get(key, 0.0))) for key in keys)
+
+
+def _level_from_shift(shift: Optional[float], threshold_key: str) -> str:
+    if shift is None:
+        return "unknown"
+    thresholds = COMPARABILITY_THRESHOLDS[threshold_key]
+    if shift <= thresholds["moderate_shift"]:
+        return "high"
+    if shift <= thresholds["large_shift"]:
+        return "moderate"
+    return "low"
+
+
+def _language_dimension(a: list[Mapping[str, Any]], b: list[Mapping[str, Any]]) -> dict[str, Any]:
+    distribution_a = _distribution(_review_value(row, "language") for row in a if not _is_missing(_review_value(row, "language")))
+    distribution_b = _distribution(_review_value(row, "language") for row in b if not _is_missing(_review_value(row, "language")))
+    distance = _tvd(distribution_a, distribution_b)
+    return {
+        "reference_distribution": distribution_a,
+        "comparison_distribution": distribution_b,
+        "total_variation_distance": distance,
+        "distance": distance,
+        "level": _level_from_shift(distance, "language_tvd"),
+    }
+
+
+def _playtime_value(row: Mapping[str, Any]) -> Optional[float]:
+    value = _review_value(row, "author.playtime_at_review")
+    number = _as_number(value)
+    return number / 60.0 if number is not None and number >= 0 else None
+
+
+def _quantiles(values: list[float]) -> dict[str, Optional[float]]:
+    if not values:
+        return {"median": None, "p25": None, "p75": None}
+    values = sorted(values)
+    def percentile(q: float) -> float:
+        position = (len(values) - 1) * q
+        lower = int(position)
+        upper = min(lower + 1, len(values) - 1)
+        weight = position - lower
+        return values[lower] * (1 - weight) + values[upper] * weight
+    return {"median": percentile(0.5), "p25": percentile(0.25), "p75": percentile(0.75)}
+
+
+def _playtime_dimension(a: list[Mapping[str, Any]], b: list[Mapping[str, Any]]) -> dict[str, Any]:
+    values = {
+        "reference": [value for row in a if (value := _playtime_value(row)) is not None],
+        "comparison": [value for row in b if (value := _playtime_value(row)) is not None],
+    }
+    shares: dict[str, dict[str, float]] = {}
+    for key, cohort_values in values.items():
+        counts = {label: 0 for label, _, _ in PLAYTIME_COHORTS}
+        for value in cohort_values:
+            for label, lower, upper in PLAYTIME_COHORTS:
+                if value >= lower and (upper is None or value < upper):
+                    counts[label] += 1
+                    break
+        denominator = len(cohort_values)
+        shares[key] = {label: (count / denominator if denominator else 0.0) for label, count in counts.items()}
+    distance = _tvd(shares["reference"], shares["comparison"])
+    return {
+        "source_field": "author.playtime_at_review",
+        "source_unit": "minutes",
+        "reported_unit": "hours",
+        "reference": {"valid_n": len(values["reference"]), "missing_n": len(a) - len(values["reference"]), **_quantiles(values["reference"])},
+        "comparison": {"valid_n": len(values["comparison"]), "missing_n": len(b) - len(values["comparison"]), **_quantiles(values["comparison"])},
+        "cohort_definition": [label for label, _, _ in PLAYTIME_COHORTS],
+        "reference_cohort_share": shares["reference"],
+        "comparison_cohort_share": shares["comparison"],
+        "composition_distance": distance,
+        "distance": distance,
+        "level": _level_from_shift(distance, "playtime_tvd"),
+    }
+
+
+def _boolean_dimension(a: list[Mapping[str, Any]], b: list[Mapping[str, Any]], field: str) -> dict[str, Any]:
+    def summarize(rows: list[Mapping[str, Any]]) -> dict[str, Any]:
+        values = [_as_bool(_review_value(row, field)) for row in rows]
+        valid = [value for value in values if value is not None]
+        true_share = sum(value is True for value in valid) / len(valid) if valid else None
+        false_share = sum(value is False for value in valid) / len(valid) if valid else None
+        return {"valid_n": len(valid), "missing_n": len(rows) - len(valid), "share_true": true_share, "share_false": false_share}
+    reference = summarize(a)
+    comparison = summarize(b)
+    difference = (
+        abs(reference["share_true"] - comparison["share_true"])
+        if reference["share_true"] is not None and comparison["share_true"] is not None
+        else None
+    )
+    return {
+        "field": field,
+        "reference": reference,
+        "comparison": comparison,
+        "absolute_percentage_point_difference": difference,
+        "level": _level_from_shift(difference, "percentage_point_difference"),
+    }
+
+
+def _missingness_dimension(a: list[Mapping[str, Any]], b: list[Mapping[str, Any]]) -> dict[str, Any]:
+    fields = [
+        ("language", "language"),
+        ("playtime_at_review", "author.playtime_at_review"),
+        *[(field, field) for _, field in _METADATA_FIELDS],
+    ]
+    reference: dict[str, float] = {}
+    comparison: dict[str, float] = {}
+    differences: dict[str, Optional[float]] = {}
+    warnings: list[str] = []
+    for output_field, source_field in fields:
+        rate_a = sum(_is_missing(_review_value(row, source_field)) or (source_field == "author.playtime_at_review" and _playtime_value(row) is None) or (source_field != "author.playtime_at_review" and source_field != "language" and _as_bool(_review_value(row, source_field)) is None) for row in a) / len(a) if a else None
+        rate_b = sum(_is_missing(_review_value(row, source_field)) or (source_field == "author.playtime_at_review" and _playtime_value(row) is None) or (source_field != "author.playtime_at_review" and source_field != "language" and _as_bool(_review_value(row, source_field)) is None) for row in b) / len(b) if b else None
+        reference[output_field] = rate_a if rate_a is not None else 0.0
+        comparison[output_field] = rate_b if rate_b is not None else 0.0
+        differences[output_field] = abs(rate_a - rate_b) if rate_a is not None and rate_b is not None else None
+        if differences[output_field] is not None and differences[output_field] > COMPARABILITY_THRESHOLDS["missingness_difference"]["moderate_shift"]:
+            warnings.append(output_field)
+    max_difference = max((value for value in differences.values() if value is not None), default=None)
+    return {"reference_missing_rate": reference, "comparison_missing_rate": comparison, "absolute_difference": differences, "warning_fields": sorted(warnings), "level": _level_from_shift(max_difference, "missingness_difference")}
+
+
+def _volume_dimension(acquisition_a: Mapping[str, Any], acquisition_b: Mapping[str, Any]) -> dict[str, Any]:
+    count_a = int(acquisition_a["population_count"])
+    count_b = int(acquisition_b["population_count"])
+    days_a = acquisition_a.get("window_days")
+    days_b = acquisition_b.get("window_days")
+    rate_a = count_a / float(days_a) if days_a and float(days_a) > 0 else None
+    rate_b = count_b / float(days_b) if days_b and float(days_b) > 0 else None
+    ratio = rate_b / rate_a if rate_a and rate_b is not None else None
+    relative_difference = max(ratio, 1 / ratio) - 1 if ratio and ratio > 0 else None
+    return {
+        "reference": {"review_count": count_a, "window_days": days_a, "reviews_per_day": rate_a},
+        "comparison": {"review_count": count_b, "window_days": days_b, "reviews_per_day": rate_b},
+        "absolute_volume_difference": abs(count_b - count_a),
+        "reviews_per_day_ratio": ratio,
+        "relative_rate_difference": relative_difference,
+        "level": _level_from_shift(relative_difference, "review_rate_relative_difference"),
+    }
+
+
+def compare_populations(
+    reference_population: Iterable[Mapping[str, Any]],
+    comparison_population: Iterable[Mapping[str, Any]],
+    reference_metadata: Optional[Mapping[str, Any]] = None,
+    comparison_metadata: Optional[Mapping[str, Any]] = None,
+) -> dict[str, Any]:
+    """Return a deterministic, JSON-serializable population comparability report."""
+    reference = [dict(row) for row in reference_population]
+    comparison = [dict(row) for row in comparison_population]
+    acquisition = {
+        "reference": _acquisition_summary(reference, reference_metadata),
+        "comparison": _acquisition_summary(comparison, comparison_metadata),
+    }
+    warnings: list[str] = []
+    for label, summary in acquisition.items():
+        if summary["collection_complete"] is False:
+            warnings.append(f"{label}_acquisition_incomplete")
+        elif summary["collection_complete"] is None:
+            warnings.append(f"{label}_acquisition_unknown")
+        if summary["failed_languages"]:
+            warnings.append(f"{label}_language_acquisition_failed")
+
+    dimensions: dict[str, Any] = {
+        "acquisition": {
+            "level": (
+                "low"
+                if any(item["collection_complete"] is False for item in acquisition.values())
+                else "unknown"
+                if any(item["collection_complete"] is None for item in acquisition.values())
+                else "high"
+            ),
+            "warnings": sorted(set(warnings)),
+        },
+        "review_volume": _volume_dimension(acquisition["reference"], acquisition["comparison"]),
+        "language": _language_dimension(reference, comparison),
+        "playtime": _playtime_dimension(reference, comparison),
+    }
+    for dimension_name, field in _METADATA_FIELDS:
+        dimensions[dimension_name] = _boolean_dimension(reference, comparison, field)
+    dimensions["missingness"] = _missingness_dimension(reference, comparison)
+    if dimensions["missingness"]["warning_fields"]:
+        warnings.append("missingness_shift")
+
+    dimension_levels = [value.get("level") for value in dimensions.values() if isinstance(value, Mapping)]
+    if any(level == "low" for level in dimension_levels) or dimensions["acquisition"]["level"] == "low":
+        overall_level = "low"
+    elif dimensions["acquisition"]["level"] == "unknown" or any(level == "unknown" for level in dimension_levels):
+        overall_level = "unknown"
+    elif any(level == "moderate" for level in dimension_levels):
+        overall_level = "moderate"
+    elif dimension_levels and all(level == "high" for level in dimension_levels):
+        overall_level = "high"
+    else:
+        overall_level = "unknown"
+
+    return {
+        "schema_version": "population-comparability-v1",
+        "acquisition": acquisition,
+        "dimensions": dimensions,
+        "comparability": {
+            "level": overall_level,
+            "dimensions": {key: value.get("level", "unknown") for key, value in dimensions.items()},
+            "warnings": sorted(set(warnings)),
+            "heuristic_thresholds": COMPARABILITY_THRESHOLDS,
+        },
+        "external_validity": {
+            "reviewer_selection_bias": True,
+            "limitation": REVIEWER_SELECTION_LIMITATION,
+        },
+    }
+
+
+# Descriptive alias for callers that prefer the report-oriented name.
+build_population_comparability_report = compare_populations
+
+
+__all__ = [
+    "COMPARABILITY_THRESHOLDS",
+    "PLAYTIME_COHORTS",
+    "REVIEWER_SELECTION_LIMITATION",
+    "build_population_comparability_report",
+    "compare_populations",
+]
