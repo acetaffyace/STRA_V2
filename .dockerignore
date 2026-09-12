@@ -1,0 +1,14 @@
+.env*
+.git
+.gitignore
+node_modules/
+__pycache__/
+*.pyc
+apps/dashboard/
+apps/marketing/
+data/
+tooling/benchmarks/
+.venv*/
+*.md
+.claude/
+tooling/scripts/

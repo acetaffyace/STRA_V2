@@ -1,0 +1,47 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.backend
+    environment:
+      DATABASE_URL: "sqlite:////app/data/sentinext.db"
+      SENTINEXT_ALLOWED_ORIGINS: "http://localhost:3000"
+    env_file:
+      - .env.local
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - appdata:/app/data
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  frontend:
+    build:
+      context: ./apps/dashboard
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: "http://localhost:8000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+
+  # Optional: Ollama for local LLM inference
+  # Uncomment to use Ollama as your LLM provider
+  # ollama:
+  #   image: ollama/ollama
+  #   volumes:
+  #     - ollama_data:/root/.ollama
+  #   ports:
+  #     - "11434:11434"
+
+volumes:
+  appdata:
+  # ollama_data:

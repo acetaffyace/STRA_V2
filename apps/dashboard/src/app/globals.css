@@ -1,0 +1,447 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================
+   STRA · GAME INTELLIGENCE WORKSPACE
+   Visual Redesign V1 tokens. Data semantics stay in API contracts.
+   ============================================ */
+
+:root {
+  color-scheme: dark;
+
+  /* Neutral workspace palette */
+  --slate-50: 248 250 252;
+  --slate-100: 241 245 249;
+  --slate-200: 226 232 240;
+  --slate-300: 203 213 225;
+  --slate-400: 148 163 184;
+  --slate-500: 100 116 139;
+  --slate-600: 71 85 105;
+  --slate-700: 51 65 85;
+  --slate-800: 30 41 59;
+  --slate-900: 15 23 42;
+  --slate-950: 9 14 28;
+
+  /* Accent Colors */
+  --blue-400: 96 165 250;
+  --blue-500: 59 130 246;
+  --blue-600: 37 99 235;
+
+  --emerald-400: 52 211 153;
+  --emerald-500: 16 185 129;
+
+  /* Semantic Colors */
+  --bg-primary: var(--slate-950);
+  --bg-secondary: 15 23 42;
+  --bg-tertiary: var(--slate-800);
+
+  --text-primary: var(--slate-100);
+  --text-secondary: var(--slate-400);
+
+  --accent-primary: var(--blue-500);
+  --accent-secondary: var(--blue-400);
+
+  --border-color: var(--slate-800);
+  --border-hover: var(--slate-700);
+
+  --workspace-bg: 10 12 16;
+  --workspace-surface: 17 20 26;
+  --workspace-surface-raised: 23 27 34;
+  --workspace-border: 45 51 62;
+  --workspace-border-soft: 35 40 49;
+  --workspace-text: 236 239 244;
+  --workspace-muted: 151 160 174;
+  --workspace-accent: 126 170 255;
+  --workspace-success: 93 190 145;
+  --workspace-danger: 221 119 119;
+}
+
+/* Prevent layout shift when scrollbar appears/disappears */
+html {
+  font-size: 90%;
+  scrollbar-gutter: stable;
+}
+
+/* Base Body */
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: rgb(var(--workspace-bg));
+  background-image: none;
+  color: rgb(var(--workspace-text));
+  font-family: var(--font-sans, 'Inter'), 'PingFang SC', 'Microsoft YaHei', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  letter-spacing: -0.01em;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::selection {
+  background: rgba(var(--blue-500) / 0.3);
+  color: white;
+}
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+
+/* ============================================
+   TYPOGRAPHY
+   ============================================ */
+
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  color: rgb(var(--text-primary));
+}
+
+code, pre {
+  font-family: 'SF Mono', 'Fira Code', 'Roboto Mono', monospace;
+  font-size: 0.9em;
+}
+
+/* ============================================
+   MODERN COMPONENTS
+   ============================================ */
+
+/* Cards */
+.card {
+  background: rgb(var(--workspace-surface));
+  border: 1px solid rgb(var(--workspace-border-soft));
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  transition: all 0.2s ease;
+}
+
+.card:hover {
+  border-color: rgb(var(--workspace-border));
+}
+
+/* Buttons */
+.btn {
+  padding: 0.625rem 1.25rem;
+  border-radius: 0.75rem;
+  font-weight: 500;
+  font-size: 0.875rem;
+  transition: all 0.15s ease;
+  border: none;
+  outline: none;
+}
+
+.btn-primary {
+  background: rgb(var(--accent-primary));
+  color: white;
+}
+
+.btn-primary:hover {
+  background: rgb(var(--blue-600));
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(var(--blue-500) / 0.3);
+}
+
+.btn-secondary {
+  background: rgb(var(--bg-tertiary));
+  color: rgb(var(--text-primary));
+  border: 1px solid rgb(var(--border-color));
+}
+
+.btn-secondary:hover {
+  background: rgb(var(--slate-700));
+  border-color: rgb(var(--border-hover));
+}
+
+/* Inputs */
+input, textarea, select {
+  background: rgb(var(--bg-secondary));
+  border: 1px solid rgb(var(--border-color));
+  border-radius: 0;
+  padding: 0.625rem 1rem;
+  color: rgb(var(--text-primary));
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: rgb(var(--accent-primary));
+  box-shadow: 0 0 0 3px rgba(var(--blue-500) / 0.1);
+}
+
+input::placeholder, textarea::placeholder {
+  color: rgb(var(--text-secondary));
+}
+
+/* Links */
+a {
+  color: rgb(var(--accent-secondary));
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+a:hover {
+  color: rgb(var(--accent-primary));
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgb(var(--bg-primary));
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgb(var(--slate-700));
+  border-radius: 0;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--slate-600));
+}
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+
+.text-primary {
+  color: rgb(var(--text-primary));
+}
+
+.text-secondary {
+  color: rgb(var(--text-secondary));
+}
+
+.text-accent {
+  color: rgb(var(--accent-primary));
+}
+
+.bg-primary {
+  background-color: rgb(var(--bg-primary));
+}
+
+.bg-secondary {
+  background-color: rgb(var(--bg-secondary));
+}
+
+.bg-tertiary {
+  background-color: rgb(var(--bg-tertiary));
+}
+
+.border-default {
+  border-color: rgb(var(--border-color));
+}
+
+/* Smooth transitions */
+.transition-smooth {
+  transition: all 0.2s ease;
+}
+
+/* Subtle shadow */
+.shadow-sm {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.shadow-md {
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.shadow-lg {
+  box-shadow: 0 10px 15px rgba(0, 0, 0, 0.2);
+}
+
+/* V1 shared primitives */
+.workspace-shell {
+  background: rgb(var(--workspace-bg));
+  color: rgb(var(--workspace-text));
+}
+
+.workspace-section {
+  border-top: 1px solid rgb(var(--workspace-border-soft));
+  padding-top: 1.5rem;
+}
+
+.workspace-eyebrow {
+  color: rgb(var(--workspace-muted));
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.workspace-focus {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+}
+
+.workspace-focus:focus-visible {
+  outline-color: rgb(var(--workspace-accent));
+}
+
+/* Retain legacy utility hooks without the former HUD/neon treatment. */
+.cyber-divider {
+  height: 1px;
+  background: rgb(var(--workspace-border-soft));
+}
+
+.hud-label {
+  color: rgb(var(--workspace-muted));
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+/* Status indicators */
+.status-success {
+  color: rgb(var(--emerald-400));
+}
+
+.status-error {
+  color: #ef4444;
+}
+
+.status-warning {
+  color: #f59e0b;
+}
+
+.status-info {
+  color: rgb(var(--blue-400));
+}
+
+/* Loading animation */
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s ease-in-out infinite;
+}
+
+/* Fade in animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Staggered fade-in for dashboard cards */
+@keyframes fadeSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-slide-up {
+  animation: fadeSlideUp 0.4s ease-out forwards;
+  opacity: 0;
+}
+
+/* Slide-up without opacity (prevents flicker) */
+@keyframes slideUpSoft {
+  from {
+    transform: translateY(12px);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up-soft {
+  animation: slideUpSoft 0.4s ease-out;
+}
+
+/* Animation delay utilities for staggered effects */
+.animation-delay-100 { animation-delay: 100ms; }
+.animation-delay-150 { animation-delay: 150ms; }
+.animation-delay-200 { animation-delay: 200ms; }
+.animation-delay-250 { animation-delay: 250ms; }
+.animation-delay-300 { animation-delay: 300ms; }
+.animation-delay-400 { animation-delay: 400ms; }
+.animation-delay-500 { animation-delay: 500ms; }
+.animation-delay-600 { animation-delay: 600ms; }
+.animation-delay-700 { animation-delay: 700ms; }
+
+/* Scale-in animation for cards */
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.3s ease-out forwards;
+  opacity: 0;
+}
+
+/* Modal overlay animation */
+@keyframes modalOverlayIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-modal-overlay {
+  animation: modalOverlayIn 0.2s ease-out forwards;
+}
+
+/* Modal content animation */
+@keyframes modalContentIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-modal-content {
+  animation: modalContentIn 0.25s ease-out forwards;
+}
+
+/* Spinning loader - solid blue square with corner glow */
+.spinner-blue {
+  border: 2px solid rgb(56, 189, 248);
+  box-shadow:
+    2px 2px 0 0 rgba(56, 189, 248, 0.8),
+    -1px -1px 0 0 rgba(56, 189, 248, 0.3);
+}
+
+.spinner-blue-sm {
+  border: 1.5px solid rgb(56, 189, 248);
+  box-shadow:
+    1px 1px 0 0 rgba(56, 189, 248, 0.8),
+    -1px -1px 0 0 rgba(56, 189, 248, 0.3);
+}

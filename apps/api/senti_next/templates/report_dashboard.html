@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Executive Summary - {{ game_name }}</title>
+  <style>
+    @page {
+      size: letter;
+      margin: 0;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --primary: #0ea5e9;
+      --primary-dark: #0284c7;
+      --accent: #06b6d4;
+      --success: #10b981;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --text: #1e293b;
+      --text-muted: #64748b;
+      --text-light: #94a3b8;
+      --bg: #ffffff;
+      --card-bg: #f8fafc;
+      --border: #e2e8f0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      font-size: 10px;
+      line-height: 1.4;
+      height: 11in;
+      width: 8.5in;
+      overflow: hidden;
+    }
+
+    .dashboard {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      padding: 0.3in;
+    }
+
+    /* Header with game image */
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid var(--primary);
+      margin-bottom: 8px;
+    }
+
+    .game-image {
+      width: 120px;
+      height: 56px;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+
+    .header-content {
+      flex: 1;
+    }
+
+    .brand {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      color: var(--text);
+      margin-bottom: 2px;
+    }
+
+    .game-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.2;
+    }
+
+    .report-period {
+      text-align: right;
+    }
+
+    .period-current {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .period-compare {
+      font-size: 10px;
+      color: var(--text-light);
+    }
+
+    /* Summary Card - Purple theme */
+    .summary-card {
+      background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%);
+      border: 1px solid #a855f7;
+      border-left: 4px solid #a855f7;
+      padding: 8px 10px;
+      margin-bottom: 8px;
+    }
+
+    .summary-title {
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #7c3aed;
+      margin-bottom: 3px;
+      font-weight: 600;
+    }
+
+    .summary-text {
+      font-size: 10px;
+      color: var(--text);
+      margin-bottom: 5px;
+      line-height: 1.5;
+    }
+
+    .key-points {
+      list-style: none;
+      display: grid;
+      gap: 2px;
+      font-size: 9px;
+      color: var(--text);
+      padding-left: 0;
+      margin-bottom: 5px;
+    }
+
+    .key-points li {
+      display: flex;
+      align-items: flex-start;
+      gap: 4px;
+    }
+
+    .key-points li::before {
+      content: ">";
+      color: #a855f7;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .summary-actions-title {
+      font-size: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      margin-bottom: 3px;
+      font-weight: 600;
+    }
+
+    .summary-actions {
+      list-style: none;
+      display: grid;
+      gap: 2px;
+      font-size: 9px;
+      color: var(--text);
+      padding-left: 0;
+    }
+
+    .summary-actions li::before {
+      content: "-";
+      color: var(--text-muted);
+      margin-right: 4px;
+    }
+
+    /* Metrics Row */
+    .metrics-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .metric-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      padding: 6px 8px;
+      text-align: center;
+    }
+
+    .metric-card.highlight {
+      background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+      border-color: var(--success);
+    }
+
+    .metric-card.warning {
+      background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+      border-color: var(--warning);
+    }
+
+    .metric-card.danger {
+      background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
+      border-color: var(--danger);
+    }
+
+    .metric-label {
+      font-size: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      margin-bottom: 2px;
+      font-weight: 600;
+    }
+
+    .metric-value {
+      font-size: 19px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .metric-value.positive {
+      color: var(--success);
+    }
+
+    .metric-value.negative {
+      color: var(--danger);
+    }
+
+    .metric-delta {
+      font-size: 10px;
+      font-weight: 600;
+      margin-top: 1px;
+    }
+
+    .metric-delta.positive {
+      color: var(--success);
+    }
+
+    .metric-delta.negative {
+      color: var(--danger);
+    }
+
+    .metric-delta.neutral {
+      color: var(--text-muted);
+    }
+
+    /* Progress bar in metric */
+    .metric-bar {
+      height: 4px;
+      background: var(--border);
+      margin-top: 4px;
+      overflow: hidden;
+    }
+
+    .metric-bar-fill {
+      height: 100%;
+    }
+
+    .metric-bar-fill.success {
+      background: var(--success);
+    }
+
+    .metric-bar-fill.warning {
+      background: var(--warning);
+    }
+
+    .metric-bar-fill.danger {
+      background: var(--danger);
+    }
+
+    /* Two Column Section - flex to auto-fit content */
+    .two-column {
+      display: flex;
+      gap: 10px;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .section-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      flex: 1;
+    }
+
+    .section-card.issues {
+      background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+      border: 1px solid var(--danger);
+      border-left: 4px solid var(--danger);
+    }
+
+    .section-card.requests {
+      background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+      border: 1px solid var(--primary);
+      border-left: 4px solid var(--primary);
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      margin-bottom: 6px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .section-header.issues {
+      color: var(--danger);
+    }
+
+    .section-header.requests {
+      color: var(--primary);
+    }
+
+    /* List Items */
+    .item-list {
+      list-style: none;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .item {
+      padding: 4px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .item:last-child {
+      border-bottom: none;
+    }
+
+    .item-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 3px;
+    }
+
+    .item-rank {
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--text-muted);
+      width: 14px;
+    }
+
+    .item-name {
+      flex: 1;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .item-count {
+      font-size: 9px;
+      font-weight: 700;
+      color: white;
+      background: var(--text-muted);
+      padding: 1px 5px;
+    }
+
+    .item-count.issues {
+      background: var(--danger);
+    }
+
+    .item-count.requests {
+      background: var(--primary);
+    }
+
+    .item-evidences {
+      padding-left: 14px;
+    }
+
+    .item-evidence {
+      font-size: 8px;
+      color: var(--text-muted);
+      font-style: italic;
+      line-height: 1.35;
+      margin-bottom: 2px;
+    }
+
+    .item-evidence::before {
+      content: '"';
+    }
+
+    .item-evidence::after {
+      content: '"';
+    }
+
+    /* Footer */
+    .footer {
+      margin-top: auto;
+      padding-top: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .footer-brand {
+      font-size: 9px;
+      color: var(--text-muted);
+    }
+
+    .footer-link {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .footer-date {
+      font-size: 9px;
+      color: var(--text-muted);
+    }
+
+    /* Empty state */
+    .empty-state {
+      color: var(--text-muted);
+      font-style: italic;
+      font-size: 9px;
+      padding: 6px 0;
+    }
+
+    /* Praises section */
+    .section-card.praises {
+      background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+      border: 1px solid var(--success);
+      border-left: 4px solid var(--success);
+    }
+
+    .section-header.praises {
+      color: var(--success);
+    }
+
+    .item-count.praises {
+      background: var(--success);
+    }
+
+    /* Bottom row for praises */
+    .bottom-section {
+      margin-top: auto;
+      padding-top: 8px;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="dashboard">
+    <!-- Header -->
+    <header class="header">
+      {% if header_image %}
+      <img src="{{ header_image }}" alt="{{ game_name }}" class="game-image">
+      {% endif %}
+      <div class="header-content">
+        <div class="brand">SENTINEXT</div>
+        <h1 class="game-title">{{ game_name }}</h1>
+      </div>
+      <div class="report-period">
+        <div class="period-current">{{ period }}</div>
+        {% if data.previous %}
+        <div class="period-compare">vs {{ data.previous.period }}</div>
+        {% endif %}
+      </div>
+    </header>
+
+    {% if data.llm_summary %}
+    <div class="summary-card">
+      <div class="summary-title">Executive Summary</div>
+      <p class="summary-text">{{ data.llm_summary.summary }}</p>
+      {% if data.llm_summary.key_points %}
+      <ul class="key-points">
+        {% for point in data.llm_summary.key_points[:3] %}
+        <li>{{ point }}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+      {% if data.llm_summary.actions %}
+      <div class="summary-actions-title">Recommended Actions</div>
+      <ul class="summary-actions">
+        {% for action in data.llm_summary.actions[:3] %}
+        <li>{{ action }}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Key Metrics -->
+    <div class="metrics-row">
+      <div class="metric-card">
+        <div class="metric-label">Reviews</div>
+        <div class="metric-value">{{ "{:,}".format(data.total_reviews) }}</div>
+        {% if data.deltas and data.deltas.reviews is defined %}
+        <div class="metric-delta {% if data.deltas.reviews > 0 %}positive{% elif data.deltas.reviews < 0 %}negative{% else %}neutral{% endif %}">
+          {% if data.deltas.reviews > 0 %}+{% endif %}{{ "{:,}".format(data.deltas.reviews) }}
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="metric-card {% if data.recommendation_rate >= 0.7 %}highlight{% elif data.recommendation_rate < 0.5 %}danger{% else %}warning{% endif %}">
+        <div class="metric-label">Recommend</div>
+        <div class="metric-value {% if data.recommendation_rate >= 0.7 %}positive{% elif data.recommendation_rate < 0.5 %}negative{% endif %}">
+          {{ "%.1f"|format(data.recommendation_rate * 100) }}%
+        </div>
+        {% if data.deltas and data.deltas.recommendation_rate is defined %}
+        <div class="metric-delta {% if data.deltas.recommendation_rate > 0 %}positive{% elif data.deltas.recommendation_rate < 0 %}negative{% else %}neutral{% endif %}">
+          {% if data.deltas.recommendation_rate > 0 %}+{% endif %}{{ "%.1f"|format(data.deltas.recommendation_rate * 100) }}%
+        </div>
+        {% endif %}
+        <div class="metric-bar">
+          <div class="metric-bar-fill {% if data.recommendation_rate >= 0.7 %}success{% elif data.recommendation_rate >= 0.5 %}warning{% else %}danger{% endif %}"
+               style="width: {{ data.recommendation_rate * 100 }}%"></div>
+        </div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-label">Median Playtime</div>
+        <div class="metric-value">{{ "%.1f"|format(data.playtime.median_playtime_hours) }}h</div>
+      </div>
+    </div>
+
+    <!-- Issues and Requests -->
+    <div class="two-column">
+      <!-- Top Issues -->
+      <div class="section-card issues">
+        <div class="section-header issues">
+          Top Issues
+        </div>
+        {% if data.top_issues %}
+        <ul class="item-list">
+          {% for issue in data.top_issues[:5] %}
+          <li class="item">
+            <div class="item-header">
+              <span class="item-rank">{{ loop.index }}.</span>
+              <span class="item-name">{{ issue.subcategory.split('/')[-1] | replace('_', ' ') | title }}</span>
+              <span class="item-count issues">{{ issue.count }}</span>
+            </div>
+            {% if issue.snippets and issue.snippets|length > 0 %}
+            <div class="item-evidences">
+              {% for snippet in issue.snippets[:4] %}
+              <div class="item-evidence">{{ snippet[:140] }}{% if snippet|length > 140 %}...{% endif %}</div>
+              {% endfor %}
+            </div>
+            {% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <div class="empty-state">No issues identified this period</div>
+        {% endif %}
+      </div>
+
+      <!-- Top Requests -->
+      <div class="section-card requests">
+        <div class="section-header requests">
+          Feature Requests
+        </div>
+        {% if data.top_requests %}
+        <ul class="item-list">
+          {% for request in data.top_requests[:5] %}
+          <li class="item">
+            <div class="item-header">
+              <span class="item-rank">{{ loop.index }}.</span>
+              <span class="item-name">{{ request.subcategory.split('/')[-1] | replace('_', ' ') | title }}</span>
+              <span class="item-count requests">{{ request.count }}</span>
+            </div>
+            {% if request.snippets and request.snippets|length > 0 %}
+            <div class="item-evidences">
+              {% for snippet in request.snippets[:4] %}
+              <div class="item-evidence">{{ snippet[:140] }}{% if snippet|length > 140 %}...{% endif %}</div>
+              {% endfor %}
+            </div>
+            {% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <div class="empty-state">No feature requests this period</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- What Players Love -->
+    {% if data.top_praises %}
+    <div class="bottom-section">
+      <div class="section-card praises">
+        <div class="section-header praises">
+          What Players Love
+        </div>
+        <div style="display: flex; gap: 12px;">
+          {% for praise in data.top_praises[:3] %}
+          <div style="flex: 1;">
+            <div class="item-header">
+              <span class="item-name">{{ praise.subcategory.split('/')[-1] | replace('_', ' ') | title }}</span>
+              <span class="item-count praises">{{ praise.count }}</span>
+            </div>
+            {% if praise.snippets and praise.snippets|length > 0 %}
+            <div class="item-evidences" style="padding-left: 0;">
+              {% for snippet in praise.snippets[:3] %}
+              <div class="item-evidence">{{ snippet[:120] }}{% if snippet|length > 120 %}...{% endif %}</div>
+              {% endfor %}
+            </div>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="footer-brand">
+        Generated by SENTINEXT
+      </div>
+      <div class="footer-date">
+        {{ generated_at }}
+      </div>
+    </footer>
+  </div>
+</body>
+</html>

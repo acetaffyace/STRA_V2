@@ -1,0 +1,1377 @@
+{
+  "sentiment": {
+    "status": "not_evaluable",
+    "reason": "production classifier does not emit sentiment"
+  },
+  "families": {
+    "issue_false_positive": [
+      {
+        "sample_id": "pv-1172470-232053963",
+        "source_review": "This game brings me unimagable angry and whatnot but i cant stop playing it im addicted its like crack or smth",
+        "gold": {
+          "evidence_spans": [
+            "This game brings me unimagable angry and whatnot but i cant stop playing it im addicted its like crack or smth"
+          ],
+          "issue_labels": [],
+          "issue_present": false,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "mixed",
+          "subcategories": []
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [
+            "gameplay/mechanics"
+          ],
+          "main_category": "gameplay",
+          "request_subcategories": [],
+          "subcategories": [
+            "gameplay/mechanics",
+            "other/general"
+          ],
+          "subcategory": "mechanics"
+        },
+        "sampling_stratum": "core",
+        "error_type": "issue_false_positive"
+      },
+      {
+        "sample_id": "pv-1172470-232270655",
+        "source_review": "Kackspiel",
+        "gold": {
+          "evidence_spans": [
+            "Kackspiel"
+          ],
+          "issue_labels": [],
+          "issue_present": false,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "negative",
+          "subcategories": []
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [
+            "other/general"
+          ],
+          "main_category": "other",
+          "request_subcategories": [],
+          "subcategories": [
+            "other/general"
+          ],
+          "subcategory": "general"
+        },
+        "sampling_stratum": "challenge",
+        "error_type": "issue_false_positive"
+      },
+      {
+        "sample_id": "pv-1172470-232458404",
+        "source_review": "Painful experience",
+        "gold": {
+          "evidence_spans": [
+            "Painful experience"
+          ],
+          "issue_labels": [],
+          "issue_present": false,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "negative",
+          "subcategories": []
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [
+            "other/general"
+          ],
+          "main_category": "other",
+          "request_subcategories": [],
+          "subcategories": [
+            "other/general"
+          ],
+          "subcategory": "general"
+        },
+        "sampling_stratum": "core",
+        "error_type": "issue_false_positive"
+      },
+      {
+        "sample_id": "pv-1172470-232966860",
+        "source_review": "有点屎 又有点屎里掺冰",
+        "gold": {
+          "evidence_spans": [
+            "有点屎 又有点屎里掺冰"
+          ],
+          "issue_labels": [],
+          "issue_present": false,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "negative",
+          "subcategories": []
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [
+            "other/general"
+          ],
+          "main_category": "other",
+          "request_subcategories": [],
+          "subcategories": [
+            "other/general"
+          ],
+          "subcategory": "general"
+        },
+        "sampling_stratum": "core",
+        "error_type": "issue_false_positive"
+      },
+      {
+        "sample_id": "pv-1172470-233524053",
+        "source_review": "游戏不错，但我打不过对面，\n(╯°□°）╯︵ ┻━┻",
+        "gold": {
+          "evidence_spans": [
+            "游戏不错，但我打不过对面，\n(╯°□°）╯︵ ┻━┻"
+          ],
+          "issue_labels": [],
+          "issue_present": false,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "mixed",
+          "subcategories": []
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [
+            "gameplay/difficulty"
+          ],
+          "main_category": "gameplay",
+          "request_subcategories": [],
+          "subcategories": [
+            "gameplay/difficulty"
+          ],
+          "subcategory": "difficulty"
+        },
+        "sampling_stratum": "challenge",
+        "error_type": "issue_false_positive"
+      },
+      {
+        "sample_id": "pv-2584270-233528988",
+        "source_review": "Sehr gutes spiel in 21h hatte ich keine bugs oder performence problemme, die grafik ist umwerfend und das kampf system ist sehr belohnend wenn man es meistert und mann kann nur sagen das dieses spiel eine 9,5/10 ist es gibt einpar probleme welche nicht allzu gravierend sind",
+        "gold": {
+          "evidence_spans": [
+            "keine bugs oder performence problemme",
+            "die grafik ist umwerfend",
+            "das kampf system ist sehr belohnend wenn man es meistert"
+          ],
+          "issue_labels": [],
+          "issue_present": false,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "positive",
+          "subcategories": [
+            "technical/bugs",
+            "technical/performance",
+            "presentation/visuals_art_style",
+            "gameplay/mechanics"
+          ]
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [
+            "technical/performance",
+            "technical/bugs"
+          ],
+          "main_category": "technical",
+          "request_subcategories": [],
+          "subcategories": [
+            "technical/performance",
+            "technical/bugs",
+            "presentation/visuals_art_style",
+            "gameplay/mechanics",
+            "other/general"
+          ],
+          "subcategory": "performance"
+        },
+        "sampling_stratum": "core",
+        "error_type": "issue_false_positive"
+      },
+      {
+        "sample_id": "pv-2868840-233520931",
+        "source_review": "鬼抽尖塔",
+        "gold": {
+          "evidence_spans": [
+            "鬼抽尖塔"
+          ],
+          "issue_labels": [],
+          "issue_present": false,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "uncertain",
+          "subcategories": []
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [
+            "gameplay/mechanics",
+            "gameplay/difficulty"
+          ],
+          "main_category": "gameplay",
+          "request_subcategories": [],
+          "subcategories": [
+            "gameplay/mechanics",
+            "gameplay/difficulty"
+          ],
+          "subcategory": "mechanics"
+        },
+        "sampling_stratum": "core",
+        "error_type": "issue_false_positive"
+      }
+    ],
+    "issue_false_negative": [],
+    "request_false_positive": [
+      {
+        "sample_id": "pv-1172470-232347220",
+        "source_review": "非常好玩的游戏，希望未来做得会更好",
+        "gold": {
+          "evidence_spans": [
+            "非常好玩的游戏"
+          ],
+          "issue_labels": [],
+          "issue_present": false,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "positive",
+          "subcategories": []
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [],
+          "main_category": "other",
+          "request_subcategories": [
+            "other/general"
+          ],
+          "subcategories": [
+            "other/general"
+          ],
+          "subcategory": "general"
+        },
+        "sampling_stratum": "core",
+        "error_type": "request_false_positive"
+      },
+      {
+        "sample_id": "pv-4162040-232942889",
+        "source_review": "I'm gonna be goonin to those jiggle physics later PS if i give u a good review can u let me have Zhu Yuan plsplsplsplsplslsplpslplspls\n\nEdit I got her and I've never been happier in years so now it's time for my real review: story is good and interedting and there's a lot of amazing artwork and voice acting. I'm happy to have supported and continue to support this game with my money",
+        "gold": {
+          "evidence_spans": [
+            "story is good and interedting",
+            "a lot of amazing artwork"
+          ],
+          "issue_labels": [],
+          "issue_present": false,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "positive",
+          "subcategories": [
+            "content_design/narrative_characters",
+            "presentation/visuals_art_style"
+          ]
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [],
+          "main_category": "presentation",
+          "request_subcategories": [
+            "monetization_value/microtransactions"
+          ],
+          "subcategories": [
+            "presentation/visuals_art_style",
+            "presentation/voice_acting",
+            "content_design/narrative_characters",
+            "monetization_value/microtransactions",
+            "other/meme"
+          ],
+          "subcategory": "visuals_art_style"
+        },
+        "sampling_stratum": "core",
+        "error_type": "request_false_positive"
+      }
+    ],
+    "request_false_negative": [],
+    "category_boundary_confusion": [
+      {
+        "sample_id": "pv-1172470-231581665",
+        "source_review": "好玩服务器垃圾",
+        "gold": {
+          "evidence_spans": [
+            "服务器垃圾"
+          ],
+          "issue_labels": [
+            "technical/networking"
+          ],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "mixed",
+          "subcategories": [
+            "technical/networking"
+          ]
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [
+            "technical/networking"
+          ],
+          "main_category": "gameplay",
+          "request_subcategories": [],
+          "subcategories": [
+            "gameplay/mechanics",
+            "technical/networking"
+          ],
+          "subcategory": "mechanics"
+        },
+        "sampling_stratum": "core",
+        "error_type": "category_boundary_confusion"
+      },
+      {
+        "sample_id": "pv-1172470-231990320",
+        "source_review": "It's just that it's the worst game in the world, the developers haven't done a damn thing in 10 years, because the game was ♥♥♥♥ for the mentally retarded, and it still is, the game literally has a choice, you can search for the game alone, but you just can't play normally because the developers didn't create a single mode.), and you play against 2 opponents in a group, and do you know why they couldn't create a 1x1 mode in 10 years, because the developers are just pigs, they created heroes, but forgot to balance them) The IQ of the developers is literally lower than that of a pig. What’s even funnier is that scammers took control of the players’ computers and used cheats during the LAN tournament live on stream—damn it, this literally proves the developers’ incompetence.",
+        "gold": {
+          "evidence_spans": [
+            "developers didn't create a single mode",
+            "couldn't create a 1x1 mode in 10 years",
+            "they created heroes, but forgot to balance them",
+            "used cheats during the LAN tournament live on stream"
+          ],
+          "issue_labels": [
+            "gameplay/mechanics",
+            "gameplay/balance",
+            "online_community/cheating_anti_cheat"
+          ],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "negative",
+          "subcategories": [
+            "gameplay/mechanics",
+            "gameplay/balance",
+            "online_community/cheating_anti_cheat"
+          ]
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [
+            "gameplay/balance",
+            "online_community/cheating_anti_cheat",
+            "developer_updates/update_frequency",
+            "online_community/multiplayer_experience",
+            "gameplay/mechanics"
+          ],
+          "main_category": "gameplay",
+          "request_subcategories": [],
+          "subcategories": [
+            "gameplay/balance",
+            "online_community/cheating_anti_cheat",
+            "developer_updates/update_frequency",
+            "online_community/multiplayer_experience",
+            "gameplay/mechanics"
+          ],
+          "subcategory": "balance"
+        },
+        "sampling_stratum": "challenge",
+        "error_type": "category_boundary_confusion"
+      },
+      {
+        "sample_id": "pv-1172470-232046330",
+        "source_review": "糞GAME 外掛一堆",
+        "gold": {
+          "evidence_spans": [
+            "外掛一堆"
+          ],
+          "issue_labels": [
+            "online_community/cheating_anti_cheat"
+          ],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "negative",
+          "subcategories": [
+            "online_community/cheating_anti_cheat"
+          ]
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [
+            "online_community/cheating_anti_cheat"
+          ],
+          "main_category": "online_community",
+          "request_subcategories": [],
+          "subcategories": [
+            "online_community/cheating_anti_cheat",
+            "other/general"
+          ],
+          "subcategory": "cheating_anti_cheat"
+        },
+        "sampling_stratum": "challenge",
+        "error_type": "category_boundary_confusion"
+      },
+      {
+        "sample_id": "pv-1172470-232155751",
+        "source_review": "so much fun prices are so low",
+        "gold": {
+          "evidence_spans": [
+            "prices are so low"
+          ],
+          "issue_labels": [],
+          "issue_present": false,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "positive",
+          "subcategories": [
+            "monetization_value/pricing"
+          ]
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [],
+          "main_category": "monetization_value",
+          "request_subcategories": [],
+          "subcategories": [
+            "monetization_value/value_for_money",
+            "gameplay/mechanics"
+          ],
+          "subcategory": "value_for_money"
+        },
+        "sampling_stratum": "core",
+        "error_type": "category_boundary_confusion"
+      },
+      {
+        "sample_id": "pv-1172470-232367444",
+        "source_review": "Отрицательный обзор на Apex Legends: Корпоративный выверенный цинизм, иллюзорные реформы и система, которая уничтожает одиночекЕсли бы меня попросили назвать игру, которая идеально иллюстрирует пустые обещания, бездушную бюрократию и системную дойку граждан со стороны крупных синдикатов, я бы без колебаний указал на Apex Legends. На бумаге это динамичная бесплатная королевская битва от Respawn и издателя EA. В реальности же это жестокий полигон капиталистического цинизма, где правила игры пишутся исключительно ради корпоративной прибыли, а голос сообщества равен нулю.Как политик, потративший годы на борьбу с олигархическими укладами, в структуре Игр Апекс я вижу худшие системные патологии. Вот почему эта игра заслуживает жесткого «дизлайка»:1. Корпоративная жадность и агрессивная монетизация (Налоги Electronic Arts)Финансовая агрессия, с которой издатель EA подходит к игрокам, напоминает методы самых беспринципных сборщиков податей. Так называемые «коллекционные события» — это фестиваль абсурда: чтобы получить один уникальный предмет (реликвию), игра вынуждает вас потратить стоимость хорошего смартфона на покупку виртуальных коробок. Вспомните скандальные попытки изменить систему Боевых пропусков, когда корпорация пыталась запретить покупать их за заработанную внутри игры валюту и требовала только живые деньги. Это ординарный грабеж, показывающий, что для системы вы не люди, а ходячие кошельки.2. Уничтожение солидарности и манипулятивный MatchmakingСистема подбора игроков (SBMM/EOMB) в Apex работает по принципам чистой социальной инженерии, созданной для манипуляции вашими эмоциями. Вместо честной, демократической конкуренции алгоритм намеренно использует средних игроков как «мясо арматурное» для сыгранных трио из профессиональных киберспортсменов (Предаторов) — просто чтобы удерживать последних на серверах. Игра буквально ненавидит одиночек (solo). Если у вас нет постоянной команды, вы обречены играть с токсичными случайными напарниками, которые выходят из матча в первую же секунду после своей гибели, разрушая любые шансы на общий успех.3. Иллюзия баланса и фальшивые «реформы»Власть, отвечающая за баланс в Апексе, действует в точности как типичное министерство: они заседают месяцами, после чего выпускают обновления, которые делают только хуже. Персонажей, которых любит и выбирает народ, безжалостно уничтожают несправедливыми ослаблениями (нерфами), в то время как технические проблемы, засилье читеров и кошмарное состояние серверов (20 tickrate в 2026 году — это позор!) не исправляются годами. Вместо ремонта фундамента государства девелоперы предпочитают каждый сезон просто красить фасад и добавлять новые платные скины.4. Монополия и уничтожение традицийИздатель EA давно доказал, что ради прибыли готов уничтожить любые великие начинания. Они фактически принесли в жертву потрясающую дилогию Titanfall, чтобы запустить этот конвейер по выкачиванию денег. При этом любимые народом режимы (например, классический соло-режим) выдаются редко и нехотя, ведь кабинетные аналитики в корпорации уверены, что они лучше граждан знают, что нужно людям для счастья. Это чистая диктатура продюсеров, уничтожающая дух настоящей игровой индустрии.Итоговый вердикт:2 пустых набора Апекс из 10. У игры великолепная, динамичная механика стрельбы и движений, но вся эта техническая доблесть заперта внутри глубоко порочной, коррумпированной жадностью системы. Это яркая неоновая вывеска, за которой скрывается обычное казино, управляемое бездушным синдикатом. Пока игроки-граждане не объединятся и не заставят EA пойти на реальные уступки, эти игры так и останутся памятником системной несправедливости.",
+        "gold": {
+          "evidence_spans": [
+            "коллекционные события",
+            "потратить стоимость хорошего смартфона",
+            "Система подбора игроков",
+            "несправедливыми ослаблениями",
+            "кошмарное состояние серверов",
+            "засилье читеров",
+            "великолепная, динамичная механика стрельбы и движений"
+          ],
+          "issue_labels": [
+            "monetization_value/pricing",
+            "monetization_value/value_for_money",
+            "online_community/matchmaking",
+            "gameplay/balance",
+            "technical/networking",
+            "online_community/cheating_anti_cheat",
+            "gameplay/mechanics"
+          ],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "mixed",
+          "subcategories": [
+            "monetization_value/pricing",
+            "monetization_value/value_for_money",
+            "online_community/matchmaking",
+            "gameplay/balance",
+            "technical/networking",
+            "online_community/cheating_anti_cheat",
+            "gameplay/mechanics"
+          ]
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [
+            "monetization_value/microtransactions",
+            "online_community/matchmaking",
+            "gameplay/balance",
+            "technical/networking",
+            "developer_updates/communication",
+            "monetization_value/battle_pass_fomo"
+          ],
+          "main_category": "monetization_value",
+          "request_subcategories": [],
+          "subcategories": [
+            "monetization_value/microtransactions",
+            "online_community/matchmaking",
+            "gameplay/balance",
+            "technical/networking",
+            "developer_updates/communication",
+            "monetization_value/battle_pass_fomo"
+          ],
+          "subcategory": "microtransactions"
+        },
+        "sampling_stratum": "challenge",
+        "error_type": "category_boundary_confusion"
+      },
+      {
+        "sample_id": "pv-1172470-232935936",
+        "source_review": "game looks good, player looks like software, at the end of the day is burning the last chromosome you have but it;'s ok",
+        "gold": {
+          "evidence_spans": [
+            "game looks good, player looks like software, at the end of the day is burning the last chromosome you have but it;'s ok"
+          ],
+          "issue_labels": [
+            "presentation/visuals_art_style"
+          ],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "mixed",
+          "subcategories": [
+            "presentation/visuals_art_style"
+          ]
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [
+            "other/general"
+          ],
+          "main_category": "other",
+          "request_subcategories": [],
+          "subcategories": [
+            "other/general",
+            "gameplay/mechanics"
+          ],
+          "subcategory": "general"
+        },
+        "sampling_stratum": "challenge",
+        "error_type": "category_boundary_confusion"
+      },
+      {
+        "sample_id": "pv-1172470-233023949",
+        "source_review": "very fun when played with friends and does not matter what skill level your friends are which makes it a nice game as well.",
+        "gold": {
+          "evidence_spans": [
+            "very fun when played with friends and does not matter what skill level your friends are which makes it a nice game as well."
+          ],
+          "issue_labels": [],
+          "issue_present": false,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "positive",
+          "subcategories": [
+            "gameplay/mechanics"
+          ]
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [],
+          "main_category": "online_community",
+          "request_subcategories": [],
+          "subcategories": [
+            "online_community/multiplayer_experience",
+            "gameplay/difficulty"
+          ],
+          "subcategory": "multiplayer_experience"
+        },
+        "sampling_stratum": "core",
+        "error_type": "category_boundary_confusion"
+      },
+      {
+        "sample_id": "pv-1172470-233202085",
+        "source_review": "这个ea号被封了，另一个号打了600小时\n\n我们重生大人，找不到新玩家就把老玩家变成新玩家，每个赛季都是新游戏。退游一段时间回来护甲改了制造器改了，现在还是忍不住多开几个罐子然后去复制器造护甲。。\n\n就拿这个赛季举例，为了卖神话皮不动car数值你砍r99和转换者干什么，没有环境创造环境是吧，r99秒伤连前十进不了，现在没弹匣一点容错没有，还有那个武器库，谁能忍住冒着被集火的风险强化一个白枪托出来呢这简直太肥美了，满地答辩全是狙击配件，有罗芭没罗芭就是俩队，决赛圈三个罗芭偷的地图上一个电没有，没罗芭的队到最后小电兑水甚至连小电都没有\n\n你以为降低物资质量就能减慢节奏，没配件的是不会直接找人干架抢别人配件吗，刚落地一把p2020捡着个紫弹夹寻思一会换car，一转头三把和平塞嘴里了，我是QQ啊还是天榜猎\n\n最后，你猎兽叔叔又美美隐身一个赛季",
+        "gold": {
+          "evidence_spans": [
+            "退游一段时间回来护甲改了制造器改了",
+            "为了卖神话皮不动car数值你砍r99和转换者干什么",
+            "r99秒伤连前十进不了，现在没弹匣一点容错没有",
+            "谁能忍住冒着被集火的风险强化一个白枪托出来呢",
+            "满地答辩全是狙击配件"
+          ],
+          "issue_labels": [
+            "gameplay/balance",
+            "gameplay/mechanics"
+          ],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "negative",
+          "subcategories": [
+            "gameplay/balance",
+            "gameplay/mechanics"
+          ]
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [
+            "gameplay/balance",
+            "gameplay/mechanics",
+            "content_design/amount_variety",
+            "monetization_value/pay_to_win_grind",
+            "gameplay/progression"
+          ],
+          "main_category": "gameplay",
+          "request_subcategories": [],
+          "subcategories": [
+            "gameplay/balance",
+            "gameplay/mechanics",
+            "content_design/amount_variety",
+            "monetization_value/pay_to_win_grind",
+            "gameplay/progression"
+          ],
+          "subcategory": "balance"
+        },
+        "sampling_stratum": "core",
+        "error_type": "category_boundary_confusion"
+      }
+    ],
+    "multilabel_omission": [
+      {
+        "sample_id": "pv-1172470-231768442",
+        "source_review": "running ranked till a +400 game = goated gameloop",
+        "gold": {
+          "evidence_spans": [
+            "running ranked till a +400 game = goated gameloop"
+          ],
+          "issue_labels": [],
+          "issue_present": false,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "positive",
+          "subcategories": [
+            "gameplay/mechanics"
+          ]
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [],
+          "main_category": "gameplay",
+          "request_subcategories": [],
+          "subcategories": [
+            "gameplay/progression"
+          ],
+          "subcategory": "progression"
+        },
+        "sampling_stratum": "core",
+        "error_type": "multilabel_omission",
+        "omitted_labels": [
+          "gameplay/mechanics"
+        ]
+      },
+      {
+        "sample_id": "pv-1172470-232022728",
+        "source_review": "怀疑队友是否为人类",
+        "gold": {
+          "evidence_spans": [
+            "怀疑队友是否为人类"
+          ],
+          "issue_labels": [
+            "online_community/matchmaking"
+          ],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "negative",
+          "subcategories": [
+            "online_community/matchmaking"
+          ]
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [
+            "online_community/multiplayer_experience"
+          ],
+          "main_category": "online_community",
+          "request_subcategories": [],
+          "subcategories": [
+            "online_community/multiplayer_experience"
+          ],
+          "subcategory": "multiplayer_experience"
+        },
+        "sampling_stratum": "core",
+        "error_type": "multilabel_omission",
+        "omitted_labels": [
+          "online_community/matchmaking"
+        ]
+      },
+      {
+        "sample_id": "pv-1172470-232155751",
+        "source_review": "so much fun prices are so low",
+        "gold": {
+          "evidence_spans": [
+            "prices are so low"
+          ],
+          "issue_labels": [],
+          "issue_present": false,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "positive",
+          "subcategories": [
+            "monetization_value/pricing"
+          ]
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [],
+          "main_category": "monetization_value",
+          "request_subcategories": [],
+          "subcategories": [
+            "monetization_value/value_for_money",
+            "gameplay/mechanics"
+          ],
+          "subcategory": "value_for_money"
+        },
+        "sampling_stratum": "core",
+        "error_type": "multilabel_omission",
+        "omitted_labels": [
+          "monetization_value/pricing"
+        ]
+      },
+      {
+        "sample_id": "pv-1172470-232367444",
+        "source_review": "Отрицательный обзор на Apex Legends: Корпоративный выверенный цинизм, иллюзорные реформы и система, которая уничтожает одиночекЕсли бы меня попросили назвать игру, которая идеально иллюстрирует пустые обещания, бездушную бюрократию и системную дойку граждан со стороны крупных синдикатов, я бы без колебаний указал на Apex Legends. На бумаге это динамичная бесплатная королевская битва от Respawn и издателя EA. В реальности же это жестокий полигон капиталистического цинизма, где правила игры пишутся исключительно ради корпоративной прибыли, а голос сообщества равен нулю.Как политик, потративший годы на борьбу с олигархическими укладами, в структуре Игр Апекс я вижу худшие системные патологии. Вот почему эта игра заслуживает жесткого «дизлайка»:1. Корпоративная жадность и агрессивная монетизация (Налоги Electronic Arts)Финансовая агрессия, с которой издатель EA подходит к игрокам, напоминает методы самых беспринципных сборщиков податей. Так называемые «коллекционные события» — это фестиваль абсурда: чтобы получить один уникальный предмет (реликвию), игра вынуждает вас потратить стоимость хорошего смартфона на покупку виртуальных коробок. Вспомните скандальные попытки изменить систему Боевых пропусков, когда корпорация пыталась запретить покупать их за заработанную внутри игры валюту и требовала только живые деньги. Это ординарный грабеж, показывающий, что для системы вы не люди, а ходячие кошельки.2. Уничтожение солидарности и манипулятивный MatchmakingСистема подбора игроков (SBMM/EOMB) в Apex работает по принципам чистой социальной инженерии, созданной для манипуляции вашими эмоциями. Вместо честной, демократической конкуренции алгоритм намеренно использует средних игроков как «мясо арматурное» для сыгранных трио из профессиональных киберспортсменов (Предаторов) — просто чтобы удерживать последних на серверах. Игра буквально ненавидит одиночек (solo). Если у вас нет постоянной команды, вы обречены играть с токсичными случайными напарниками, которые выходят из матча в первую же секунду после своей гибели, разрушая любые шансы на общий успех.3. Иллюзия баланса и фальшивые «реформы»Власть, отвечающая за баланс в Апексе, действует в точности как типичное министерство: они заседают месяцами, после чего выпускают обновления, которые делают только хуже. Персонажей, которых любит и выбирает народ, безжалостно уничтожают несправедливыми ослаблениями (нерфами), в то время как технические проблемы, засилье читеров и кошмарное состояние серверов (20 tickrate в 2026 году — это позор!) не исправляются годами. Вместо ремонта фундамента государства девелоперы предпочитают каждый сезон просто красить фасад и добавлять новые платные скины.4. Монополия и уничтожение традицийИздатель EA давно доказал, что ради прибыли готов уничтожить любые великие начинания. Они фактически принесли в жертву потрясающую дилогию Titanfall, чтобы запустить этот конвейер по выкачиванию денег. При этом любимые народом режимы (например, классический соло-режим) выдаются редко и нехотя, ведь кабинетные аналитики в корпорации уверены, что они лучше граждан знают, что нужно людям для счастья. Это чистая диктатура продюсеров, уничтожающая дух настоящей игровой индустрии.Итоговый вердикт:2 пустых набора Апекс из 10. У игры великолепная, динамичная механика стрельбы и движений, но вся эта техническая доблесть заперта внутри глубоко порочной, коррумпированной жадностью системы. Это яркая неоновая вывеска, за которой скрывается обычное казино, управляемое бездушным синдикатом. Пока игроки-граждане не объединятся и не заставят EA пойти на реальные уступки, эти игры так и останутся памятником системной несправедливости.",
+        "gold": {
+          "evidence_spans": [
+            "коллекционные события",
+            "потратить стоимость хорошего смартфона",
+            "Система подбора игроков",
+            "несправедливыми ослаблениями",
+            "кошмарное состояние серверов",
+            "засилье читеров",
+            "великолепная, динамичная механика стрельбы и движений"
+          ],
+          "issue_labels": [
+            "monetization_value/pricing",
+            "monetization_value/value_for_money",
+            "online_community/matchmaking",
+            "gameplay/balance",
+            "technical/networking",
+            "online_community/cheating_anti_cheat",
+            "gameplay/mechanics"
+          ],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "mixed",
+          "subcategories": [
+            "monetization_value/pricing",
+            "monetization_value/value_for_money",
+            "online_community/matchmaking",
+            "gameplay/balance",
+            "technical/networking",
+            "online_community/cheating_anti_cheat",
+            "gameplay/mechanics"
+          ]
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [
+            "monetization_value/microtransactions",
+            "online_community/matchmaking",
+            "gameplay/balance",
+            "technical/networking",
+            "developer_updates/communication",
+            "monetization_value/battle_pass_fomo"
+          ],
+          "main_category": "monetization_value",
+          "request_subcategories": [],
+          "subcategories": [
+            "monetization_value/microtransactions",
+            "online_community/matchmaking",
+            "gameplay/balance",
+            "technical/networking",
+            "developer_updates/communication",
+            "monetization_value/battle_pass_fomo"
+          ],
+          "subcategory": "microtransactions"
+        },
+        "sampling_stratum": "challenge",
+        "error_type": "multilabel_omission",
+        "omitted_labels": [
+          "gameplay/mechanics",
+          "monetization_value/pricing",
+          "monetization_value/value_for_money",
+          "online_community/cheating_anti_cheat"
+        ]
+      },
+      {
+        "sample_id": "pv-1172470-232935936",
+        "source_review": "game looks good, player looks like software, at the end of the day is burning the last chromosome you have but it;'s ok",
+        "gold": {
+          "evidence_spans": [
+            "game looks good, player looks like software, at the end of the day is burning the last chromosome you have but it;'s ok"
+          ],
+          "issue_labels": [
+            "presentation/visuals_art_style"
+          ],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "mixed",
+          "subcategories": [
+            "presentation/visuals_art_style"
+          ]
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [
+            "other/general"
+          ],
+          "main_category": "other",
+          "request_subcategories": [],
+          "subcategories": [
+            "other/general",
+            "gameplay/mechanics"
+          ],
+          "subcategory": "general"
+        },
+        "sampling_stratum": "challenge",
+        "error_type": "multilabel_omission",
+        "omitted_labels": [
+          "presentation/visuals_art_style"
+        ]
+      },
+      {
+        "sample_id": "pv-1172470-233023949",
+        "source_review": "very fun when played with friends and does not matter what skill level your friends are which makes it a nice game as well.",
+        "gold": {
+          "evidence_spans": [
+            "very fun when played with friends and does not matter what skill level your friends are which makes it a nice game as well."
+          ],
+          "issue_labels": [],
+          "issue_present": false,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "positive",
+          "subcategories": [
+            "gameplay/mechanics"
+          ]
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [],
+          "main_category": "online_community",
+          "request_subcategories": [],
+          "subcategories": [
+            "online_community/multiplayer_experience",
+            "gameplay/difficulty"
+          ],
+          "subcategory": "multiplayer_experience"
+        },
+        "sampling_stratum": "core",
+        "error_type": "multilabel_omission",
+        "omitted_labels": [
+          "gameplay/mechanics"
+        ]
+      },
+      {
+        "sample_id": "pv-1172470-233121458",
+        "source_review": "匹配机制太猎奇了，而且这他妈新赛季铂金能掉到青铜，我靠我一个青铜本地人打得真的一点游戏体验都没有哎呀我真操了",
+        "gold": {
+          "evidence_spans": [
+            "匹配机制太猎奇了",
+            "新赛季铂金能掉到青铜"
+          ],
+          "issue_labels": [
+            "online_community/matchmaking",
+            "gameplay/mechanics"
+          ],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "negative",
+          "subcategories": [
+            "online_community/matchmaking",
+            "gameplay/mechanics"
+          ]
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [
+            "gameplay/balance",
+            "online_community/matchmaking",
+            "gameplay/difficulty"
+          ],
+          "main_category": "gameplay",
+          "request_subcategories": [],
+          "subcategories": [
+            "gameplay/balance",
+            "online_community/matchmaking",
+            "gameplay/difficulty"
+          ],
+          "subcategory": "balance"
+        },
+        "sampling_stratum": "challenge",
+        "error_type": "multilabel_omission",
+        "omitted_labels": [
+          "gameplay/mechanics"
+        ]
+      },
+      {
+        "sample_id": "pv-2584270-233546092",
+        "source_review": "点名无名囚徒，弹一个1 2 3 456 7的七连，前三刀好弹，但是问题来了\n什么叫弹反按快了还会吞键，然后直接持盾的？\n什么叫boss韧性只够弹9刀，还不会恢复韧性条。前三刀成功，后面失败了躯壳暴毙，肉身再弹其他六刀？\n什么叫三连砸地，后两段瞬移+无死角转向？\n什么叫红光跳砸，剑都插地底下去了，上撩还能瞬移到玩家脸上的，咋没给地面豁出个大裂谷？\n什么叫boss丢人血条丢人韧性，不敢多交互，只能被动翻滚等招，还不吃引招，全凭心情出，录个视频三分钟他才出一次，结果全地图只有他有一个成就？\n那脑瓜子一热，一拍脑门，哇太酷了！他脑袋上 别着个大剑你们见过吗，我们要赶紧加个成就吧。这么喜欢那咋不做个专属处决动画呢？\n美术和地图是可以的，boss设计是不如外面小怪的，数值平衡是随便写的，制作组的小巧思，那就是一坨。",
+        "gold": {
+          "evidence_spans": [
+            "弹反按快了还会吞键",
+            "boss韧性只够弹9刀，还不会恢复韧性条",
+            "后两段瞬移+无死角转向",
+            "不敢多交互，只能被动翻滚等招",
+            "美术和地图是可以的"
+          ],
+          "issue_labels": [
+            "gameplay/controls",
+            "gameplay/balance",
+            "gameplay/difficulty",
+            "gameplay/mechanics",
+            "presentation/visuals_art_style"
+          ],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "mixed",
+          "subcategories": [
+            "gameplay/controls",
+            "gameplay/balance",
+            "gameplay/difficulty",
+            "gameplay/mechanics",
+            "presentation/visuals_art_style"
+          ]
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [
+            "gameplay/mechanics",
+            "gameplay/balance",
+            "gameplay/difficulty",
+            "content_design/quests_modes"
+          ],
+          "main_category": "gameplay",
+          "request_subcategories": [],
+          "subcategories": [
+            "gameplay/mechanics",
+            "gameplay/balance",
+            "gameplay/difficulty",
+            "content_design/quests_modes",
+            "presentation/visuals_art_style",
+            "content_design/level_design"
+          ],
+          "subcategory": "mechanics"
+        },
+        "sampling_stratum": "challenge",
+        "error_type": "multilabel_omission",
+        "omitted_labels": [
+          "gameplay/controls"
+        ]
+      }
+    ],
+    "challenge_failure": [
+      {
+        "sample_id": "pv-1172470-230661088",
+        "source_review": "傻逼游戏又有bug，小蓝熊跑完进度游戏打不开了，网上的解决方法都没用。",
+        "gold": {
+          "evidence_spans": [
+            "又有bug",
+            "游戏打不开了，网上的解决方法都没用"
+          ],
+          "issue_labels": [
+            "technical/bugs"
+          ],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "negative",
+          "subcategories": [
+            "technical/bugs"
+          ]
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [
+            "technical/stability_crashes",
+            "technical/bugs",
+            "technical/compatibility"
+          ],
+          "main_category": "technical",
+          "request_subcategories": [],
+          "subcategories": [
+            "technical/stability_crashes",
+            "technical/bugs",
+            "technical/compatibility"
+          ],
+          "subcategory": "stability_crashes"
+        },
+        "sampling_stratum": "challenge",
+        "error_type": "challenge_failure"
+      },
+      {
+        "sample_id": "pv-1172470-231335826",
+        "source_review": "fajen",
+        "gold": {
+          "evidence_spans": [
+            "fajen"
+          ],
+          "issue_labels": [],
+          "issue_present": false,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "positive",
+          "subcategories": []
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [],
+          "main_category": "other",
+          "request_subcategories": [],
+          "subcategories": [
+            "other/general"
+          ],
+          "subcategory": "general"
+        },
+        "sampling_stratum": "challenge",
+        "error_type": "challenge_failure"
+      },
+      {
+        "sample_id": "pv-1172470-231539655",
+        "source_review": "хорошая игра, когда-то была",
+        "gold": {
+          "evidence_spans": [
+            "хорошая игра, когда-то была"
+          ],
+          "issue_labels": [],
+          "issue_present": false,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "mixed",
+          "subcategories": []
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [],
+          "main_category": "other",
+          "request_subcategories": [],
+          "subcategories": [
+            "other/mixed"
+          ],
+          "subcategory": "mixed"
+        },
+        "sampling_stratum": "challenge",
+        "error_type": "challenge_failure"
+      },
+      {
+        "sample_id": "pv-1172470-231581685",
+        "source_review": "操你妈apex",
+        "gold": {
+          "evidence_spans": [
+            "操你妈apex"
+          ],
+          "issue_labels": [],
+          "issue_present": false,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "negative",
+          "subcategories": []
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [],
+          "main_category": "other",
+          "request_subcategories": [],
+          "subcategories": [
+            "other/off_topic"
+          ],
+          "subcategory": "off_topic"
+        },
+        "sampling_stratum": "challenge",
+        "error_type": "challenge_failure"
+      },
+      {
+        "sample_id": "pv-1172470-231866412",
+        "source_review": "yes",
+        "gold": {
+          "evidence_spans": [
+            "yes"
+          ],
+          "issue_labels": [],
+          "issue_present": false,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "uncertain",
+          "subcategories": []
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [],
+          "main_category": "other",
+          "request_subcategories": [],
+          "subcategories": [
+            "other/general"
+          ],
+          "subcategory": "general"
+        },
+        "sampling_stratum": "challenge",
+        "error_type": "challenge_failure"
+      },
+      {
+        "sample_id": "pv-1172470-231869029",
+        "source_review": "牛逼",
+        "gold": {
+          "evidence_spans": [
+            "牛逼"
+          ],
+          "issue_labels": [],
+          "issue_present": false,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "positive",
+          "subcategories": []
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [],
+          "main_category": "other",
+          "request_subcategories": [],
+          "subcategories": [
+            "other/general"
+          ],
+          "subcategory": "general"
+        },
+        "sampling_stratum": "challenge",
+        "error_type": "challenge_failure"
+      },
+      {
+        "sample_id": "pv-1172470-231990320",
+        "source_review": "It's just that it's the worst game in the world, the developers haven't done a damn thing in 10 years, because the game was ♥♥♥♥ for the mentally retarded, and it still is, the game literally has a choice, you can search for the game alone, but you just can't play normally because the developers didn't create a single mode.), and you play against 2 opponents in a group, and do you know why they couldn't create a 1x1 mode in 10 years, because the developers are just pigs, they created heroes, but forgot to balance them) The IQ of the developers is literally lower than that of a pig. What’s even funnier is that scammers took control of the players’ computers and used cheats during the LAN tournament live on stream—damn it, this literally proves the developers’ incompetence.",
+        "gold": {
+          "evidence_spans": [
+            "developers didn't create a single mode",
+            "couldn't create a 1x1 mode in 10 years",
+            "they created heroes, but forgot to balance them",
+            "used cheats during the LAN tournament live on stream"
+          ],
+          "issue_labels": [
+            "gameplay/mechanics",
+            "gameplay/balance",
+            "online_community/cheating_anti_cheat"
+          ],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "negative",
+          "subcategories": [
+            "gameplay/mechanics",
+            "gameplay/balance",
+            "online_community/cheating_anti_cheat"
+          ]
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [
+            "gameplay/balance",
+            "online_community/cheating_anti_cheat",
+            "developer_updates/update_frequency",
+            "online_community/multiplayer_experience",
+            "gameplay/mechanics"
+          ],
+          "main_category": "gameplay",
+          "request_subcategories": [],
+          "subcategories": [
+            "gameplay/balance",
+            "online_community/cheating_anti_cheat",
+            "developer_updates/update_frequency",
+            "online_community/multiplayer_experience",
+            "gameplay/mechanics"
+          ],
+          "subcategory": "balance"
+        },
+        "sampling_stratum": "challenge",
+        "error_type": "challenge_failure"
+      },
+      {
+        "sample_id": "pv-1172470-232046330",
+        "source_review": "糞GAME 外掛一堆",
+        "gold": {
+          "evidence_spans": [
+            "外掛一堆"
+          ],
+          "issue_labels": [
+            "online_community/cheating_anti_cheat"
+          ],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "negative",
+          "subcategories": [
+            "online_community/cheating_anti_cheat"
+          ]
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [
+            "online_community/cheating_anti_cheat"
+          ],
+          "main_category": "online_community",
+          "request_subcategories": [],
+          "subcategories": [
+            "online_community/cheating_anti_cheat",
+            "other/general"
+          ],
+          "subcategory": "cheating_anti_cheat"
+        },
+        "sampling_stratum": "challenge",
+        "error_type": "challenge_failure"
+      }
+    ],
+    "long_or_truncated": [
+      {
+        "sample_id": "pv-1172470-232367444",
+        "source_review": "Отрицательный обзор на Apex Legends: Корпоративный выверенный цинизм, иллюзорные реформы и система, которая уничтожает одиночекЕсли бы меня попросили назвать игру, которая идеально иллюстрирует пустые обещания, бездушную бюрократию и системную дойку граждан со стороны крупных синдикатов, я бы без колебаний указал на Apex Legends. На бумаге это динамичная бесплатная королевская битва от Respawn и издателя EA. В реальности же это жестокий полигон капиталистического цинизма, где правила игры пишутся исключительно ради корпоративной прибыли, а голос сообщества равен нулю.Как политик, потративший годы на борьбу с олигархическими укладами, в структуре Игр Апекс я вижу худшие системные патологии. Вот почему эта игра заслуживает жесткого «дизлайка»:1. Корпоративная жадность и агрессивная монетизация (Налоги Electronic Arts)Финансовая агрессия, с которой издатель EA подходит к игрокам, напоминает методы самых беспринципных сборщиков податей. Так называемые «коллекционные события» — это фестиваль абсурда: чтобы получить один уникальный предмет (реликвию), игра вынуждает вас потратить стоимость хорошего смартфона на покупку виртуальных коробок. Вспомните скандальные попытки изменить систему Боевых пропусков, когда корпорация пыталась запретить покупать их за заработанную внутри игры валюту и требовала только живые деньги. Это ординарный грабеж, показывающий, что для системы вы не люди, а ходячие кошельки.2. Уничтожение солидарности и манипулятивный MatchmakingСистема подбора игроков (SBMM/EOMB) в Apex работает по принципам чистой социальной инженерии, созданной для манипуляции вашими эмоциями. Вместо честной, демократической конкуренции алгоритм намеренно использует средних игроков как «мясо арматурное» для сыгранных трио из профессиональных киберспортсменов (Предаторов) — просто чтобы удерживать последних на серверах. Игра буквально ненавидит одиночек (solo). Если у вас нет постоянной команды, вы обречены играть с токсичными случайными напарниками, которые выходят из матча в первую же секунду после своей гибели, разрушая любые шансы на общий успех.3. Иллюзия баланса и фальшивые «реформы»Власть, отвечающая за баланс в Апексе, действует в точности как типичное министерство: они заседают месяцами, после чего выпускают обновления, которые делают только хуже. Персонажей, которых любит и выбирает народ, безжалостно уничтожают несправедливыми ослаблениями (нерфами), в то время как технические проблемы, засилье читеров и кошмарное состояние серверов (20 tickrate в 2026 году — это позор!) не исправляются годами. Вместо ремонта фундамента государства девелоперы предпочитают каждый сезон просто красить фасад и добавлять новые платные скины.4. Монополия и уничтожение традицийИздатель EA давно доказал, что ради прибыли готов уничтожить любые великие начинания. Они фактически принесли в жертву потрясающую дилогию Titanfall, чтобы запустить этот конвейер по выкачиванию денег. При этом любимые народом режимы (например, классический соло-режим) выдаются редко и нехотя, ведь кабинетные аналитики в корпорации уверены, что они лучше граждан знают, что нужно людям для счастья. Это чистая диктатура продюсеров, уничтожающая дух настоящей игровой индустрии.Итоговый вердикт:2 пустых набора Апекс из 10. У игры великолепная, динамичная механика стрельбы и движений, но вся эта техническая доблесть заперта внутри глубоко порочной, коррумпированной жадностью системы. Это яркая неоновая вывеска, за которой скрывается обычное казино, управляемое бездушным синдикатом. Пока игроки-граждане не объединятся и не заставят EA пойти на реальные уступки, эти игры так и останутся памятником системной несправедливости.",
+        "gold": {
+          "evidence_spans": [
+            "коллекционные события",
+            "потратить стоимость хорошего смартфона",
+            "Система подбора игроков",
+            "несправедливыми ослаблениями",
+            "кошмарное состояние серверов",
+            "засилье читеров",
+            "великолепная, динамичная механика стрельбы и движений"
+          ],
+          "issue_labels": [
+            "monetization_value/pricing",
+            "monetization_value/value_for_money",
+            "online_community/matchmaking",
+            "gameplay/balance",
+            "technical/networking",
+            "online_community/cheating_anti_cheat",
+            "gameplay/mechanics"
+          ],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "mixed",
+          "subcategories": [
+            "monetization_value/pricing",
+            "monetization_value/value_for_money",
+            "online_community/matchmaking",
+            "gameplay/balance",
+            "technical/networking",
+            "online_community/cheating_anti_cheat",
+            "gameplay/mechanics"
+          ]
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [
+            "monetization_value/microtransactions",
+            "online_community/matchmaking",
+            "gameplay/balance",
+            "technical/networking",
+            "developer_updates/communication",
+            "monetization_value/battle_pass_fomo"
+          ],
+          "main_category": "monetization_value",
+          "request_subcategories": [],
+          "subcategories": [
+            "monetization_value/microtransactions",
+            "online_community/matchmaking",
+            "gameplay/balance",
+            "technical/networking",
+            "developer_updates/communication",
+            "monetization_value/battle_pass_fomo"
+          ],
+          "subcategory": "microtransactions"
+        },
+        "sampling_stratum": "challenge",
+        "error_type": "long_or_truncated",
+        "source_chars": 3633
+      }
+    ],
+    "taxonomy_gap": [
+      {
+        "sample_id": "pv-1172470-231726405",
+        "source_review": "I HATE THIS DAMN GAME NO HEIRLOOMS ARE FOR ME AND THIS GAME IS DUMB F MY CHUNGUS LIFE YUOU ACTUAL DIDDY FOID GAME\n\n-Got the heirloom, we good now",
+        "gold": {
+          "evidence_spans": [
+            "NO HEIRLOOMS ARE FOR ME AND THIS GAME IS DUMB"
+          ],
+          "issue_labels": [],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "mixed",
+          "subcategories": []
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [
+            "monetization_value/microtransactions",
+            "monetization_value/pay_to_win_grind"
+          ],
+          "main_category": "monetization_value",
+          "request_subcategories": [],
+          "subcategories": [
+            "monetization_value/microtransactions",
+            "monetization_value/pay_to_win_grind"
+          ],
+          "subcategory": "microtransactions"
+        },
+        "sampling_stratum": "core",
+        "error_type": "taxonomy_gap"
+      },
+      {
+        "sample_id": "pv-1172470-232188283",
+        "source_review": "this game is ass maybe i still play it but i got perma banned for saying re tard",
+        "gold": {
+          "evidence_spans": [
+            "i got perma banned for saying re tard"
+          ],
+          "issue_labels": [],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "negative",
+          "subcategories": []
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [
+            "online_community/toxicity_moderation"
+          ],
+          "main_category": "online_community",
+          "request_subcategories": [],
+          "subcategories": [
+            "online_community/toxicity_moderation",
+            "gameplay/mechanics"
+          ],
+          "subcategory": "toxicity_moderation"
+        },
+        "sampling_stratum": "core",
+        "error_type": "taxonomy_gap"
+      }
+    ]
+  }
+}

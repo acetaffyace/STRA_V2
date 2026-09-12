@@ -1,0 +1,1039 @@
+{
+  "sentiment": {
+    "status": "not_evaluable",
+    "reason": "production classifier does not emit sentiment"
+  },
+  "families": {
+    "issue_false_positive": [
+      {
+        "sample_id": "pv-1172470-233287545",
+        "source_review": "Юмористы на обучении говорят что надо помогать команде",
+        "gold": {
+          "evidence_spans": [
+            "Юмористы на обучении говорят что надо помогать команде"
+          ],
+          "issue_labels": [],
+          "issue_present": false,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "negative",
+          "subcategories": []
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [
+            "online_community/social_features"
+          ],
+          "main_category": "online_community",
+          "request_subcategories": [],
+          "subcategories": [
+            "online_community/social_features"
+          ],
+          "subcategory": "social_features"
+        },
+        "sampling_stratum": "core",
+        "error_type": "issue_false_positive"
+      }
+    ],
+    "issue_false_negative": [
+      {
+        "sample_id": "pv-1172470-232959876",
+        "source_review": "神的审美",
+        "gold": {
+          "evidence_spans": [
+            "神的审美"
+          ],
+          "issue_labels": [
+            "presentation/visuals_art_style"
+          ],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "positive",
+          "subcategories": [
+            "presentation/visuals_art_style"
+          ]
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [],
+          "main_category": "presentation",
+          "request_subcategories": [],
+          "subcategories": [
+            "presentation/visuals_art_style"
+          ],
+          "subcategory": "visuals_art_style"
+        },
+        "sampling_stratum": "challenge",
+        "error_type": "issue_false_negative"
+      },
+      {
+        "sample_id": "pv-2584270-233573481",
+        "source_review": "Proxima got me actin' up...",
+        "gold": {
+          "evidence_spans": [
+            "Proxima got me actin' up..."
+          ],
+          "issue_labels": [
+            "content_design/narrative_characters"
+          ],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "positive",
+          "subcategories": [
+            "content_design/narrative_characters"
+          ]
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [],
+          "main_category": "other",
+          "request_subcategories": [],
+          "subcategories": [
+            "other/meme"
+          ],
+          "subcategory": "meme"
+        },
+        "sampling_stratum": "core",
+        "error_type": "issue_false_negative"
+      },
+      {
+        "sample_id": "pv-2868840-233504487",
+        "source_review": "выпала единица на дайсах а ♥♥♥♥ хотелось 20",
+        "gold": {
+          "evidence_spans": [
+            "выпала единица на дайсах а ♥♥♥♥ хотелось 20"
+          ],
+          "issue_labels": [
+            "gameplay/mechanics"
+          ],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "negative",
+          "subcategories": [
+            "gameplay/mechanics"
+          ]
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [],
+          "main_category": "gameplay",
+          "request_subcategories": [],
+          "subcategories": [
+            "gameplay/mechanics",
+            "other/meme"
+          ],
+          "subcategory": "mechanics"
+        },
+        "sampling_stratum": "core",
+        "error_type": "issue_false_negative"
+      }
+    ],
+    "request_false_positive": [],
+    "request_false_negative": [
+      {
+        "sample_id": "pv-2868840-233032854",
+        "source_review": "1）我新角色呢\r\n2）多人联机的牌还不如不加入，大量污染卡池= =",
+        "gold": {
+          "evidence_spans": [
+            "我新角色呢",
+            "多人联机的牌还不如不加入",
+            "大量污染卡池"
+          ],
+          "issue_labels": [
+            "content_design/narrative_characters",
+            "gameplay/mechanics"
+          ],
+          "issue_present": true,
+          "request_labels": [
+            "content_design/narrative_characters",
+            "gameplay/mechanics"
+          ],
+          "request_present": true,
+          "sentiment": "negative",
+          "subcategories": [
+            "content_design/narrative_characters",
+            "gameplay/mechanics"
+          ]
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [
+            "content_design/quests_modes",
+            "online_community/multiplayer_experience",
+            "gameplay/balance"
+          ],
+          "main_category": "content_design",
+          "request_subcategories": [],
+          "subcategories": [
+            "content_design/quests_modes",
+            "online_community/multiplayer_experience",
+            "gameplay/balance"
+          ],
+          "subcategory": "quests_modes"
+        },
+        "sampling_stratum": "core",
+        "error_type": "request_false_negative"
+      }
+    ],
+    "category_boundary_confusion": [
+      {
+        "sample_id": "pv-1172470-232406326",
+        "source_review": "It was good. First few seasons were immaculate, not call of duty, not fortnight, a completely different and kind of niche game. Competitive, cool guns and of course inspiration from titan fall. I have never seen a game dive so fully into the toilet like this one. Hackers, bots, and people who genuinely could use a good therapy session/s with someone pretending to be the parents they never had.",
+        "gold": {
+          "evidence_spans": [
+            "Competitive, cool guns",
+            "Hackers"
+          ],
+          "issue_labels": [
+            "gameplay/mechanics",
+            "online_community/cheating_anti_cheat"
+          ],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "mixed",
+          "subcategories": [
+            "gameplay/mechanics",
+            "online_community/cheating_anti_cheat"
+          ]
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [
+            "online_community/cheating_anti_cheat",
+            "online_community/toxicity_moderation"
+          ],
+          "main_category": "online_community",
+          "request_subcategories": [],
+          "subcategories": [
+            "online_community/cheating_anti_cheat",
+            "online_community/toxicity_moderation",
+            "gameplay/mechanics",
+            "content_design/narrative_characters"
+          ],
+          "subcategory": "cheating_anti_cheat"
+        },
+        "sampling_stratum": "core",
+        "error_type": "category_boundary_confusion"
+      },
+      {
+        "sample_id": "pv-1172470-232847372",
+        "source_review": "I would reccomend this game for casual play.\r\n\r\nThe ranked system incentivises ratting around doing nothing all game waiting to third party or just camping on a hill. The people you will be qued with will be people who must have to look down at every button or something before they press it idk its comically bad. \r\n\r\nMost maps are good\r\n\r\nGun balance is all over the place, but changes consistently so it is what it is. \r\n\r\nVery easy to hop on controller to due to huuuuuuuge amounts of aim assist. I'm not great on a controller but its doable if i want to because the game just aims for me lmao.",
+        "gold": {
+          "evidence_spans": [
+            "The ranked system incentivises ratting around doing nothing all game waiting to third party or just camping on a hill",
+            "The people you will be qued with",
+            "Most maps are good",
+            "Gun balance is all over the place",
+            "huuuuuuuge amounts of aim assist"
+          ],
+          "issue_labels": [
+            "gameplay/balance",
+            "online_community/matchmaking",
+            "gameplay/controls",
+            "content_design/level_design"
+          ],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "mixed",
+          "subcategories": [
+            "gameplay/balance",
+            "online_community/matchmaking",
+            "gameplay/controls",
+            "content_design/level_design"
+          ]
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [
+            "gameplay/balance",
+            "gameplay/mechanics",
+            "online_community/multiplayer_experience",
+            "gameplay/controls"
+          ],
+          "main_category": "gameplay",
+          "request_subcategories": [],
+          "subcategories": [
+            "gameplay/balance",
+            "gameplay/mechanics",
+            "online_community/multiplayer_experience",
+            "gameplay/controls",
+            "content_design/level_design",
+            "developer_updates/update_frequency"
+          ],
+          "subcategory": "balance"
+        },
+        "sampling_stratum": "core",
+        "error_type": "category_boundary_confusion"
+      },
+      {
+        "sample_id": "pv-1172470-233190747",
+        "source_review": "i have a combined hours of around 2k from pc and xbox peaked high diamond spent over £200 just on packs got to level 200  and got no heirloom.  friend of mine loaded the game up for the first tile level 1 and opened 3 packs and got one. another friend level 5 opened the game and had a pack and believe it or not he got one games great",
+        "gold": {
+          "evidence_spans": [
+            "spent over £200 just on packs got to level 200  and got no heirloom",
+            "friend of mine loaded the game up for the first tile level 1 and opened 3 packs and got one"
+          ],
+          "issue_labels": [
+            "monetization_value/value_for_money"
+          ],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "mixed",
+          "subcategories": [
+            "monetization_value/value_for_money"
+          ]
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [
+            "monetization_value/microtransactions",
+            "monetization_value/pay_to_win_grind",
+            "monetization_value/value_for_money"
+          ],
+          "main_category": "monetization_value",
+          "request_subcategories": [],
+          "subcategories": [
+            "monetization_value/microtransactions",
+            "monetization_value/pay_to_win_grind",
+            "monetization_value/value_for_money",
+            "gameplay/progression"
+          ],
+          "subcategory": "microtransactions"
+        },
+        "sampling_stratum": "core",
+        "error_type": "category_boundary_confusion"
+      },
+      {
+        "sample_id": "pv-2584270-233573481",
+        "source_review": "Proxima got me actin' up...",
+        "gold": {
+          "evidence_spans": [
+            "Proxima got me actin' up..."
+          ],
+          "issue_labels": [
+            "content_design/narrative_characters"
+          ],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "positive",
+          "subcategories": [
+            "content_design/narrative_characters"
+          ]
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [],
+          "main_category": "other",
+          "request_subcategories": [],
+          "subcategories": [
+            "other/meme"
+          ],
+          "subcategory": "meme"
+        },
+        "sampling_stratum": "core",
+        "error_type": "category_boundary_confusion"
+      },
+      {
+        "sample_id": "pv-2868840-232800213",
+        "source_review": "不会做平衡可以不做，天天在这+1-1恶心谁呢，大大方方安8分钱",
+        "gold": {
+          "evidence_spans": [
+            "不会做平衡可以不做，天天在这+1-1恶心谁呢，大大方方安8分钱"
+          ],
+          "issue_labels": [
+            "gameplay/balance"
+          ],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "negative",
+          "subcategories": [
+            "gameplay/balance"
+          ]
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [
+            "gameplay/balance",
+            "developer_updates/update_frequency"
+          ],
+          "main_category": "gameplay",
+          "request_subcategories": [],
+          "subcategories": [
+            "gameplay/balance",
+            "developer_updates/update_frequency",
+            "monetization_value/value_for_money"
+          ],
+          "subcategory": "balance"
+        },
+        "sampling_stratum": "core",
+        "error_type": "category_boundary_confusion"
+      },
+      {
+        "sample_id": "pv-2868840-233032854",
+        "source_review": "1）我新角色呢\r\n2）多人联机的牌还不如不加入，大量污染卡池= =",
+        "gold": {
+          "evidence_spans": [
+            "我新角色呢",
+            "多人联机的牌还不如不加入",
+            "大量污染卡池"
+          ],
+          "issue_labels": [
+            "content_design/narrative_characters",
+            "gameplay/mechanics"
+          ],
+          "issue_present": true,
+          "request_labels": [
+            "content_design/narrative_characters",
+            "gameplay/mechanics"
+          ],
+          "request_present": true,
+          "sentiment": "negative",
+          "subcategories": [
+            "content_design/narrative_characters",
+            "gameplay/mechanics"
+          ]
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [
+            "content_design/quests_modes",
+            "online_community/multiplayer_experience",
+            "gameplay/balance"
+          ],
+          "main_category": "content_design",
+          "request_subcategories": [],
+          "subcategories": [
+            "content_design/quests_modes",
+            "online_community/multiplayer_experience",
+            "gameplay/balance"
+          ],
+          "subcategory": "quests_modes"
+        },
+        "sampling_stratum": "core",
+        "error_type": "category_boundary_confusion"
+      },
+      {
+        "sample_id": "pv-2868840-233116226",
+        "source_review": "各种怪的机制纯纯恶心人，毫无意义，限制各位玩法，2代除了画质真的完全不如1代",
+        "gold": {
+          "evidence_spans": [
+            "各种怪的机制纯纯恶心人，毫无意义",
+            "限制各位玩法",
+            "2代除了画质真的完全不如1代"
+          ],
+          "issue_labels": [
+            "gameplay/mechanics",
+            "gameplay/balance",
+            "presentation/visuals_art_style"
+          ],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "mixed",
+          "subcategories": [
+            "gameplay/mechanics",
+            "gameplay/balance",
+            "presentation/visuals_art_style"
+          ]
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [
+            "gameplay/mechanics",
+            "gameplay/difficulty"
+          ],
+          "main_category": "gameplay",
+          "request_subcategories": [],
+          "subcategories": [
+            "gameplay/mechanics",
+            "gameplay/difficulty",
+            "presentation/visuals_art_style",
+            "content_design/narrative_characters"
+          ],
+          "subcategory": "mechanics"
+        },
+        "sampling_stratum": "core",
+        "error_type": "category_boundary_confusion"
+      },
+      {
+        "sample_id": "pv-2868840-233504487",
+        "source_review": "выпала единица на дайсах а ♥♥♥♥ хотелось 20",
+        "gold": {
+          "evidence_spans": [
+            "выпала единица на дайсах а ♥♥♥♥ хотелось 20"
+          ],
+          "issue_labels": [
+            "gameplay/mechanics"
+          ],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "negative",
+          "subcategories": [
+            "gameplay/mechanics"
+          ]
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [],
+          "main_category": "gameplay",
+          "request_subcategories": [],
+          "subcategories": [
+            "gameplay/mechanics",
+            "other/meme"
+          ],
+          "subcategory": "mechanics"
+        },
+        "sampling_stratum": "core",
+        "error_type": "category_boundary_confusion"
+      }
+    ],
+    "multilabel_omission": [
+      {
+        "sample_id": "pv-1172470-232847372",
+        "source_review": "I would reccomend this game for casual play.\r\n\r\nThe ranked system incentivises ratting around doing nothing all game waiting to third party or just camping on a hill. The people you will be qued with will be people who must have to look down at every button or something before they press it idk its comically bad. \r\n\r\nMost maps are good\r\n\r\nGun balance is all over the place, but changes consistently so it is what it is. \r\n\r\nVery easy to hop on controller to due to huuuuuuuge amounts of aim assist. I'm not great on a controller but its doable if i want to because the game just aims for me lmao.",
+        "gold": {
+          "evidence_spans": [
+            "The ranked system incentivises ratting around doing nothing all game waiting to third party or just camping on a hill",
+            "The people you will be qued with",
+            "Most maps are good",
+            "Gun balance is all over the place",
+            "huuuuuuuge amounts of aim assist"
+          ],
+          "issue_labels": [
+            "gameplay/balance",
+            "online_community/matchmaking",
+            "gameplay/controls",
+            "content_design/level_design"
+          ],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "mixed",
+          "subcategories": [
+            "gameplay/balance",
+            "online_community/matchmaking",
+            "gameplay/controls",
+            "content_design/level_design"
+          ]
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [
+            "gameplay/balance",
+            "gameplay/mechanics",
+            "online_community/multiplayer_experience",
+            "gameplay/controls"
+          ],
+          "main_category": "gameplay",
+          "request_subcategories": [],
+          "subcategories": [
+            "gameplay/balance",
+            "gameplay/mechanics",
+            "online_community/multiplayer_experience",
+            "gameplay/controls",
+            "content_design/level_design",
+            "developer_updates/update_frequency"
+          ],
+          "subcategory": "balance"
+        },
+        "sampling_stratum": "core",
+        "error_type": "multilabel_omission",
+        "omitted_labels": [
+          "online_community/matchmaking"
+        ]
+      },
+      {
+        "sample_id": "pv-2584270-233573481",
+        "source_review": "Proxima got me actin' up...",
+        "gold": {
+          "evidence_spans": [
+            "Proxima got me actin' up..."
+          ],
+          "issue_labels": [
+            "content_design/narrative_characters"
+          ],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "positive",
+          "subcategories": [
+            "content_design/narrative_characters"
+          ]
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [],
+          "main_category": "other",
+          "request_subcategories": [],
+          "subcategories": [
+            "other/meme"
+          ],
+          "subcategory": "meme"
+        },
+        "sampling_stratum": "core",
+        "error_type": "multilabel_omission",
+        "omitted_labels": [
+          "content_design/narrative_characters"
+        ]
+      },
+      {
+        "sample_id": "pv-2868840-233032854",
+        "source_review": "1）我新角色呢\r\n2）多人联机的牌还不如不加入，大量污染卡池= =",
+        "gold": {
+          "evidence_spans": [
+            "我新角色呢",
+            "多人联机的牌还不如不加入",
+            "大量污染卡池"
+          ],
+          "issue_labels": [
+            "content_design/narrative_characters",
+            "gameplay/mechanics"
+          ],
+          "issue_present": true,
+          "request_labels": [
+            "content_design/narrative_characters",
+            "gameplay/mechanics"
+          ],
+          "request_present": true,
+          "sentiment": "negative",
+          "subcategories": [
+            "content_design/narrative_characters",
+            "gameplay/mechanics"
+          ]
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [
+            "content_design/quests_modes",
+            "online_community/multiplayer_experience",
+            "gameplay/balance"
+          ],
+          "main_category": "content_design",
+          "request_subcategories": [],
+          "subcategories": [
+            "content_design/quests_modes",
+            "online_community/multiplayer_experience",
+            "gameplay/balance"
+          ],
+          "subcategory": "quests_modes"
+        },
+        "sampling_stratum": "core",
+        "error_type": "multilabel_omission",
+        "omitted_labels": [
+          "content_design/narrative_characters",
+          "gameplay/mechanics"
+        ]
+      },
+      {
+        "sample_id": "pv-2868840-233100151",
+        "source_review": "难度太高了，当单机来玩的，结果打了几个小时还没通一次关，最后被逼无奈只能打mod来降低难度。不推荐原价买",
+        "gold": {
+          "evidence_spans": [
+            "难度太高了",
+            "打了几个小时还没通一次关",
+            "只能打mod来降低难度",
+            "不推荐原价买"
+          ],
+          "issue_labels": [
+            "gameplay/difficulty",
+            "monetization_value/pricing"
+          ],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "negative",
+          "subcategories": [
+            "gameplay/difficulty",
+            "monetization_value/pricing"
+          ]
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [
+            "gameplay/difficulty",
+            "gameplay/progression"
+          ],
+          "main_category": "gameplay",
+          "request_subcategories": [],
+          "subcategories": [
+            "gameplay/difficulty",
+            "gameplay/progression",
+            "monetization_value/value_for_money"
+          ],
+          "subcategory": "difficulty"
+        },
+        "sampling_stratum": "challenge",
+        "error_type": "multilabel_omission",
+        "omitted_labels": [
+          "monetization_value/pricing"
+        ]
+      },
+      {
+        "sample_id": "pv-2868840-233116226",
+        "source_review": "各种怪的机制纯纯恶心人，毫无意义，限制各位玩法，2代除了画质真的完全不如1代",
+        "gold": {
+          "evidence_spans": [
+            "各种怪的机制纯纯恶心人，毫无意义",
+            "限制各位玩法",
+            "2代除了画质真的完全不如1代"
+          ],
+          "issue_labels": [
+            "gameplay/mechanics",
+            "gameplay/balance",
+            "presentation/visuals_art_style"
+          ],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "mixed",
+          "subcategories": [
+            "gameplay/mechanics",
+            "gameplay/balance",
+            "presentation/visuals_art_style"
+          ]
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [
+            "gameplay/mechanics",
+            "gameplay/difficulty"
+          ],
+          "main_category": "gameplay",
+          "request_subcategories": [],
+          "subcategories": [
+            "gameplay/mechanics",
+            "gameplay/difficulty",
+            "presentation/visuals_art_style",
+            "content_design/narrative_characters"
+          ],
+          "subcategory": "mechanics"
+        },
+        "sampling_stratum": "core",
+        "error_type": "multilabel_omission",
+        "omitted_labels": [
+          "gameplay/balance"
+        ]
+      }
+    ],
+    "challenge_failure": [
+      {
+        "sample_id": "pv-1172470-231333216",
+        "source_review": "Solo apex",
+        "gold": {
+          "evidence_spans": [
+            "Solo apex"
+          ],
+          "issue_labels": [],
+          "issue_present": false,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "uncertain",
+          "subcategories": []
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [],
+          "main_category": "other",
+          "request_subcategories": [],
+          "subcategories": [
+            "other/general"
+          ],
+          "subcategory": "general"
+        },
+        "sampling_stratum": "challenge",
+        "error_type": "challenge_failure"
+      },
+      {
+        "sample_id": "pv-1172470-231364467",
+        "source_review": "尽管在走下坡路，但依旧希望有更多新人入坑",
+        "gold": {
+          "evidence_spans": [
+            "尽管在走下坡路"
+          ],
+          "issue_labels": [],
+          "issue_present": false,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "mixed",
+          "subcategories": []
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [],
+          "main_category": "other",
+          "request_subcategories": [],
+          "subcategories": [
+            "other/general"
+          ],
+          "subcategory": "general"
+        },
+        "sampling_stratum": "challenge",
+        "error_type": "challenge_failure"
+      },
+      {
+        "sample_id": "pv-1172470-231598376",
+        "source_review": "enjoyed",
+        "gold": {
+          "evidence_spans": [
+            "enjoyed"
+          ],
+          "issue_labels": [],
+          "issue_present": false,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "positive",
+          "subcategories": []
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [],
+          "main_category": "other",
+          "request_subcategories": [],
+          "subcategories": [
+            "other/general"
+          ],
+          "subcategory": "general"
+        },
+        "sampling_stratum": "challenge",
+        "error_type": "challenge_failure"
+      },
+      {
+        "sample_id": "pv-1172470-231743797",
+        "source_review": "great game worth playing",
+        "gold": {
+          "evidence_spans": [
+            "great game worth playing"
+          ],
+          "issue_labels": [],
+          "issue_present": false,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "positive",
+          "subcategories": []
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [],
+          "main_category": "other",
+          "request_subcategories": [],
+          "subcategories": [
+            "other/general"
+          ],
+          "subcategory": "general"
+        },
+        "sampling_stratum": "challenge",
+        "error_type": "challenge_failure"
+      },
+      {
+        "sample_id": "pv-1172470-232440880",
+        "source_review": "shi",
+        "gold": {
+          "evidence_spans": [
+            "shi"
+          ],
+          "issue_labels": [],
+          "issue_present": false,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "negative",
+          "subcategories": []
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [],
+          "main_category": "other",
+          "request_subcategories": [],
+          "subcategories": [
+            "other/general"
+          ],
+          "subcategory": "general"
+        },
+        "sampling_stratum": "challenge",
+        "error_type": "challenge_failure"
+      },
+      {
+        "sample_id": "pv-1172470-232520173",
+        "source_review": "loba jest tuff",
+        "gold": {
+          "evidence_spans": [
+            "loba jest tuff"
+          ],
+          "issue_labels": [],
+          "issue_present": false,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "positive",
+          "subcategories": []
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [],
+          "main_category": "other",
+          "request_subcategories": [],
+          "subcategories": [
+            "other/general"
+          ],
+          "subcategory": "general"
+        },
+        "sampling_stratum": "challenge",
+        "error_type": "challenge_failure"
+      },
+      {
+        "sample_id": "pv-1172470-232582094",
+        "source_review": "快来 以下犯上",
+        "gold": {
+          "evidence_spans": [
+            "快来 以下犯上"
+          ],
+          "issue_labels": [],
+          "issue_present": false,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "uncertain",
+          "subcategories": []
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [],
+          "main_category": "other",
+          "request_subcategories": [],
+          "subcategories": [
+            "other/general"
+          ],
+          "subcategory": "general"
+        },
+        "sampling_stratum": "challenge",
+        "error_type": "challenge_failure"
+      },
+      {
+        "sample_id": "pv-1172470-232959876",
+        "source_review": "神的审美",
+        "gold": {
+          "evidence_spans": [
+            "神的审美"
+          ],
+          "issue_labels": [
+            "presentation/visuals_art_style"
+          ],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "positive",
+          "subcategories": [
+            "presentation/visuals_art_style"
+          ]
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [],
+          "main_category": "presentation",
+          "request_subcategories": [],
+          "subcategories": [
+            "presentation/visuals_art_style"
+          ],
+          "subcategory": "visuals_art_style"
+        },
+        "sampling_stratum": "challenge",
+        "error_type": "challenge_failure"
+      }
+    ],
+    "long_or_truncated": [],
+    "taxonomy_gap": [
+      {
+        "sample_id": "pv-1172470-232516112",
+        "source_review": "donnez le herloom",
+        "gold": {
+          "evidence_spans": [
+            "donnez le herloom"
+          ],
+          "issue_labels": [],
+          "issue_present": false,
+          "request_labels": [],
+          "request_present": true,
+          "sentiment": "uncertain",
+          "subcategories": []
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [],
+          "main_category": "monetization_value",
+          "request_subcategories": [
+            "monetization_value/dlc"
+          ],
+          "subcategories": [
+            "monetization_value/dlc"
+          ],
+          "subcategory": "dlc"
+        },
+        "sampling_stratum": "core",
+        "error_type": "taxonomy_gap"
+      },
+      {
+        "sample_id": "pv-1172470-233121274",
+        "source_review": "南通太多了",
+        "gold": {
+          "evidence_spans": [
+            "南通太多了"
+          ],
+          "issue_labels": [],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "negative",
+          "subcategories": []
+        },
+        "predicted": {
+          "aspects": [],
+          "evidence": {},
+          "issue_subcategories": [
+            "online_community/social_features"
+          ],
+          "main_category": "online_community",
+          "request_subcategories": [],
+          "subcategories": [
+            "online_community/social_features"
+          ],
+          "subcategory": "social_features"
+        },
+        "sampling_stratum": "core",
+        "error_type": "taxonomy_gap"
+      }
+    ]
+  }
+}

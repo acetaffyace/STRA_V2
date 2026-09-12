@@ -1,0 +1,270 @@
+{
+  "audit_version": "p0.5cv-issue-semantics-v1",
+  "gold_file": "P0_5B_gold_verified.jsonl",
+  "gold_record_count": 150,
+  "issue_present_true_count": 54,
+  "positive_issue_candidate_count": 16,
+  "production_contract_summary": {
+    "subcategories": "all taxonomy-relevant topics/aspects",
+    "issue_subcategories": "only problems/complaints and a subset of subcategories",
+    "request_subcategories": "only explicit requests and a subset of subcategories",
+    "issue_rate": "count of classified records with non-empty issue_subcategories divided by validated classified records"
+  },
+  "candidates": [
+    {
+      "sample_id": "pv-1172470-231768442",
+      "source_review": "running ranked till a +400 game = goated gameloop",
+      "sentiment": "positive",
+      "current_issue_present": true,
+      "current_issue_labels": [
+        "gameplay/mechanics"
+      ],
+      "evidence_spans": [
+        "running ranked till a +400 game = goated gameloop"
+      ],
+      "reason_flagged": "positive Gold sentiment with issue_present=true; requires checking whether the text states a problem or only mentions/praises an aspect",
+      "recommended_interpretation": "likely aspect mention with issue_present=false unless the human-confirmed reading identifies an explicit problem or complaint",
+      "requires_human_review": true
+    },
+    {
+      "sample_id": "pv-4162040-232740798",
+      "source_review": "Если б такая физика была в школе..",
+      "sentiment": "positive",
+      "current_issue_present": true,
+      "current_issue_labels": [
+        "gameplay/mechanics"
+      ],
+      "evidence_spans": [
+        "Если б такая физика была в школе.."
+      ],
+      "reason_flagged": "positive Gold sentiment with issue_present=true; requires checking whether the text states a problem or only mentions/praises an aspect",
+      "recommended_interpretation": "likely aspect mention with issue_present=false unless the human-confirmed reading identifies an explicit problem or complaint",
+      "requires_human_review": true
+    },
+    {
+      "sample_id": "pv-4162040-232989490",
+      "source_review": "Miyabi mi vieja de toda la vida",
+      "sentiment": "positive",
+      "current_issue_present": true,
+      "current_issue_labels": [
+        "content_design/narrative_characters"
+      ],
+      "evidence_spans": [
+        "Miyabi mi vieja de toda la vida"
+      ],
+      "reason_flagged": "positive Gold sentiment with issue_present=true; requires checking whether the text states a problem or only mentions/praises an aspect",
+      "recommended_interpretation": "likely aspect mention with issue_present=false unless the human-confirmed reading identifies an explicit problem or complaint",
+      "requires_human_review": true
+    },
+    {
+      "sample_id": "pv-1172470-232155751",
+      "source_review": "so much fun prices are so low",
+      "sentiment": "positive",
+      "current_issue_present": true,
+      "current_issue_labels": [
+        "monetization_value/pricing"
+      ],
+      "evidence_spans": [
+        "prices are so low"
+      ],
+      "reason_flagged": "positive Gold sentiment with issue_present=true; requires checking whether the text states a problem or only mentions/praises an aspect",
+      "recommended_interpretation": "likely aspect mention with issue_present=false unless the human-confirmed reading identifies an explicit problem or complaint",
+      "requires_human_review": true
+    },
+    {
+      "sample_id": "pv-4162040-233002020",
+      "source_review": "Cissia y Nicole estan en el juego 10/10",
+      "sentiment": "positive",
+      "current_issue_present": true,
+      "current_issue_labels": [
+        "content_design/narrative_characters"
+      ],
+      "evidence_spans": [
+        "Cissia y Nicole estan en el juego 10/10"
+      ],
+      "reason_flagged": "positive Gold sentiment with issue_present=true; requires checking whether the text states a problem or only mentions/praises an aspect",
+      "recommended_interpretation": "likely aspect mention with issue_present=false unless the human-confirmed reading identifies an explicit problem or complaint",
+      "requires_human_review": true
+    },
+    {
+      "sample_id": "pv-2868840-232792409",
+      "source_review": "best deck builder out there, similar to the original but the coop makes it a no brainer. after 150h still discovering combos and synergies",
+      "sentiment": "positive",
+      "current_issue_present": true,
+      "current_issue_labels": [
+        "gameplay/mechanics"
+      ],
+      "evidence_spans": [
+        "best deck builder out there",
+        "the coop makes it a no brainer",
+        "still discovering combos and synergies"
+      ],
+      "reason_flagged": "positive Gold sentiment with issue_present=true; requires checking whether the text states a problem or only mentions/praises an aspect",
+      "recommended_interpretation": "likely aspect mention with issue_present=false unless the human-confirmed reading identifies an explicit problem or complaint",
+      "requires_human_review": true
+    },
+    {
+      "sample_id": "pv-2584270-233573481",
+      "source_review": "Proxima got me actin' up...",
+      "sentiment": "positive",
+      "current_issue_present": true,
+      "current_issue_labels": [
+        "content_design/narrative_characters"
+      ],
+      "evidence_spans": [
+        "Proxima got me actin' up..."
+      ],
+      "reason_flagged": "positive Gold sentiment with issue_present=true; requires checking whether the text states a problem or only mentions/praises an aspect",
+      "recommended_interpretation": "likely aspect mention with issue_present=false unless the human-confirmed reading identifies an explicit problem or complaint",
+      "requires_human_review": true
+    },
+    {
+      "sample_id": "pv-4162040-232942889",
+      "source_review": "I'm gonna be goonin to those jiggle physics later PS if i give u a good review can u let me have Zhu Yuan plsplsplsplsplslsplpslplspls\n\nEdit I got her and I've never been happier in years so now it's time for my real review: story is good and interedting and there's a lot of amazing artwork and voice acting. I'm happy to have supported and continue to support this game with my money",
+      "sentiment": "positive",
+      "current_issue_present": true,
+      "current_issue_labels": [
+        "content_design/narrative_characters",
+        "presentation/visuals_art_style"
+      ],
+      "evidence_spans": [
+        "story is good and interedting",
+        "a lot of amazing artwork"
+      ],
+      "reason_flagged": "positive Gold sentiment with issue_present=true; requires checking whether the text states a problem or only mentions/praises an aspect",
+      "recommended_interpretation": "likely aspect mention with issue_present=false unless the human-confirmed reading identifies an explicit problem or complaint",
+      "requires_human_review": true
+    },
+    {
+      "sample_id": "pv-2584270-233528988",
+      "source_review": "Sehr gutes spiel in 21h hatte ich keine bugs oder performence problemme, die grafik ist umwerfend und das kampf system ist sehr belohnend wenn man es meistert und mann kann nur sagen das dieses spiel eine 9,5/10 ist es gibt einpar probleme welche nicht allzu gravierend sind",
+      "sentiment": "positive",
+      "current_issue_present": true,
+      "current_issue_labels": [
+        "technical/bugs",
+        "technical/performance",
+        "presentation/visuals_art_style",
+        "gameplay/mechanics"
+      ],
+      "evidence_spans": [
+        "keine bugs oder performence problemme",
+        "die grafik ist umwerfend",
+        "das kampf system ist sehr belohnend wenn man es meistert"
+      ],
+      "reason_flagged": "positive Gold sentiment with issue_present=true; requires checking whether the text states a problem or only mentions/praises an aspect",
+      "recommended_interpretation": "likely aspect mention with issue_present=false unless the human-confirmed reading identifies an explicit problem or complaint",
+      "requires_human_review": true
+    },
+    {
+      "sample_id": "pv-4162040-233306549",
+      "source_review": "Myiabi’s ear looks TASTY",
+      "sentiment": "positive",
+      "current_issue_present": true,
+      "current_issue_labels": [
+        "content_design/narrative_characters"
+      ],
+      "evidence_spans": [
+        "Myiabi’s ear looks TASTY"
+      ],
+      "reason_flagged": "positive Gold sentiment with issue_present=true; requires checking whether the text states a problem or only mentions/praises an aspect",
+      "recommended_interpretation": "likely aspect mention with issue_present=false unless the human-confirmed reading identifies an explicit problem or complaint",
+      "requires_human_review": true
+    },
+    {
+      "sample_id": "pv-2868840-233323994",
+      "source_review": "Love it, this game is great. I wish they'd kept the Watcher, though, stances are fun. Hopefully they'll bring her back into this game after release, or maybe even as a DLC. I'd buy that. I like cardbuilders, but this game has a special place in my heart, I wish I had more time to play :D",
+      "sentiment": "positive",
+      "current_issue_present": true,
+      "current_issue_labels": [
+        "content_design/narrative_characters",
+        "gameplay/mechanics"
+      ],
+      "evidence_spans": [
+        "I wish they'd kept the Watcher",
+        "stances are fun",
+        "Hopefully they'll bring her back into this game after release, or maybe even as a DLC"
+      ],
+      "reason_flagged": "positive Gold sentiment with issue_present=true; requires checking whether the text states a problem or only mentions/praises an aspect",
+      "recommended_interpretation": "likely aspect mention with issue_present=false unless the human-confirmed reading identifies an explicit problem or complaint",
+      "requires_human_review": true
+    },
+    {
+      "sample_id": "pv-4162040-232967794",
+      "source_review": "люблю большие попы",
+      "sentiment": "positive",
+      "current_issue_present": true,
+      "current_issue_labels": [
+        "presentation/visuals_art_style"
+      ],
+      "evidence_spans": [
+        "люблю большие попы"
+      ],
+      "reason_flagged": "positive Gold sentiment with issue_present=true; requires checking whether the text states a problem or only mentions/praises an aspect",
+      "recommended_interpretation": "likely aspect mention with issue_present=false unless the human-confirmed reading identifies an explicit problem or complaint",
+      "requires_human_review": true
+    },
+    {
+      "sample_id": "pv-1172470-233023949",
+      "source_review": "very fun when played with friends and does not matter what skill level your friends are which makes it a nice game as well.",
+      "sentiment": "positive",
+      "current_issue_present": true,
+      "current_issue_labels": [
+        "gameplay/mechanics"
+      ],
+      "evidence_spans": [
+        "very fun when played with friends and does not matter what skill level your friends are which makes it a nice game as well."
+      ],
+      "reason_flagged": "positive Gold sentiment with issue_present=true; requires checking whether the text states a problem or only mentions/praises an aspect",
+      "recommended_interpretation": "likely aspect mention with issue_present=false unless the human-confirmed reading identifies an explicit problem or complaint",
+      "requires_human_review": true
+    },
+    {
+      "sample_id": "pv-2868840-232996219",
+      "source_review": "I like my silly builds",
+      "sentiment": "positive",
+      "current_issue_present": true,
+      "current_issue_labels": [
+        "gameplay/mechanics"
+      ],
+      "evidence_spans": [
+        "I like my silly builds"
+      ],
+      "reason_flagged": "positive Gold sentiment with issue_present=true; requires checking whether the text states a problem or only mentions/praises an aspect",
+      "recommended_interpretation": "likely aspect mention with issue_present=false unless the human-confirmed reading identifies an explicit problem or complaint",
+      "requires_human_review": true
+    },
+    {
+      "sample_id": "pv-2868840-233307187",
+      "source_review": "Great game. Definitely takes some time to accumulate cards, but the ride is fun.",
+      "sentiment": "positive",
+      "current_issue_present": true,
+      "current_issue_labels": [
+        "gameplay/mechanics"
+      ],
+      "evidence_spans": [
+        "takes some time to accumulate cards"
+      ],
+      "reason_flagged": "positive Gold sentiment with issue_present=true; requires checking whether the text states a problem or only mentions/praises an aspect",
+      "recommended_interpretation": "likely aspect mention with issue_present=false unless the human-confirmed reading identifies an explicit problem or complaint",
+      "requires_human_review": true
+    },
+    {
+      "sample_id": "pv-1172470-232959876",
+      "source_review": "神的审美",
+      "sentiment": "positive",
+      "current_issue_present": true,
+      "current_issue_labels": [
+        "presentation/visuals_art_style"
+      ],
+      "evidence_spans": [
+        "神的审美"
+      ],
+      "reason_flagged": "positive Gold sentiment with issue_present=true; requires checking whether the text states a problem or only mentions/praises an aspect",
+      "recommended_interpretation": "likely aspect mention with issue_present=false unless the human-confirmed reading identifies an explicit problem or complaint",
+      "requires_human_review": true
+    }
+  ],
+  "requires_human_gold_revision": true,
+  "gold_mutated": false,
+  "prediction_artifacts_mutated": false
+}

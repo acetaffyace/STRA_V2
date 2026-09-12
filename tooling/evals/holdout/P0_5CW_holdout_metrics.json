@@ -1,0 +1,5683 @@
+{
+  "labeled_support": 38,
+  "taxonomy_gap_count": 2,
+  "groups": {
+    "all": {
+      "support": 38,
+      "sentiment": {
+        "available": false,
+        "unavailable_reason": "current production classifier contract does not emit sentiment",
+        "accuracy": null,
+        "support": 0,
+        "macro_f1": null,
+        "confusion_matrix": null,
+        "per_class": null,
+        "gold_class_support": {
+          "positive": 14,
+          "negative": 10,
+          "mixed": 7,
+          "neutral": 0,
+          "uncertain": 7
+        }
+      },
+      "subcategories": {
+        "macro_f1": 0.30376984126984125,
+        "micro": {
+          "support": 20,
+          "predicted": 59,
+          "tp": 14,
+          "fp": 45,
+          "fn": 6,
+          "precision": 0.23728813559322035,
+          "recall": 0.7,
+          "f1": 0.35443037974683544
+        },
+        "per_label": {
+          "content_design/amount_variety": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "content_design/level_design": {
+            "support": 1,
+            "predicted": 1,
+            "tp": 1,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "content_design/narrative_characters": {
+            "support": 2,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 2,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "content_design/quests_modes": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "developer_updates/update_frequency": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/balance": {
+            "support": 3,
+            "predicted": 3,
+            "tp": 2,
+            "fp": 1,
+            "fn": 1,
+            "precision": 0.6666666666666666,
+            "recall": 0.6666666666666666,
+            "f1": 0.6666666666666666
+          },
+          "gameplay/controls": {
+            "support": 1,
+            "predicted": 1,
+            "tp": 1,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "gameplay/difficulty": {
+            "support": 1,
+            "predicted": 2,
+            "tp": 1,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.5,
+            "recall": 1.0,
+            "f1": 0.6666666666666666
+          },
+          "gameplay/mechanics": {
+            "support": 4,
+            "predicted": 6,
+            "tp": 3,
+            "fp": 3,
+            "fn": 1,
+            "precision": 0.5,
+            "recall": 0.75,
+            "f1": 0.6
+          },
+          "gameplay/progression": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/dlc": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/microtransactions": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/pay_to_win_grind": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/pricing": {
+            "support": 1,
+            "predicted": 0,
+            "tp": 0,
+            "fp": 0,
+            "fn": 1,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/value_for_money": {
+            "support": 1,
+            "predicted": 3,
+            "tp": 1,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.3333333333333333,
+            "recall": 1.0,
+            "f1": 0.5
+          },
+          "online_community/cheating_anti_cheat": {
+            "support": 1,
+            "predicted": 1,
+            "tp": 1,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "online_community/matchmaking": {
+            "support": 1,
+            "predicted": 0,
+            "tp": 0,
+            "fp": 0,
+            "fn": 1,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/multiplayer_experience": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/social_features": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/toxicity_moderation": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "other/general": {
+            "support": 0,
+            "predicted": 19,
+            "tp": 0,
+            "fp": 19,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "other/meme": {
+            "support": 0,
+            "predicted": 4,
+            "tp": 0,
+            "fp": 4,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "presentation/visuals_art_style": {
+            "support": 3,
+            "predicted": 4,
+            "tp": 3,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.75,
+            "recall": 1.0,
+            "f1": 0.8571428571428571
+          },
+          "technical/networking": {
+            "support": 1,
+            "predicted": 1,
+            "tp": 1,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          }
+        },
+        "record_support": 36
+      },
+      "issues": {
+        "macro_f1": 0.31666666666666665,
+        "micro": {
+          "support": 18,
+          "predicted": 21,
+          "tp": 9,
+          "fp": 12,
+          "fn": 9,
+          "precision": 0.42857142857142855,
+          "recall": 0.5,
+          "f1": 0.4615384615384615
+        },
+        "per_label": {
+          "content_design/level_design": {
+            "support": 1,
+            "predicted": 0,
+            "tp": 0,
+            "fp": 0,
+            "fn": 1,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "content_design/narrative_characters": {
+            "support": 1,
+            "predicted": 0,
+            "tp": 0,
+            "fp": 0,
+            "fn": 1,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "content_design/quests_modes": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "developer_updates/update_frequency": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/balance": {
+            "support": 3,
+            "predicted": 3,
+            "tp": 2,
+            "fp": 1,
+            "fn": 1,
+            "precision": 0.6666666666666666,
+            "recall": 0.6666666666666666,
+            "f1": 0.6666666666666666
+          },
+          "gameplay/controls": {
+            "support": 1,
+            "predicted": 1,
+            "tp": 1,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "gameplay/difficulty": {
+            "support": 1,
+            "predicted": 2,
+            "tp": 1,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.5,
+            "recall": 1.0,
+            "f1": 0.6666666666666666
+          },
+          "gameplay/mechanics": {
+            "support": 4,
+            "predicted": 2,
+            "tp": 1,
+            "fp": 1,
+            "fn": 3,
+            "precision": 0.5,
+            "recall": 0.25,
+            "f1": 0.3333333333333333
+          },
+          "gameplay/progression": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/microtransactions": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/pay_to_win_grind": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/pricing": {
+            "support": 1,
+            "predicted": 0,
+            "tp": 0,
+            "fp": 0,
+            "fn": 1,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/value_for_money": {
+            "support": 1,
+            "predicted": 1,
+            "tp": 1,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "online_community/cheating_anti_cheat": {
+            "support": 1,
+            "predicted": 1,
+            "tp": 1,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "online_community/matchmaking": {
+            "support": 1,
+            "predicted": 0,
+            "tp": 0,
+            "fp": 0,
+            "fn": 1,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/multiplayer_experience": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/social_features": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/toxicity_moderation": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "presentation/visuals_art_style": {
+            "support": 2,
+            "predicted": 1,
+            "tp": 1,
+            "fp": 0,
+            "fn": 1,
+            "precision": 1.0,
+            "recall": 0.5,
+            "f1": 0.6666666666666666
+          },
+          "technical/networking": {
+            "support": 1,
+            "predicted": 1,
+            "tp": 1,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          }
+        },
+        "record_support": 36
+      },
+      "requests": {
+        "macro_f1": 0.0,
+        "micro": {
+          "support": 2,
+          "predicted": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 2,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "per_label": {
+          "content_design/narrative_characters": {
+            "support": 1,
+            "predicted": 0,
+            "tp": 0,
+            "fp": 0,
+            "fn": 1,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/mechanics": {
+            "support": 1,
+            "predicted": 0,
+            "tp": 0,
+            "fp": 0,
+            "fn": 1,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/dlc": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          }
+        },
+        "record_support": 36
+      },
+      "issue_detection": {
+        "support": 11,
+        "predicted": 11,
+        "tp": 10,
+        "fp": 1,
+        "fn": 1,
+        "precision": 0.9090909090909091,
+        "recall": 0.9090909090909091,
+        "f1": 0.9090909090909091,
+        "record_support": 38,
+        "positive_support": 11
+      },
+      "request_detection": {
+        "support": 2,
+        "predicted": 1,
+        "tp": 1,
+        "fp": 0,
+        "fn": 1,
+        "precision": 1.0,
+        "recall": 0.5,
+        "f1": 0.6666666666666666,
+        "record_support": 38,
+        "positive_support": 2
+      },
+      "evidence": {
+        "quote_exactness": {
+          "verified": 0,
+          "attempted": 0,
+          "rate": null
+        },
+        "evidence_support": {
+          "supported": 0,
+          "annotated": 0,
+          "rate": null
+        }
+      }
+    },
+    "core": {
+      "support": 27,
+      "sentiment": {
+        "available": false,
+        "unavailable_reason": "current production classifier contract does not emit sentiment",
+        "accuracy": null,
+        "support": 0,
+        "macro_f1": null,
+        "confusion_matrix": null,
+        "per_class": null,
+        "gold_class_support": {
+          "positive": 9,
+          "negative": 7,
+          "mixed": 6,
+          "neutral": 0,
+          "uncertain": 5
+        }
+      },
+      "subcategories": {
+        "macro_f1": 0.27971014492753626,
+        "micro": {
+          "support": 17,
+          "predicted": 46,
+          "tp": 12,
+          "fp": 34,
+          "fn": 5,
+          "precision": 0.2608695652173913,
+          "recall": 0.7058823529411765,
+          "f1": 0.380952380952381
+        },
+        "per_label": {
+          "content_design/amount_variety": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "content_design/level_design": {
+            "support": 1,
+            "predicted": 1,
+            "tp": 1,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "content_design/narrative_characters": {
+            "support": 2,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 2,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "content_design/quests_modes": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "developer_updates/update_frequency": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/balance": {
+            "support": 3,
+            "predicted": 3,
+            "tp": 2,
+            "fp": 1,
+            "fn": 1,
+            "precision": 0.6666666666666666,
+            "recall": 0.6666666666666666,
+            "f1": 0.6666666666666666
+          },
+          "gameplay/controls": {
+            "support": 1,
+            "predicted": 1,
+            "tp": 1,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "gameplay/difficulty": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/mechanics": {
+            "support": 4,
+            "predicted": 6,
+            "tp": 3,
+            "fp": 3,
+            "fn": 1,
+            "precision": 0.5,
+            "recall": 0.75,
+            "f1": 0.6
+          },
+          "gameplay/progression": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/dlc": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/microtransactions": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/pay_to_win_grind": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/value_for_money": {
+            "support": 1,
+            "predicted": 3,
+            "tp": 1,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.3333333333333333,
+            "recall": 1.0,
+            "f1": 0.5
+          },
+          "online_community/cheating_anti_cheat": {
+            "support": 1,
+            "predicted": 1,
+            "tp": 1,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "online_community/matchmaking": {
+            "support": 1,
+            "predicted": 0,
+            "tp": 0,
+            "fp": 0,
+            "fn": 1,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/multiplayer_experience": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/social_features": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/toxicity_moderation": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "other/general": {
+            "support": 0,
+            "predicted": 19,
+            "tp": 0,
+            "fp": 19,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "other/meme": {
+            "support": 0,
+            "predicted": 4,
+            "tp": 0,
+            "fp": 4,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "presentation/visuals_art_style": {
+            "support": 2,
+            "predicted": 4,
+            "tp": 2,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.5,
+            "recall": 1.0,
+            "f1": 0.6666666666666666
+          },
+          "technical/networking": {
+            "support": 1,
+            "predicted": 1,
+            "tp": 1,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          }
+        },
+        "record_support": 25
+      },
+      "issues": {
+        "macro_f1": 0.29824561403508776,
+        "micro": {
+          "support": 16,
+          "predicted": 19,
+          "tp": 8,
+          "fp": 11,
+          "fn": 8,
+          "precision": 0.42105263157894735,
+          "recall": 0.5,
+          "f1": 0.45714285714285713
+        },
+        "per_label": {
+          "content_design/level_design": {
+            "support": 1,
+            "predicted": 0,
+            "tp": 0,
+            "fp": 0,
+            "fn": 1,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "content_design/narrative_characters": {
+            "support": 1,
+            "predicted": 0,
+            "tp": 0,
+            "fp": 0,
+            "fn": 1,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "content_design/quests_modes": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "developer_updates/update_frequency": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/balance": {
+            "support": 3,
+            "predicted": 3,
+            "tp": 2,
+            "fp": 1,
+            "fn": 1,
+            "precision": 0.6666666666666666,
+            "recall": 0.6666666666666666,
+            "f1": 0.6666666666666666
+          },
+          "gameplay/controls": {
+            "support": 1,
+            "predicted": 1,
+            "tp": 1,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "gameplay/difficulty": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/mechanics": {
+            "support": 4,
+            "predicted": 2,
+            "tp": 1,
+            "fp": 1,
+            "fn": 3,
+            "precision": 0.5,
+            "recall": 0.25,
+            "f1": 0.3333333333333333
+          },
+          "gameplay/progression": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/microtransactions": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/pay_to_win_grind": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/value_for_money": {
+            "support": 1,
+            "predicted": 1,
+            "tp": 1,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "online_community/cheating_anti_cheat": {
+            "support": 1,
+            "predicted": 1,
+            "tp": 1,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "online_community/matchmaking": {
+            "support": 1,
+            "predicted": 0,
+            "tp": 0,
+            "fp": 0,
+            "fn": 1,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/multiplayer_experience": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/social_features": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/toxicity_moderation": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "presentation/visuals_art_style": {
+            "support": 2,
+            "predicted": 1,
+            "tp": 1,
+            "fp": 0,
+            "fn": 1,
+            "precision": 1.0,
+            "recall": 0.5,
+            "f1": 0.6666666666666666
+          },
+          "technical/networking": {
+            "support": 1,
+            "predicted": 1,
+            "tp": 1,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          }
+        },
+        "record_support": 25
+      },
+      "requests": {
+        "macro_f1": 0.0,
+        "micro": {
+          "support": 2,
+          "predicted": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 2,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "per_label": {
+          "content_design/narrative_characters": {
+            "support": 1,
+            "predicted": 0,
+            "tp": 0,
+            "fp": 0,
+            "fn": 1,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/mechanics": {
+            "support": 1,
+            "predicted": 0,
+            "tp": 0,
+            "fp": 0,
+            "fn": 1,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/dlc": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          }
+        },
+        "record_support": 25
+      },
+      "issue_detection": {
+        "support": 10,
+        "predicted": 11,
+        "tp": 9,
+        "fp": 2,
+        "fn": 1,
+        "precision": 0.8181818181818182,
+        "recall": 0.9,
+        "f1": 0.8571428571428572,
+        "record_support": 27,
+        "positive_support": 10
+      },
+      "request_detection": {
+        "support": 2,
+        "predicted": 1,
+        "tp": 1,
+        "fp": 0,
+        "fn": 1,
+        "precision": 1.0,
+        "recall": 0.5,
+        "f1": 0.6666666666666666,
+        "record_support": 27,
+        "positive_support": 2
+      },
+      "evidence": {
+        "quote_exactness": {
+          "verified": 0,
+          "attempted": 0,
+          "rate": null
+        },
+        "evidence_support": {
+          "supported": 0,
+          "annotated": 0,
+          "rate": null
+        }
+      }
+    },
+    "challenge": {
+      "support": 11,
+      "sentiment": {
+        "available": false,
+        "unavailable_reason": "current production classifier contract does not emit sentiment",
+        "accuracy": null,
+        "support": 0,
+        "macro_f1": null,
+        "confusion_matrix": null,
+        "per_class": null,
+        "gold_class_support": {
+          "positive": 5,
+          "negative": 3,
+          "mixed": 1,
+          "neutral": 0,
+          "uncertain": 2
+        }
+      },
+      "subcategories": {
+        "macro_f1": 0.0463768115942029,
+        "micro": {
+          "support": 3,
+          "predicted": 13,
+          "tp": 2,
+          "fp": 11,
+          "fn": 1,
+          "precision": 0.15384615384615385,
+          "recall": 0.6666666666666666,
+          "f1": 0.25
+        },
+        "per_label": {
+          "content_design/amount_variety": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "content_design/level_design": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "content_design/narrative_characters": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "content_design/quests_modes": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "developer_updates/update_frequency": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/balance": {
+            "support": 0,
+            "predicted": 3,
+            "tp": 0,
+            "fp": 3,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/controls": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/difficulty": {
+            "support": 1,
+            "predicted": 2,
+            "tp": 1,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.5,
+            "recall": 1.0,
+            "f1": 0.6666666666666666
+          },
+          "gameplay/mechanics": {
+            "support": 0,
+            "predicted": 6,
+            "tp": 0,
+            "fp": 6,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/progression": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/dlc": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/microtransactions": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/pay_to_win_grind": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/pricing": {
+            "support": 1,
+            "predicted": 0,
+            "tp": 0,
+            "fp": 0,
+            "fn": 1,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/value_for_money": {
+            "support": 0,
+            "predicted": 3,
+            "tp": 0,
+            "fp": 3,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/cheating_anti_cheat": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/multiplayer_experience": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/social_features": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/toxicity_moderation": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "other/general": {
+            "support": 0,
+            "predicted": 19,
+            "tp": 0,
+            "fp": 19,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "other/meme": {
+            "support": 0,
+            "predicted": 4,
+            "tp": 0,
+            "fp": 4,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "presentation/visuals_art_style": {
+            "support": 1,
+            "predicted": 4,
+            "tp": 1,
+            "fp": 3,
+            "fn": 0,
+            "precision": 0.25,
+            "recall": 1.0,
+            "f1": 0.4
+          },
+          "technical/networking": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          }
+        },
+        "record_support": 11
+      },
+      "issues": {
+        "macro_f1": 0.0392156862745098,
+        "micro": {
+          "support": 2,
+          "predicted": 2,
+          "tp": 1,
+          "fp": 1,
+          "fn": 1,
+          "precision": 0.5,
+          "recall": 0.5,
+          "f1": 0.5
+        },
+        "per_label": {
+          "content_design/quests_modes": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "developer_updates/update_frequency": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/balance": {
+            "support": 0,
+            "predicted": 3,
+            "tp": 0,
+            "fp": 3,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/controls": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/difficulty": {
+            "support": 1,
+            "predicted": 2,
+            "tp": 1,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.5,
+            "recall": 1.0,
+            "f1": 0.6666666666666666
+          },
+          "gameplay/mechanics": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/progression": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/microtransactions": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/pay_to_win_grind": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/pricing": {
+            "support": 1,
+            "predicted": 0,
+            "tp": 0,
+            "fp": 0,
+            "fn": 1,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/value_for_money": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/cheating_anti_cheat": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/multiplayer_experience": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/social_features": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/toxicity_moderation": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "presentation/visuals_art_style": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "technical/networking": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          }
+        },
+        "record_support": 11
+      },
+      "requests": {
+        "macro_f1": 0.0,
+        "micro": {
+          "support": 0,
+          "predicted": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "per_label": {
+          "monetization_value/dlc": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          }
+        },
+        "record_support": 11
+      },
+      "issue_detection": {
+        "support": 1,
+        "predicted": 11,
+        "tp": 1,
+        "fp": 10,
+        "fn": 0,
+        "precision": 0.09090909090909091,
+        "recall": 1.0,
+        "f1": 0.16666666666666669,
+        "record_support": 11,
+        "positive_support": 1
+      },
+      "request_detection": {
+        "support": 0,
+        "predicted": 1,
+        "tp": 0,
+        "fp": 1,
+        "fn": 0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "record_support": 11,
+        "positive_support": 0
+      },
+      "evidence": {
+        "quote_exactness": {
+          "verified": 0,
+          "attempted": 0,
+          "rate": null
+        },
+        "evidence_support": {
+          "supported": 0,
+          "annotated": 0,
+          "rate": null
+        }
+      }
+    },
+    "language:english": {
+      "support": 13,
+      "sentiment": {
+        "available": false,
+        "unavailable_reason": "current production classifier contract does not emit sentiment",
+        "accuracy": null,
+        "support": 0,
+        "macro_f1": null,
+        "confusion_matrix": null,
+        "per_class": null,
+        "gold_class_support": {
+          "positive": 7,
+          "negative": 2,
+          "mixed": 3,
+          "neutral": 0,
+          "uncertain": 1
+        }
+      },
+      "subcategories": {
+        "macro_f1": 0.18633540372670807,
+        "micro": {
+          "support": 8,
+          "predicted": 24,
+          "tp": 6,
+          "fp": 18,
+          "fn": 2,
+          "precision": 0.25,
+          "recall": 0.75,
+          "f1": 0.375
+        },
+        "per_label": {
+          "content_design/amount_variety": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "content_design/level_design": {
+            "support": 1,
+            "predicted": 1,
+            "tp": 1,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "content_design/narrative_characters": {
+            "support": 1,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 1,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "content_design/quests_modes": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "developer_updates/update_frequency": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/balance": {
+            "support": 1,
+            "predicted": 3,
+            "tp": 1,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.3333333333333333,
+            "recall": 1.0,
+            "f1": 0.5
+          },
+          "gameplay/controls": {
+            "support": 1,
+            "predicted": 1,
+            "tp": 1,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "gameplay/difficulty": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/mechanics": {
+            "support": 1,
+            "predicted": 6,
+            "tp": 1,
+            "fp": 5,
+            "fn": 0,
+            "precision": 0.16666666666666666,
+            "recall": 1.0,
+            "f1": 0.2857142857142857
+          },
+          "gameplay/progression": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/dlc": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/microtransactions": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/pay_to_win_grind": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/value_for_money": {
+            "support": 1,
+            "predicted": 3,
+            "tp": 1,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.3333333333333333,
+            "recall": 1.0,
+            "f1": 0.5
+          },
+          "online_community/cheating_anti_cheat": {
+            "support": 1,
+            "predicted": 1,
+            "tp": 1,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "online_community/matchmaking": {
+            "support": 1,
+            "predicted": 0,
+            "tp": 0,
+            "fp": 0,
+            "fn": 1,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/multiplayer_experience": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/social_features": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/toxicity_moderation": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "other/general": {
+            "support": 0,
+            "predicted": 19,
+            "tp": 0,
+            "fp": 19,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "other/meme": {
+            "support": 0,
+            "predicted": 4,
+            "tp": 0,
+            "fp": 4,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "presentation/visuals_art_style": {
+            "support": 0,
+            "predicted": 4,
+            "tp": 0,
+            "fp": 4,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "technical/networking": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          }
+        },
+        "record_support": 13
+      },
+      "issues": {
+        "macro_f1": 0.19444444444444445,
+        "micro": {
+          "support": 7,
+          "predicted": 9,
+          "tp": 4,
+          "fp": 5,
+          "fn": 3,
+          "precision": 0.4444444444444444,
+          "recall": 0.5714285714285714,
+          "f1": 0.5
+        },
+        "per_label": {
+          "content_design/level_design": {
+            "support": 1,
+            "predicted": 0,
+            "tp": 0,
+            "fp": 0,
+            "fn": 1,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "content_design/quests_modes": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "developer_updates/update_frequency": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/balance": {
+            "support": 1,
+            "predicted": 3,
+            "tp": 1,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.3333333333333333,
+            "recall": 1.0,
+            "f1": 0.5
+          },
+          "gameplay/controls": {
+            "support": 1,
+            "predicted": 1,
+            "tp": 1,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "gameplay/difficulty": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/mechanics": {
+            "support": 1,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 1,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/progression": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/microtransactions": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/pay_to_win_grind": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/value_for_money": {
+            "support": 1,
+            "predicted": 1,
+            "tp": 1,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "online_community/cheating_anti_cheat": {
+            "support": 1,
+            "predicted": 1,
+            "tp": 1,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          },
+          "online_community/matchmaking": {
+            "support": 1,
+            "predicted": 0,
+            "tp": 0,
+            "fp": 0,
+            "fn": 1,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/multiplayer_experience": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/social_features": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/toxicity_moderation": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "presentation/visuals_art_style": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "technical/networking": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          }
+        },
+        "record_support": 13
+      },
+      "requests": {
+        "macro_f1": 0.0,
+        "micro": {
+          "support": 0,
+          "predicted": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "per_label": {
+          "monetization_value/dlc": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          }
+        },
+        "record_support": 13
+      },
+      "issue_detection": {
+        "support": 3,
+        "predicted": 11,
+        "tp": 3,
+        "fp": 8,
+        "fn": 0,
+        "precision": 0.2727272727272727,
+        "recall": 1.0,
+        "f1": 0.42857142857142855,
+        "record_support": 13,
+        "positive_support": 3
+      },
+      "request_detection": {
+        "support": 0,
+        "predicted": 1,
+        "tp": 0,
+        "fp": 1,
+        "fn": 0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "record_support": 13,
+        "positive_support": 0
+      },
+      "evidence": {
+        "quote_exactness": {
+          "verified": 0,
+          "attempted": 0,
+          "rate": null
+        },
+        "evidence_support": {
+          "supported": 0,
+          "annotated": 0,
+          "rate": null
+        }
+      }
+    },
+    "language:french": {
+      "support": 1,
+      "sentiment": {
+        "available": false,
+        "unavailable_reason": "current production classifier contract does not emit sentiment",
+        "accuracy": null,
+        "support": 0,
+        "macro_f1": null,
+        "confusion_matrix": null,
+        "per_class": null,
+        "gold_class_support": {
+          "positive": 0,
+          "negative": 0,
+          "mixed": 0,
+          "neutral": 0,
+          "uncertain": 1
+        }
+      },
+      "subcategories": {
+        "macro_f1": 0.0,
+        "micro": {
+          "support": 0,
+          "predicted": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "per_label": {
+          "content_design/amount_variety": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "content_design/level_design": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "content_design/narrative_characters": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "content_design/quests_modes": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "developer_updates/update_frequency": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/balance": {
+            "support": 0,
+            "predicted": 3,
+            "tp": 0,
+            "fp": 3,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/controls": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/difficulty": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/mechanics": {
+            "support": 0,
+            "predicted": 6,
+            "tp": 0,
+            "fp": 6,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/progression": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/dlc": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/microtransactions": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/pay_to_win_grind": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/value_for_money": {
+            "support": 0,
+            "predicted": 3,
+            "tp": 0,
+            "fp": 3,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/cheating_anti_cheat": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/multiplayer_experience": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/social_features": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/toxicity_moderation": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "other/general": {
+            "support": 0,
+            "predicted": 19,
+            "tp": 0,
+            "fp": 19,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "other/meme": {
+            "support": 0,
+            "predicted": 4,
+            "tp": 0,
+            "fp": 4,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "presentation/visuals_art_style": {
+            "support": 0,
+            "predicted": 4,
+            "tp": 0,
+            "fp": 4,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "technical/networking": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          }
+        },
+        "record_support": 0
+      },
+      "issues": {
+        "macro_f1": 0.0,
+        "micro": {
+          "support": 0,
+          "predicted": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "per_label": {
+          "content_design/quests_modes": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "developer_updates/update_frequency": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/balance": {
+            "support": 0,
+            "predicted": 3,
+            "tp": 0,
+            "fp": 3,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/controls": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/difficulty": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/mechanics": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/progression": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/microtransactions": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/pay_to_win_grind": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/value_for_money": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/cheating_anti_cheat": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/multiplayer_experience": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/social_features": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/toxicity_moderation": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "presentation/visuals_art_style": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "technical/networking": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          }
+        },
+        "record_support": 0
+      },
+      "requests": {
+        "macro_f1": 0.0,
+        "micro": {
+          "support": 0,
+          "predicted": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "per_label": {
+          "monetization_value/dlc": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          }
+        },
+        "record_support": 0
+      },
+      "issue_detection": {
+        "support": 0,
+        "predicted": 11,
+        "tp": 0,
+        "fp": 11,
+        "fn": 0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "record_support": 1,
+        "positive_support": 0
+      },
+      "request_detection": {
+        "support": 1,
+        "predicted": 1,
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "record_support": 1,
+        "positive_support": 1
+      },
+      "evidence": {
+        "quote_exactness": {
+          "verified": 0,
+          "attempted": 0,
+          "rate": null
+        },
+        "evidence_support": {
+          "supported": 0,
+          "annotated": 0,
+          "rate": null
+        }
+      }
+    },
+    "language:german": {
+      "support": 1,
+      "sentiment": {
+        "available": false,
+        "unavailable_reason": "current production classifier contract does not emit sentiment",
+        "accuracy": null,
+        "support": 0,
+        "macro_f1": null,
+        "confusion_matrix": null,
+        "per_class": null,
+        "gold_class_support": {
+          "positive": 1,
+          "negative": 0,
+          "mixed": 0,
+          "neutral": 0,
+          "uncertain": 0
+        }
+      },
+      "subcategories": {
+        "macro_f1": 0.0,
+        "micro": {
+          "support": 0,
+          "predicted": 3,
+          "tp": 0,
+          "fp": 3,
+          "fn": 0,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "per_label": {
+          "content_design/amount_variety": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "content_design/level_design": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "content_design/narrative_characters": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "content_design/quests_modes": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "developer_updates/update_frequency": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/balance": {
+            "support": 0,
+            "predicted": 3,
+            "tp": 0,
+            "fp": 3,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/controls": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/difficulty": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/mechanics": {
+            "support": 0,
+            "predicted": 6,
+            "tp": 0,
+            "fp": 6,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/progression": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/dlc": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/microtransactions": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/pay_to_win_grind": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/value_for_money": {
+            "support": 0,
+            "predicted": 3,
+            "tp": 0,
+            "fp": 3,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/cheating_anti_cheat": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/multiplayer_experience": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/social_features": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/toxicity_moderation": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "other/general": {
+            "support": 0,
+            "predicted": 19,
+            "tp": 0,
+            "fp": 19,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "other/meme": {
+            "support": 0,
+            "predicted": 4,
+            "tp": 0,
+            "fp": 4,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "presentation/visuals_art_style": {
+            "support": 0,
+            "predicted": 4,
+            "tp": 0,
+            "fp": 4,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "technical/networking": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          }
+        },
+        "record_support": 1
+      },
+      "issues": {
+        "macro_f1": 0.0,
+        "micro": {
+          "support": 0,
+          "predicted": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "per_label": {
+          "content_design/quests_modes": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "developer_updates/update_frequency": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/balance": {
+            "support": 0,
+            "predicted": 3,
+            "tp": 0,
+            "fp": 3,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/controls": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/difficulty": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/mechanics": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/progression": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/microtransactions": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/pay_to_win_grind": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/value_for_money": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/cheating_anti_cheat": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/multiplayer_experience": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/social_features": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/toxicity_moderation": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "presentation/visuals_art_style": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "technical/networking": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          }
+        },
+        "record_support": 1
+      },
+      "requests": {
+        "macro_f1": 0.0,
+        "micro": {
+          "support": 0,
+          "predicted": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "per_label": {
+          "monetization_value/dlc": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          }
+        },
+        "record_support": 1
+      },
+      "issue_detection": {
+        "support": 0,
+        "predicted": 11,
+        "tp": 0,
+        "fp": 11,
+        "fn": 0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "record_support": 1,
+        "positive_support": 0
+      },
+      "request_detection": {
+        "support": 0,
+        "predicted": 1,
+        "tp": 0,
+        "fp": 1,
+        "fn": 0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "record_support": 1,
+        "positive_support": 0
+      },
+      "evidence": {
+        "quote_exactness": {
+          "verified": 0,
+          "attempted": 0,
+          "rate": null
+        },
+        "evidence_support": {
+          "supported": 0,
+          "annotated": 0,
+          "rate": null
+        }
+      }
+    },
+    "language:latam": {
+      "support": 1,
+      "sentiment": {
+        "available": false,
+        "unavailable_reason": "current production classifier contract does not emit sentiment",
+        "accuracy": null,
+        "support": 0,
+        "macro_f1": null,
+        "confusion_matrix": null,
+        "per_class": null,
+        "gold_class_support": {
+          "positive": 1,
+          "negative": 0,
+          "mixed": 0,
+          "neutral": 0,
+          "uncertain": 0
+        }
+      },
+      "subcategories": {
+        "macro_f1": 0.0,
+        "micro": {
+          "support": 0,
+          "predicted": 1,
+          "tp": 0,
+          "fp": 1,
+          "fn": 0,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "per_label": {
+          "content_design/amount_variety": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "content_design/level_design": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "content_design/narrative_characters": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "content_design/quests_modes": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "developer_updates/update_frequency": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/balance": {
+            "support": 0,
+            "predicted": 3,
+            "tp": 0,
+            "fp": 3,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/controls": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/difficulty": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/mechanics": {
+            "support": 0,
+            "predicted": 6,
+            "tp": 0,
+            "fp": 6,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/progression": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/dlc": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/microtransactions": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/pay_to_win_grind": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/value_for_money": {
+            "support": 0,
+            "predicted": 3,
+            "tp": 0,
+            "fp": 3,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/cheating_anti_cheat": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/multiplayer_experience": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/social_features": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/toxicity_moderation": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "other/general": {
+            "support": 0,
+            "predicted": 19,
+            "tp": 0,
+            "fp": 19,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "other/meme": {
+            "support": 0,
+            "predicted": 4,
+            "tp": 0,
+            "fp": 4,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "presentation/visuals_art_style": {
+            "support": 0,
+            "predicted": 4,
+            "tp": 0,
+            "fp": 4,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "technical/networking": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          }
+        },
+        "record_support": 1
+      },
+      "issues": {
+        "macro_f1": 0.0,
+        "micro": {
+          "support": 0,
+          "predicted": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "per_label": {
+          "content_design/quests_modes": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "developer_updates/update_frequency": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/balance": {
+            "support": 0,
+            "predicted": 3,
+            "tp": 0,
+            "fp": 3,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/controls": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/difficulty": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/mechanics": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/progression": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/microtransactions": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/pay_to_win_grind": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/value_for_money": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/cheating_anti_cheat": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/multiplayer_experience": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/social_features": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/toxicity_moderation": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "presentation/visuals_art_style": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "technical/networking": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          }
+        },
+        "record_support": 1
+      },
+      "requests": {
+        "macro_f1": 0.0,
+        "micro": {
+          "support": 0,
+          "predicted": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "per_label": {
+          "monetization_value/dlc": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          }
+        },
+        "record_support": 1
+      },
+      "issue_detection": {
+        "support": 0,
+        "predicted": 11,
+        "tp": 0,
+        "fp": 11,
+        "fn": 0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "record_support": 1,
+        "positive_support": 0
+      },
+      "request_detection": {
+        "support": 0,
+        "predicted": 1,
+        "tp": 0,
+        "fp": 1,
+        "fn": 0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "record_support": 1,
+        "positive_support": 0
+      },
+      "evidence": {
+        "quote_exactness": {
+          "verified": 0,
+          "attempted": 0,
+          "rate": null
+        },
+        "evidence_support": {
+          "supported": 0,
+          "annotated": 0,
+          "rate": null
+        }
+      }
+    },
+    "language:polish": {
+      "support": 1,
+      "sentiment": {
+        "available": false,
+        "unavailable_reason": "current production classifier contract does not emit sentiment",
+        "accuracy": null,
+        "support": 0,
+        "macro_f1": null,
+        "confusion_matrix": null,
+        "per_class": null,
+        "gold_class_support": {
+          "positive": 1,
+          "negative": 0,
+          "mixed": 0,
+          "neutral": 0,
+          "uncertain": 0
+        }
+      },
+      "subcategories": {
+        "macro_f1": 0.0,
+        "micro": {
+          "support": 0,
+          "predicted": 1,
+          "tp": 0,
+          "fp": 1,
+          "fn": 0,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "per_label": {
+          "content_design/amount_variety": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "content_design/level_design": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "content_design/narrative_characters": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "content_design/quests_modes": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "developer_updates/update_frequency": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/balance": {
+            "support": 0,
+            "predicted": 3,
+            "tp": 0,
+            "fp": 3,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/controls": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/difficulty": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/mechanics": {
+            "support": 0,
+            "predicted": 6,
+            "tp": 0,
+            "fp": 6,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/progression": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/dlc": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/microtransactions": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/pay_to_win_grind": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/value_for_money": {
+            "support": 0,
+            "predicted": 3,
+            "tp": 0,
+            "fp": 3,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/cheating_anti_cheat": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/multiplayer_experience": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/social_features": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/toxicity_moderation": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "other/general": {
+            "support": 0,
+            "predicted": 19,
+            "tp": 0,
+            "fp": 19,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "other/meme": {
+            "support": 0,
+            "predicted": 4,
+            "tp": 0,
+            "fp": 4,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "presentation/visuals_art_style": {
+            "support": 0,
+            "predicted": 4,
+            "tp": 0,
+            "fp": 4,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "technical/networking": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          }
+        },
+        "record_support": 1
+      },
+      "issues": {
+        "macro_f1": 0.0,
+        "micro": {
+          "support": 0,
+          "predicted": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "per_label": {
+          "content_design/quests_modes": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "developer_updates/update_frequency": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/balance": {
+            "support": 0,
+            "predicted": 3,
+            "tp": 0,
+            "fp": 3,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/controls": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/difficulty": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/mechanics": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/progression": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/microtransactions": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/pay_to_win_grind": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/value_for_money": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/cheating_anti_cheat": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/multiplayer_experience": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/social_features": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/toxicity_moderation": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "presentation/visuals_art_style": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "technical/networking": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          }
+        },
+        "record_support": 1
+      },
+      "requests": {
+        "macro_f1": 0.0,
+        "micro": {
+          "support": 0,
+          "predicted": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "per_label": {
+          "monetization_value/dlc": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          }
+        },
+        "record_support": 1
+      },
+      "issue_detection": {
+        "support": 0,
+        "predicted": 11,
+        "tp": 0,
+        "fp": 11,
+        "fn": 0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "record_support": 1,
+        "positive_support": 0
+      },
+      "request_detection": {
+        "support": 0,
+        "predicted": 1,
+        "tp": 0,
+        "fp": 1,
+        "fn": 0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "record_support": 1,
+        "positive_support": 0
+      },
+      "evidence": {
+        "quote_exactness": {
+          "verified": 0,
+          "attempted": 0,
+          "rate": null
+        },
+        "evidence_support": {
+          "supported": 0,
+          "annotated": 0,
+          "rate": null
+        }
+      }
+    },
+    "language:russian": {
+      "support": 4,
+      "sentiment": {
+        "available": false,
+        "unavailable_reason": "current production classifier contract does not emit sentiment",
+        "accuracy": null,
+        "support": 0,
+        "macro_f1": null,
+        "confusion_matrix": null,
+        "per_class": null,
+        "gold_class_support": {
+          "positive": 0,
+          "negative": 3,
+          "mixed": 0,
+          "neutral": 0,
+          "uncertain": 1
+        }
+      },
+      "subcategories": {
+        "macro_f1": 0.012987012987012986,
+        "micro": {
+          "support": 1,
+          "predicted": 5,
+          "tp": 1,
+          "fp": 4,
+          "fn": 0,
+          "precision": 0.2,
+          "recall": 1.0,
+          "f1": 0.33333333333333337
+        },
+        "per_label": {
+          "content_design/amount_variety": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "content_design/level_design": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "content_design/narrative_characters": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "content_design/quests_modes": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "developer_updates/update_frequency": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/balance": {
+            "support": 0,
+            "predicted": 3,
+            "tp": 0,
+            "fp": 3,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/controls": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/difficulty": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/mechanics": {
+            "support": 1,
+            "predicted": 6,
+            "tp": 1,
+            "fp": 5,
+            "fn": 0,
+            "precision": 0.16666666666666666,
+            "recall": 1.0,
+            "f1": 0.2857142857142857
+          },
+          "gameplay/progression": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/dlc": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/microtransactions": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/pay_to_win_grind": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/value_for_money": {
+            "support": 0,
+            "predicted": 3,
+            "tp": 0,
+            "fp": 3,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/cheating_anti_cheat": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/multiplayer_experience": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/social_features": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/toxicity_moderation": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "other/general": {
+            "support": 0,
+            "predicted": 19,
+            "tp": 0,
+            "fp": 19,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "other/meme": {
+            "support": 0,
+            "predicted": 4,
+            "tp": 0,
+            "fp": 4,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "presentation/visuals_art_style": {
+            "support": 0,
+            "predicted": 4,
+            "tp": 0,
+            "fp": 4,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "technical/networking": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          }
+        },
+        "record_support": 4
+      },
+      "issues": {
+        "macro_f1": 0.0,
+        "micro": {
+          "support": 1,
+          "predicted": 1,
+          "tp": 0,
+          "fp": 1,
+          "fn": 1,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "per_label": {
+          "content_design/quests_modes": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "developer_updates/update_frequency": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/balance": {
+            "support": 0,
+            "predicted": 3,
+            "tp": 0,
+            "fp": 3,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/controls": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/difficulty": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/mechanics": {
+            "support": 1,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 1,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/progression": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/microtransactions": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/pay_to_win_grind": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/value_for_money": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/cheating_anti_cheat": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/multiplayer_experience": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/social_features": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/toxicity_moderation": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "presentation/visuals_art_style": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "technical/networking": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          }
+        },
+        "record_support": 4
+      },
+      "requests": {
+        "macro_f1": 0.0,
+        "micro": {
+          "support": 0,
+          "predicted": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "per_label": {
+          "monetization_value/dlc": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          }
+        },
+        "record_support": 4
+      },
+      "issue_detection": {
+        "support": 1,
+        "predicted": 11,
+        "tp": 0,
+        "fp": 11,
+        "fn": 1,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "record_support": 4,
+        "positive_support": 1
+      },
+      "request_detection": {
+        "support": 0,
+        "predicted": 1,
+        "tp": 0,
+        "fp": 1,
+        "fn": 0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "record_support": 4,
+        "positive_support": 0
+      },
+      "evidence": {
+        "quote_exactness": {
+          "verified": 0,
+          "attempted": 0,
+          "rate": null
+        },
+        "evidence_support": {
+          "supported": 0,
+          "annotated": 0,
+          "rate": null
+        }
+      }
+    },
+    "language:schinese": {
+      "support": 16,
+      "sentiment": {
+        "available": false,
+        "unavailable_reason": "current production classifier contract does not emit sentiment",
+        "accuracy": null,
+        "support": 0,
+        "macro_f1": null,
+        "confusion_matrix": null,
+        "per_class": null,
+        "gold_class_support": {
+          "positive": 4,
+          "negative": 5,
+          "mixed": 4,
+          "neutral": 0,
+          "uncertain": 3
+        }
+      },
+      "subcategories": {
+        "macro_f1": 0.13799171842650101,
+        "micro": {
+          "support": 11,
+          "predicted": 24,
+          "tp": 7,
+          "fp": 17,
+          "fn": 4,
+          "precision": 0.2916666666666667,
+          "recall": 0.6363636363636364,
+          "f1": 0.4
+        },
+        "per_label": {
+          "content_design/amount_variety": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "content_design/level_design": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "content_design/narrative_characters": {
+            "support": 1,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 1,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "content_design/quests_modes": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "developer_updates/update_frequency": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/balance": {
+            "support": 2,
+            "predicted": 3,
+            "tp": 1,
+            "fp": 2,
+            "fn": 1,
+            "precision": 0.3333333333333333,
+            "recall": 0.5,
+            "f1": 0.4
+          },
+          "gameplay/controls": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/difficulty": {
+            "support": 1,
+            "predicted": 2,
+            "tp": 1,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.5,
+            "recall": 1.0,
+            "f1": 0.6666666666666666
+          },
+          "gameplay/mechanics": {
+            "support": 2,
+            "predicted": 6,
+            "tp": 1,
+            "fp": 5,
+            "fn": 1,
+            "precision": 0.16666666666666666,
+            "recall": 0.5,
+            "f1": 0.25
+          },
+          "gameplay/progression": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/dlc": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/microtransactions": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/pay_to_win_grind": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/pricing": {
+            "support": 1,
+            "predicted": 0,
+            "tp": 0,
+            "fp": 0,
+            "fn": 1,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/value_for_money": {
+            "support": 0,
+            "predicted": 3,
+            "tp": 0,
+            "fp": 3,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/cheating_anti_cheat": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/multiplayer_experience": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/social_features": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/toxicity_moderation": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "other/general": {
+            "support": 0,
+            "predicted": 19,
+            "tp": 0,
+            "fp": 19,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "other/meme": {
+            "support": 0,
+            "predicted": 4,
+            "tp": 0,
+            "fp": 4,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "presentation/visuals_art_style": {
+            "support": 3,
+            "predicted": 4,
+            "tp": 3,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.75,
+            "recall": 1.0,
+            "f1": 0.8571428571428571
+          },
+          "technical/networking": {
+            "support": 1,
+            "predicted": 1,
+            "tp": 1,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          }
+        },
+        "record_support": 15
+      },
+      "issues": {
+        "macro_f1": 0.17962962962962964,
+        "micro": {
+          "support": 10,
+          "predicted": 11,
+          "tp": 5,
+          "fp": 6,
+          "fn": 5,
+          "precision": 0.45454545454545453,
+          "recall": 0.5,
+          "f1": 0.47619047619047616
+        },
+        "per_label": {
+          "content_design/narrative_characters": {
+            "support": 1,
+            "predicted": 0,
+            "tp": 0,
+            "fp": 0,
+            "fn": 1,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "content_design/quests_modes": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "developer_updates/update_frequency": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/balance": {
+            "support": 2,
+            "predicted": 3,
+            "tp": 1,
+            "fp": 2,
+            "fn": 1,
+            "precision": 0.3333333333333333,
+            "recall": 0.5,
+            "f1": 0.4
+          },
+          "gameplay/controls": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/difficulty": {
+            "support": 1,
+            "predicted": 2,
+            "tp": 1,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.5,
+            "recall": 1.0,
+            "f1": 0.6666666666666666
+          },
+          "gameplay/mechanics": {
+            "support": 2,
+            "predicted": 2,
+            "tp": 1,
+            "fp": 1,
+            "fn": 1,
+            "precision": 0.5,
+            "recall": 0.5,
+            "f1": 0.5
+          },
+          "gameplay/progression": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/microtransactions": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/pay_to_win_grind": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/pricing": {
+            "support": 1,
+            "predicted": 0,
+            "tp": 0,
+            "fp": 0,
+            "fn": 1,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/value_for_money": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/cheating_anti_cheat": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/multiplayer_experience": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/social_features": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/toxicity_moderation": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "presentation/visuals_art_style": {
+            "support": 2,
+            "predicted": 1,
+            "tp": 1,
+            "fp": 0,
+            "fn": 1,
+            "precision": 1.0,
+            "recall": 0.5,
+            "f1": 0.6666666666666666
+          },
+          "technical/networking": {
+            "support": 1,
+            "predicted": 1,
+            "tp": 1,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0
+          }
+        },
+        "record_support": 15
+      },
+      "requests": {
+        "macro_f1": 0.0,
+        "micro": {
+          "support": 2,
+          "predicted": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 2,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "per_label": {
+          "content_design/narrative_characters": {
+            "support": 1,
+            "predicted": 0,
+            "tp": 0,
+            "fp": 0,
+            "fn": 1,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/mechanics": {
+            "support": 1,
+            "predicted": 0,
+            "tp": 0,
+            "fp": 0,
+            "fn": 1,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/dlc": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          }
+        },
+        "record_support": 15
+      },
+      "issue_detection": {
+        "support": 7,
+        "predicted": 11,
+        "tp": 7,
+        "fp": 4,
+        "fn": 0,
+        "precision": 0.6363636363636364,
+        "recall": 1.0,
+        "f1": 0.7777777777777778,
+        "record_support": 16,
+        "positive_support": 7
+      },
+      "request_detection": {
+        "support": 1,
+        "predicted": 1,
+        "tp": 0,
+        "fp": 1,
+        "fn": 1,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "record_support": 16,
+        "positive_support": 1
+      },
+      "evidence": {
+        "quote_exactness": {
+          "verified": 0,
+          "attempted": 0,
+          "rate": null
+        },
+        "evidence_support": {
+          "supported": 0,
+          "annotated": 0,
+          "rate": null
+        }
+      }
+    },
+    "language:spanish": {
+      "support": 1,
+      "sentiment": {
+        "available": false,
+        "unavailable_reason": "current production classifier contract does not emit sentiment",
+        "accuracy": null,
+        "support": 0,
+        "macro_f1": null,
+        "confusion_matrix": null,
+        "per_class": null,
+        "gold_class_support": {
+          "positive": 0,
+          "negative": 0,
+          "mixed": 0,
+          "neutral": 0,
+          "uncertain": 1
+        }
+      },
+      "subcategories": {
+        "macro_f1": 0.0,
+        "micro": {
+          "support": 0,
+          "predicted": 1,
+          "tp": 0,
+          "fp": 1,
+          "fn": 0,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "per_label": {
+          "content_design/amount_variety": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "content_design/level_design": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "content_design/narrative_characters": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "content_design/quests_modes": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "developer_updates/update_frequency": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/balance": {
+            "support": 0,
+            "predicted": 3,
+            "tp": 0,
+            "fp": 3,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/controls": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/difficulty": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/mechanics": {
+            "support": 0,
+            "predicted": 6,
+            "tp": 0,
+            "fp": 6,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/progression": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/dlc": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/microtransactions": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/pay_to_win_grind": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/value_for_money": {
+            "support": 0,
+            "predicted": 3,
+            "tp": 0,
+            "fp": 3,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/cheating_anti_cheat": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/multiplayer_experience": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/social_features": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/toxicity_moderation": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "other/general": {
+            "support": 0,
+            "predicted": 19,
+            "tp": 0,
+            "fp": 19,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "other/meme": {
+            "support": 0,
+            "predicted": 4,
+            "tp": 0,
+            "fp": 4,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "presentation/visuals_art_style": {
+            "support": 0,
+            "predicted": 4,
+            "tp": 0,
+            "fp": 4,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "technical/networking": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          }
+        },
+        "record_support": 1
+      },
+      "issues": {
+        "macro_f1": 0.0,
+        "micro": {
+          "support": 0,
+          "predicted": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "per_label": {
+          "content_design/quests_modes": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "developer_updates/update_frequency": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/balance": {
+            "support": 0,
+            "predicted": 3,
+            "tp": 0,
+            "fp": 3,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/controls": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/difficulty": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/mechanics": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "gameplay/progression": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/microtransactions": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/pay_to_win_grind": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "monetization_value/value_for_money": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/cheating_anti_cheat": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/multiplayer_experience": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/social_features": {
+            "support": 0,
+            "predicted": 2,
+            "tp": 0,
+            "fp": 2,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "online_community/toxicity_moderation": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "presentation/visuals_art_style": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          "technical/networking": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          }
+        },
+        "record_support": 1
+      },
+      "requests": {
+        "macro_f1": 0.0,
+        "micro": {
+          "support": 0,
+          "predicted": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "per_label": {
+          "monetization_value/dlc": {
+            "support": 0,
+            "predicted": 1,
+            "tp": 0,
+            "fp": 1,
+            "fn": 0,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          }
+        },
+        "record_support": 1
+      },
+      "issue_detection": {
+        "support": 0,
+        "predicted": 11,
+        "tp": 0,
+        "fp": 11,
+        "fn": 0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "record_support": 1,
+        "positive_support": 0
+      },
+      "request_detection": {
+        "support": 0,
+        "predicted": 1,
+        "tp": 0,
+        "fp": 1,
+        "fn": 0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "record_support": 1,
+        "positive_support": 0
+      },
+      "evidence": {
+        "quote_exactness": {
+          "verified": 0,
+          "attempted": 0,
+          "rate": null
+        },
+        "evidence_support": {
+          "supported": 0,
+          "annotated": 0,
+          "rate": null
+        }
+      }
+    },
+    "operational": {
+      "prediction_records": 38,
+      "schema_invalid_rate": 0.0,
+      "fallback_rate": 0.0,
+      "retry_rate": 0.0,
+      "latency_ms": 301.7910184211551,
+      "input_tokens": 5849,
+      "output_tokens": 1657,
+      "cached_input_tokens": 3072,
+      "api_requests": 4
+    }
+  },
+  "dataset_hash": "08c68493076fc91d298586b0b61529222150ebc9189ca89eee25dcc7e1886ee2",
+  "prediction_hash": "3ea1cc3a608b3e99484e2371672194ca2648bac8dc4ca3656dc1ab9bcf5085f5",
+  "taxonomy_version": "sentinext-taxonomy-v1"
+}

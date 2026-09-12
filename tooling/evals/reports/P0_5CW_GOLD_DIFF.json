@@ -1,0 +1,588 @@
+{
+  "diff_version": "p0.5c-gold-v1-to-v2",
+  "source_gold": "P0_5B_gold_verified.jsonl",
+  "target_gold": "P0_5B_gold_verified_v2.jsonl",
+  "human_reviewed_candidate_count": 16,
+  "changed_record_count": 15,
+  "unchanged_reviewed_record_ids": [
+    "pv-2868840-233307187"
+  ],
+  "changes": [
+    {
+      "sample_id": "pv-1172470-231768442",
+      "fields_before": {
+        "gold": {
+          "evidence_spans": [
+            "running ranked till a +400 game = goated gameloop"
+          ],
+          "issue_labels": [
+            "gameplay/mechanics"
+          ],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "positive",
+          "subcategories": [
+            "gameplay/mechanics"
+          ]
+        }
+      },
+      "fields_after": {
+        "gold": {
+          "evidence_spans": [
+            "running ranked till a +400 game = goated gameloop"
+          ],
+          "issue_labels": [],
+          "issue_present": false,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "positive",
+          "subcategories": [
+            "gameplay/mechanics"
+          ]
+        }
+      },
+      "human_approved_reason": "clear_aspect_praise"
+    },
+    {
+      "sample_id": "pv-4162040-232740798",
+      "fields_before": {
+        "gold": {
+          "evidence_spans": [
+            "Если б такая физика была в школе.."
+          ],
+          "issue_labels": [
+            "gameplay/mechanics"
+          ],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "positive",
+          "subcategories": [
+            "gameplay/mechanics"
+          ]
+        }
+      },
+      "fields_after": {
+        "gold": {
+          "evidence_spans": [
+            "Если б такая физика была в школе.."
+          ],
+          "issue_labels": [],
+          "issue_present": false,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "positive",
+          "subcategories": [
+            "gameplay/mechanics"
+          ]
+        }
+      },
+      "human_approved_reason": "clear_aspect_praise"
+    },
+    {
+      "sample_id": "pv-4162040-232989490",
+      "fields_before": {
+        "gold": {
+          "evidence_spans": [
+            "Miyabi mi vieja de toda la vida"
+          ],
+          "issue_labels": [
+            "content_design/narrative_characters"
+          ],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "positive",
+          "subcategories": [
+            "content_design/narrative_characters"
+          ]
+        }
+      },
+      "fields_after": {
+        "gold": {
+          "evidence_spans": [
+            "Miyabi mi vieja de toda la vida"
+          ],
+          "issue_labels": [],
+          "issue_present": false,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "positive",
+          "subcategories": [
+            "content_design/narrative_characters"
+          ]
+        }
+      },
+      "human_approved_reason": "clear_aspect_praise"
+    },
+    {
+      "sample_id": "pv-1172470-232155751",
+      "fields_before": {
+        "gold": {
+          "evidence_spans": [
+            "prices are so low"
+          ],
+          "issue_labels": [
+            "monetization_value/pricing"
+          ],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "positive",
+          "subcategories": [
+            "monetization_value/pricing"
+          ]
+        }
+      },
+      "fields_after": {
+        "gold": {
+          "evidence_spans": [
+            "prices are so low"
+          ],
+          "issue_labels": [],
+          "issue_present": false,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "positive",
+          "subcategories": [
+            "monetization_value/pricing"
+          ]
+        }
+      },
+      "human_approved_reason": "clear_aspect_praise"
+    },
+    {
+      "sample_id": "pv-4162040-233002020",
+      "fields_before": {
+        "gold": {
+          "evidence_spans": [
+            "Cissia y Nicole estan en el juego 10/10"
+          ],
+          "issue_labels": [
+            "content_design/narrative_characters"
+          ],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "positive",
+          "subcategories": [
+            "content_design/narrative_characters"
+          ]
+        }
+      },
+      "fields_after": {
+        "gold": {
+          "evidence_spans": [
+            "Cissia y Nicole estan en el juego 10/10"
+          ],
+          "issue_labels": [],
+          "issue_present": false,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "positive",
+          "subcategories": [
+            "content_design/narrative_characters"
+          ]
+        }
+      },
+      "human_approved_reason": "clear_aspect_praise"
+    },
+    {
+      "sample_id": "pv-2868840-232792409",
+      "fields_before": {
+        "gold": {
+          "evidence_spans": [
+            "best deck builder out there",
+            "the coop makes it a no brainer",
+            "still discovering combos and synergies"
+          ],
+          "issue_labels": [
+            "gameplay/mechanics"
+          ],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "positive",
+          "subcategories": [
+            "gameplay/mechanics"
+          ]
+        }
+      },
+      "fields_after": {
+        "gold": {
+          "evidence_spans": [
+            "best deck builder out there",
+            "the coop makes it a no brainer",
+            "still discovering combos and synergies"
+          ],
+          "issue_labels": [],
+          "issue_present": false,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "positive",
+          "subcategories": [
+            "gameplay/mechanics"
+          ]
+        }
+      },
+      "human_approved_reason": "clear_aspect_praise"
+    },
+    {
+      "sample_id": "pv-2584270-233573481",
+      "fields_before": {
+        "gold": {
+          "evidence_spans": [
+            "Proxima got me actin' up..."
+          ],
+          "issue_labels": [
+            "content_design/narrative_characters"
+          ],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "positive",
+          "subcategories": [
+            "content_design/narrative_characters"
+          ]
+        }
+      },
+      "fields_after": {
+        "gold": {
+          "evidence_spans": [
+            "Proxima got me actin' up..."
+          ],
+          "issue_labels": [],
+          "issue_present": false,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "positive",
+          "subcategories": [
+            "content_design/narrative_characters"
+          ]
+        }
+      },
+      "human_approved_reason": "clear_aspect_praise"
+    },
+    {
+      "sample_id": "pv-4162040-232942889",
+      "fields_before": {
+        "gold": {
+          "evidence_spans": [
+            "story is good and interedting",
+            "a lot of amazing artwork"
+          ],
+          "issue_labels": [
+            "content_design/narrative_characters",
+            "presentation/visuals_art_style"
+          ],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "positive",
+          "subcategories": [
+            "content_design/narrative_characters",
+            "presentation/visuals_art_style"
+          ]
+        }
+      },
+      "fields_after": {
+        "gold": {
+          "evidence_spans": [
+            "story is good and interedting",
+            "a lot of amazing artwork"
+          ],
+          "issue_labels": [],
+          "issue_present": false,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "positive",
+          "subcategories": [
+            "content_design/narrative_characters",
+            "presentation/visuals_art_style"
+          ]
+        }
+      },
+      "human_approved_reason": "clear_aspect_praise"
+    },
+    {
+      "sample_id": "pv-2584270-233528988",
+      "fields_before": {
+        "gold": {
+          "evidence_spans": [
+            "keine bugs oder performence problemme",
+            "die grafik ist umwerfend",
+            "das kampf system ist sehr belohnend wenn man es meistert"
+          ],
+          "issue_labels": [
+            "technical/bugs",
+            "technical/performance",
+            "presentation/visuals_art_style",
+            "gameplay/mechanics"
+          ],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "positive",
+          "subcategories": [
+            "technical/bugs",
+            "technical/performance",
+            "presentation/visuals_art_style",
+            "gameplay/mechanics"
+          ]
+        }
+      },
+      "fields_after": {
+        "gold": {
+          "evidence_spans": [
+            "keine bugs oder performence problemme",
+            "die grafik ist umwerfend",
+            "das kampf system ist sehr belohnend wenn man es meistert"
+          ],
+          "issue_labels": [],
+          "issue_present": false,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "positive",
+          "subcategories": [
+            "technical/bugs",
+            "technical/performance",
+            "presentation/visuals_art_style",
+            "gameplay/mechanics"
+          ]
+        }
+      },
+      "human_approved_reason": "unspecified_minor_issue_not_taxonomy_specific"
+    },
+    {
+      "sample_id": "pv-4162040-233306549",
+      "fields_before": {
+        "gold": {
+          "evidence_spans": [
+            "Myiabi’s ear looks TASTY"
+          ],
+          "issue_labels": [
+            "content_design/narrative_characters"
+          ],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "positive",
+          "subcategories": [
+            "content_design/narrative_characters"
+          ]
+        }
+      },
+      "fields_after": {
+        "gold": {
+          "evidence_spans": [
+            "Myiabi’s ear looks TASTY"
+          ],
+          "issue_labels": [],
+          "issue_present": false,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "positive",
+          "subcategories": [
+            "content_design/narrative_characters"
+          ]
+        }
+      },
+      "human_approved_reason": "clear_aspect_praise"
+    },
+    {
+      "sample_id": "pv-2868840-233323994",
+      "fields_before": {
+        "gold": {
+          "evidence_spans": [
+            "I wish they'd kept the Watcher",
+            "stances are fun",
+            "Hopefully they'll bring her back into this game after release, or maybe even as a DLC"
+          ],
+          "issue_labels": [
+            "content_design/narrative_characters",
+            "gameplay/mechanics"
+          ],
+          "issue_present": true,
+          "request_labels": [
+            "content_design/narrative_characters",
+            "gameplay/mechanics"
+          ],
+          "request_present": true,
+          "sentiment": "positive",
+          "subcategories": [
+            "content_design/narrative_characters",
+            "gameplay/mechanics"
+          ]
+        }
+      },
+      "fields_after": {
+        "gold": {
+          "evidence_spans": [
+            "I wish they'd kept the Watcher",
+            "stances are fun",
+            "Hopefully they'll bring her back into this game after release, or maybe even as a DLC"
+          ],
+          "issue_labels": [
+            "content_design/narrative_characters"
+          ],
+          "issue_present": true,
+          "request_labels": [
+            "content_design/narrative_characters"
+          ],
+          "request_present": true,
+          "sentiment": "positive",
+          "subcategories": [
+            "content_design/narrative_characters",
+            "gameplay/mechanics"
+          ]
+        }
+      },
+      "human_approved_reason": "watcher_omission_complaint_and_request"
+    },
+    {
+      "sample_id": "pv-4162040-232967794",
+      "fields_before": {
+        "gold": {
+          "evidence_spans": [
+            "люблю большие попы"
+          ],
+          "issue_labels": [
+            "presentation/visuals_art_style"
+          ],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "positive",
+          "subcategories": [
+            "presentation/visuals_art_style"
+          ]
+        }
+      },
+      "fields_after": {
+        "gold": {
+          "evidence_spans": [
+            "люблю большие попы"
+          ],
+          "issue_labels": [],
+          "issue_present": false,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "positive",
+          "subcategories": [
+            "presentation/visuals_art_style"
+          ]
+        }
+      },
+      "human_approved_reason": "clear_aspect_praise"
+    },
+    {
+      "sample_id": "pv-1172470-233023949",
+      "fields_before": {
+        "gold": {
+          "evidence_spans": [
+            "very fun when played with friends and does not matter what skill level your friends are which makes it a nice game as well."
+          ],
+          "issue_labels": [
+            "gameplay/mechanics"
+          ],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "positive",
+          "subcategories": [
+            "gameplay/mechanics"
+          ]
+        }
+      },
+      "fields_after": {
+        "gold": {
+          "evidence_spans": [
+            "very fun when played with friends and does not matter what skill level your friends are which makes it a nice game as well."
+          ],
+          "issue_labels": [],
+          "issue_present": false,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "positive",
+          "subcategories": [
+            "gameplay/mechanics"
+          ]
+        }
+      },
+      "human_approved_reason": "clear_aspect_praise"
+    },
+    {
+      "sample_id": "pv-2868840-232996219",
+      "fields_before": {
+        "gold": {
+          "evidence_spans": [
+            "I like my silly builds"
+          ],
+          "issue_labels": [
+            "gameplay/mechanics"
+          ],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "positive",
+          "subcategories": [
+            "gameplay/mechanics"
+          ]
+        }
+      },
+      "fields_after": {
+        "gold": {
+          "evidence_spans": [
+            "I like my silly builds"
+          ],
+          "issue_labels": [],
+          "issue_present": false,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "positive",
+          "subcategories": [
+            "gameplay/mechanics"
+          ]
+        }
+      },
+      "human_approved_reason": "clear_aspect_praise"
+    },
+    {
+      "sample_id": "pv-1172470-232959876",
+      "fields_before": {
+        "gold": {
+          "evidence_spans": [
+            "神的审美"
+          ],
+          "issue_labels": [
+            "presentation/visuals_art_style"
+          ],
+          "issue_present": true,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "positive",
+          "subcategories": [
+            "presentation/visuals_art_style"
+          ]
+        }
+      },
+      "fields_after": {
+        "gold": {
+          "evidence_spans": [
+            "神的审美"
+          ],
+          "issue_labels": [],
+          "issue_present": false,
+          "request_labels": [],
+          "request_present": false,
+          "sentiment": "positive",
+          "subcategories": [
+            "presentation/visuals_art_style"
+          ]
+        }
+      },
+      "human_approved_reason": "clear_aspect_praise"
+    }
+  ]
+}

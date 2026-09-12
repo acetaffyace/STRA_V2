@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "senti-next/player-voice-baseline-v1",
+  "type": "object",
+  "required": ["dataset_hash", "prediction_hash", "taxonomy_version", "guideline_version", "metrics"],
+  "properties": {
+    "dataset_hash": {"type": "string"},
+    "prediction_hash": {"oneOf": [{"type": "string"}, {"type": "object"}]},
+    "dataset_version": {"type": "string"},
+    "core_challenge_split": {"type": "object"},
+    "development_holdout_split": {"type": "object"},
+    "taxonomy_version": {"const": "sentinext-taxonomy-v1"},
+    "guideline_version": {"type": "string"},
+    "prompt_version": {"type": ["string", "null"]},
+    "provider": {"type": ["string", "null"]},
+    "model_id": {"type": ["string", "null"]},
+    "metrics": {"type": "object"}
+  },
+  "additionalProperties": true
+}

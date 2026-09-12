@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "senti-next/player-voice-golden-set-v1",
+  "type": "object",
+  "required": ["sample_id", "app_id", "source_review_text", "source_review_hash", "sampling_stratum", "annotation_status", "guideline_version", "taxonomy_version"],
+  "properties": {
+    "sample_id": {"type": "string", "minLength": 1},
+    "app_id": {"type": "integer", "minimum": 1},
+    "review_id": {"type": ["string", "null"]},
+    "source_review_text": {"type": "string", "minLength": 1},
+    "source_review_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "language": {"type": ["string", "null"]},
+    "raw_metadata": {"type": "object"},
+    "sampling_stratum": {"enum": ["core", "challenge"]},
+    "sampling_reason": {"type": "string", "minLength": 1},
+    "sampling_signal_source": {"enum": ["raw_text", "weak_model_signal_candidate_only", "manual_candidate"]},
+    "annotation_status": {"enum": ["pending", "labeled", "ambiguous", "needs_adjudication", "exclude"]},
+    "guideline_version": {"type": "string", "minLength": 1},
+    "taxonomy_version": {"const": "sentinext-taxonomy-v1"},
+    "annotator_id": {"type": ["string", "null"]},
+    "adjudication_status": {"enum": ["not_started", "agreed", "disputed", "adjudicated"]},
+    "annotation_notes": {"type": "string"},
+    "gold": {"oneOf": [{"$ref": "#/$defs/labels"}, {"type": "null"}]},
+    "annotations": {"type": "array", "items": {"$ref": "#/$defs/labels"}}
+  },
+  "$defs": {
+    "labels": {
+      "type": "object",
+      "properties": {
+        "sentiment": {"enum": ["positive", "negative", "mixed", "neutral", "uncertain"]},
+        "categories": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "subcategories": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "issue_present": {"type": ["boolean", "null"]},
+        "issue_labels": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "request_present": {"type": ["boolean", "null"]},
+        "request_labels": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "evidence_spans": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "evidence_support": {"type": "object", "additionalProperties": {"type": "boolean"}}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

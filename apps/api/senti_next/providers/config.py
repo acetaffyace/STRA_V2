@@ -1,0 +1,264 @@
+"""Runtime LLM provider configuration."""
+from __future__ import annotations
+
+import json
+import logging
+import os
+from urllib.parse import urlparse
+from pathlib import Path
+from typing import Any
+
+logger = logging.getLogger(__name__)
+
+SUGGESTED_MODELS: dict[str, list[str]] = {
+    "deepseek": ["deepseek-v4-flash", "deepseek-v4-pro"],
+    "gemini": ["gemini-flash-lite-latest", "gemini-flash-latest"],
+    "xai": ["grok-4-1-fast-non-reasoning", "grok-4-1-fast-reasoning"],
+    "openai": ["gpt-5-mini", "gpt-5-nano"],
+    "ollama": ["gemma3:27b-cloud", "gpt-oss:120b-cloud", "gpt-oss:20b-cloud"],
+}
+
+SUPPORTED_LIVE_MODELS: dict[str, set[str]] = {
+    "deepseek": {"deepseek-v4-flash", "deepseek-v4-pro"},
+}
+
+# Default model per provider (first suggested model)
+DEFAULT_MODELS: dict[str, str] = {k: v[0] for k, v in SUGGESTED_MODELS.items()}
+
+# Priority order for auto-detection
+_PROVIDER_PRIORITY = ["deepseek", "xai", "gemini", "openai", "ollama"]
+
+_CONFIG_DIR = Path(os.getenv("SENTINEXT_DATA_DIR", "data"))
+_CONFIG_FILE = _CONFIG_DIR / "llm_config.json"
+_API_KEYS_FILE = _CONFIG_DIR / "api_keys.json"
+
+# Mapping: provider name -> env var name used by the provider at runtime
+_PROVIDER_ENV_VARS: dict[str, list[str]] = {
+    "deepseek": ["DEEPSEEK_API_KEY"],
+    "gemini": ["GEMINI_API_KEY", "GOOGLE_API_KEY"],
+    "xai": ["XAI_API_KEY"],
+    "openai": ["OPENAI_API_KEY"],
+}
+
+
+def _load_config() -> dict[str, Any]:
+    """Load config from disk, returning empty dict on failure."""
+    try:
+        if _CONFIG_FILE.exists():
+            return json.loads(_CONFIG_FILE.read_text(encoding="utf-8"))
+    except Exception as exc:
+        logger.debug("Failed to load LLM config: %s", exc)
+    return {}
+
+
+def _save_config(cfg: dict[str, Any]) -> None:
+    """Persist config to disk (atomic write via temp file + rename)."""
+    try:
+        _CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        tmp = _CONFIG_FILE.with_suffix(".tmp")
+        tmp.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+        tmp.replace(_CONFIG_FILE)
+    except Exception as exc:
+        logger.warning("Failed to save LLM config: %s", exc)
+
+
+# ---------------------------------------------------------------------------
+# API key management (stored keys)
+# ---------------------------------------------------------------------------
+
+def _load_stored_keys() -> dict[str, str]:
+    """Load stored API keys from disk."""
+    try:
+        if _API_KEYS_FILE.exists():
+            return json.loads(_API_KEYS_FILE.read_text(encoding="utf-8"))
+    except Exception as exc:
+        logger.debug("Failed to load stored API keys: %s", exc)
+    return {}
+
+
+def _save_stored_keys(keys: dict[str, str]) -> None:
+    """Persist API keys to disk (atomic write via temp file + rename)."""
+    try:
+        _CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        tmp = _API_KEYS_FILE.with_suffix(".tmp")
+        tmp.write_text(json.dumps(keys, indent=2), encoding="utf-8")
+        tmp.replace(_API_KEYS_FILE)
+    except Exception as exc:
+        logger.warning("Failed to save API keys: %s", exc)
+
+
+def load_stored_api_keys() -> None:
+    """Load stored API keys into os.environ so providers can use them.
+
+    Called at startup and after saving new keys.
+    Only sets env vars that are not already set (env vars take precedence).
+    """
+    stored = _load_stored_keys()
+    for provider, env_vars in _PROVIDER_ENV_VARS.items():
+        key_value = stored.get(provider, "").strip()
+        if not key_value:
+            continue
+        # Set the primary env var only if no env var for this provider is already set
+        if not any(os.getenv(v) for v in env_vars):
+            os.environ[env_vars[0]] = key_value
+
+
+def save_api_key(provider: str, api_key: str) -> None:
+    """Save an API key for a provider and inject it into the environment."""
+    stored = _load_stored_keys()
+    if api_key.strip():
+        stored[provider] = api_key.strip()
+        # Inject into environment immediately so providers pick it up
+        env_vars = _PROVIDER_ENV_VARS.get(provider, [])
+        if env_vars:
+            os.environ[env_vars[0]] = api_key.strip()
+    else:
+        # Remove key
+        stored.pop(provider, None)
+        env_vars = _PROVIDER_ENV_VARS.get(provider, [])
+        for var in env_vars:
+            os.environ.pop(var, None)
+    _save_stored_keys(stored)
+    logger.info("API key %s for provider %s", "saved" if api_key.strip() else "removed", provider)
+
+
+def get_api_key_status() -> dict[str, bool]:
+    """Return which providers have API keys configured (env or stored)."""
+    return {
+        name: _provider_has_key(name)
+        for name in _PROVIDER_PRIORITY
+        if name != "ollama"
+    }
+
+
+def _provider_has_key(provider: str) -> bool:
+    """Check if a provider's API key is configured (env vars or stored keys)."""
+    if provider == "deepseek":
+        return bool(os.getenv("DEEPSEEK_API_KEY", "").strip())
+    if provider == "gemini":
+        return bool(os.getenv("GEMINI_API_KEY", "").strip() or os.getenv("GOOGLE_API_KEY", "").strip())
+    if provider == "xai":
+        return bool(os.getenv("XAI_API_KEY", "").strip())
+    if provider == "openai":
+        return bool(os.getenv("OPENAI_API_KEY", "").strip())
+    if provider == "ollama":
+        return True
+    return False
+
+
+def get_available_providers() -> list[dict[str, Any]]:
+    """Return providers that have API keys configured.
+
+    Returns:
+        List of dicts with 'name', 'models', 'has_key', and 'is_active'.
+    """
+    active_provider, _ = get_active_provider()
+    result = []
+    for name in _PROVIDER_PRIORITY:
+        has_key = _provider_has_key(name)
+        result.append({
+            "name": name,
+            "models": SUGGESTED_MODELS.get(name, []),
+            "has_key": has_key,
+            "is_active": name == active_provider,
+        })
+    return result
+
+
+def get_active_provider() -> tuple[str, str]:
+    """Return (provider_name, model_name) for the currently active provider.
+
+    Priority:
+    1. Explicit config in llm_config.json (always returned if saved)
+    2. Environment variables (SENTINEXT_LLM_PROVIDER / SENTINEXT_LLM_MODEL)
+    3. No default — returns ("", "") so the user must choose via settings
+    """
+    # Check persisted config — return saved selection regardless of API key state.
+    # Callers that need a *usable* provider should check _provider_has_key() separately.
+    cfg = _load_config()
+    if cfg.get("provider") and cfg.get("model"):
+        return cfg["provider"], cfg["model"]
+
+    # Check environment variables
+    env_provider = os.getenv("SENTINEXT_LLM_PROVIDER", "").strip().lower()
+    env_model = os.getenv("SENTINEXT_LLM_MODEL", "").strip()
+    if env_provider and env_provider in SUGGESTED_MODELS:
+        model = env_model or DEFAULT_MODELS.get(env_provider, "")
+        return env_provider, model
+
+    # No auto-detection — user must configure via settings or env vars
+    return "", ""
+
+
+def validate_provider_configuration(provider: str, model: str) -> tuple[bool, str | None]:
+    """Validate only contracts that the application can know locally.
+
+    Historical model IDs remain readable for old cached labels, but are not
+    accepted for new live calls when a provider contract is explicitly pinned.
+    """
+    allowed = SUPPORTED_LIVE_MODELS.get(provider)
+    if allowed and model not in allowed:
+        return False, f"Unsupported {provider} model for new calls: {model}. Use one of: {', '.join(sorted(allowed))}."
+    return True, None
+
+
+def validate_live_runtime(provider: str, model: str) -> tuple[bool, str | None]:
+    """Fail fast on runtime prerequisites before creating a workload."""
+    if provider not in SUGGESTED_MODELS:
+        return False, f"Unsupported provider for live analysis: {provider or 'unknown'}."
+    ok, error = validate_provider_configuration(provider, model)
+    if not ok:
+        return False, error
+    if provider != "ollama" and not _provider_has_key(provider):
+        return False, f"Provider '{provider}' has no API key configured."
+    if provider == "ollama":
+        endpoint = os.getenv("SENTINEXT_OLLAMA_BASE_URL", "http://localhost:11434/v1")
+        parsed = urlparse(endpoint)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            return False, f"Malformed Ollama endpoint: {endpoint}"
+    try:
+        import importlib.util
+        if importlib.util.find_spec("openai") is None:
+            return False, "Provider runtime dependency 'openai' is not installed."
+    except Exception as exc:
+        return False, f"Provider runtime dependency check failed: {exc}"
+    if provider != "ollama":
+        from ..cost_ledger import pricing_snapshot
+        pricing = pricing_snapshot(provider, model)
+        if "input" not in pricing or "output" not in pricing:
+            return False, f"Pricing is unavailable for {provider}:{model}; refusing an unpriced live workload."
+    return True, None
+
+
+def set_active_provider(provider: str, model: str) -> None:
+    """Persist the active provider and model choice."""
+    cfg = _load_config()
+    cfg["provider"] = provider
+    cfg["model"] = model
+    _save_config(cfg)
+    logger.info("Active LLM provider set to %s/%s", provider, model)
+
+
+def get_max_workers() -> int:
+    """Return the configured max parallel LLM workers.
+
+    Priority: config file > env var > default (10).
+    """
+    cfg = _load_config()
+    val = cfg.get("max_workers")
+    if val is not None:
+        return max(1, min(int(val), 50))
+    return max(1, int(os.getenv("SENTINEXT_MAX_PARALLEL_BATCHES", "10")))
+
+
+def set_max_workers(n: int) -> None:
+    """Persist the max parallel LLM workers setting."""
+    n = max(1, min(n, 50))
+    cfg = _load_config()
+    cfg["max_workers"] = n
+    _save_config(cfg)
+    logger.info("Max parallel workers set to %s", n)
+
+
+# Load stored keys into environment on module import
+load_stored_api_keys()

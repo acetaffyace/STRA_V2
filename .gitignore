@@ -1,0 +1,119 @@
+# Node / Next.js
+node_modules/
+.npm/
+.next/
+out/
+dist/
+build/
+*.log
+*.tsbuildinfo
+apps/dashboard/node_modules/
+apps/dashboard/.next/
+apps/dashboard/.next.bak*
+apps/dashboard/out/
+
+# Env & local
+.env
+.env.*
+tooling/scripts/llm_validation/.env
+tooling/scripts/llm_validation/*.jsonl
+tooling/scripts/llm_validation/validation_report.json
+.env.*
+*.local
+!*.env.example
+
+# OS cruft
+.DS_Store
+**/.DS_Store
+
+# Certificates / signing keys (never commit)
+*.cer
+*.crt
+*.csr
+*.p12
+*.pfx
+*.p8
+
+# Python
+__pycache__/
+*.pyc
+*.py[cod]
+.venv/
+.venv*/
+apps/api/.venv/
+.pytest_cache/
+
+# App data
+data/
+llm_config.json
+api_keys.json
+data/*.db
+data/*.sqlite
+data/reports/
+data/*.pdf
+*.sqlite
+*.db
+/data/senti_next.db
+/data/*.sqlite
+/data/*.db
+
+# Generated reports (repo-local, root level only)
+/reports/
+/artifacts/
+/logs/
+
+# Excluded directories
+.agent/
+.agents/
+.claude/skills/
+
+# Benchmarks
+/tooling/benchmarks/results/
+/tooling/benchmarks/.cache/
+/tooling/benchmarks/datasets/steam_*/
+/tooling/benchmarks/datasets/steam-*/
+
+# Local test outputs
+/.pytest-tmp/
+/.benchmark-test-tmp/
+/.p0-test-tmp/
+/.p0_*-failure-fixture/
+/.p0_*-parity-fixture/
+**/.p0-test-tmp/
+**/.p0_*-failure-fixture/
+**/.p0_*-parity-fixture/
+
+# Local backups and generated audits
+/backups/
+/audit_outputs/
+
+# Generated evaluation experiment outputs (keep runnable scripts)
+/tooling/evals/player_voice/experiments/**/errors/
+/tooling/evals/player_voice/experiments/**/metrics/
+/tooling/evals/player_voice/experiments/**/predictions/
+/tooling/evals/player_voice/experiments/**/preflight/
+/tooling/evals/player_voice/experiments/**/*_MANIFEST.json
+/tooling/evals/player_voice/experiments/**/*_REPORT.json
+/tooling/evals/player_voice/experiments/**/DEV_V3_AB_REPORT.md
+
+# Desktop (Tauri) generated/build artifacts
+apps/desktop/src-tauri/target/
+apps/desktop/src-tauri/gen/
+data/runtime/*/runtime.lock
+data/runtime/*/*.log
+data/runtime/*/*.bak
+
+# Generic build outputs and local executables
+target/
+**/target/
+**/build/
+**/dist/
+*.exe
+*.msi
+*.tmp
+*.temp
+*.swp
+*.swo
+*.bak
+*.orig
+Thumbs.db

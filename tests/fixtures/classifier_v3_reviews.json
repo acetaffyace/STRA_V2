@@ -1,0 +1,14 @@
+[
+  {"review_id": "crash", "review": "crashes on startup"},
+  {"review_id": "performance", "review": "FPS drops every fight"},
+  {"review_id": "deck", "review": "Steam Deck does not work properly"},
+  {"review_id": "network", "review": "Can't connect to my brother on the same router"},
+  {"review_id": "save", "review": "Lost my save after the patch"},
+  {"review_id": "good", "review": "Good game"},
+  {"review_id": "hate", "review": "I hate this game"},
+  {"review_id": "fov", "review": "Please add an FOV slider"},
+  {"review_id": "ultrawide", "review": "希望支持超宽屏"},
+  {"review_id": "nat", "review": "希望官方调查这个 NAT/P2P 问题"},
+  {"review_id": "mixed", "review": "Combat is great but performance is terrible"},
+  {"review_id": "meme-crash", "review": "[meme/copypasta] + actual crash complaint"}
+]

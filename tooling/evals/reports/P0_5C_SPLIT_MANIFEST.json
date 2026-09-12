@@ -1,0 +1,27 @@
+{
+  "dataset_hash": "24f34e35936c2d8944908edecc0a5d42eb98a2b4e5efce384195b055131061c3",
+  "dev_hash": "3384ab1d0599c9ea992f3b9201abec3f89497d302b8697207152253f2bbd0000",
+  "holdout_hash": "5a4d28b43cb4a82ac50a2612395372c19ff8ddc57000d84ca4adcc1fc77d167b",
+  "salt": "p0.5c-gold-v1",
+  "holdout_fraction_requested": 0.25,
+  "counts": {
+    "gold": 150,
+    "development": 112,
+    "holdout": 38
+  },
+  "core_challenge": {
+    "gold": {
+      "core": 100,
+      "challenge": 50
+    },
+    "development": {
+      "core": 73,
+      "challenge": 39
+    },
+    "holdout": {
+      "core": 27,
+      "challenge": 11
+    }
+  },
+  "taxonomy_gap_count": 4
+}
