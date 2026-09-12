@@ -22,6 +22,7 @@ from ..insights import prepare_insights
 from ..analysis import recommended_share_over_time
 from ..adaptive_analysis import build_analysis_design, infer_game_profile
 from ..five_questions import build_five_question_contract
+from ..research_core import build_snapshot_research_report
 from .. import (
     fetch_reviews,
     fetch_reviews_multi_language,
@@ -298,6 +299,68 @@ def _build_population_provenance(all_reviews: List[dict], metadata: Optional[Ana
     }
 
 
+def _resolve_semantic_runtime() -> dict[str, Any]:
+    """Resolve semantic availability without making it an analysis gate.
+
+    Research Core is provider-agnostic and remains the minimum product.  This
+    helper only describes whether the optional legacy semantic layer can run;
+    it never returns credentials or raw runtime configuration.
+    """
+    try:
+        from ..providers import get_active_provider
+        from ..providers.config import SUGGESTED_MODELS, _provider_has_key, validate_live_runtime
+
+        provider_name, active_model = get_active_provider()
+    except Exception:
+        return {
+            "status": "unavailable",
+            "reason": "invalid_configuration",
+            "provider": None,
+            "model_id": None,
+        }
+
+    provider_name = str(provider_name or "").strip() or None
+    model_id = str(active_model or "").strip() or None
+    if provider_name is None:
+        return {
+            "status": "unavailable",
+            "reason": "no_provider",
+            "provider": None,
+            "model_id": None,
+        }
+    if provider_name not in SUGGESTED_MODELS:
+        return {
+            "status": "unavailable",
+            "reason": "invalid_configuration",
+            "provider": provider_name,
+            "model_id": model_id,
+        }
+    try:
+        if not _provider_has_key(provider_name):
+            return {
+                "status": "unavailable",
+                "reason": "no_api_key",
+                "provider": provider_name,
+                "model_id": model_id,
+            }
+        config_ok, _config_error = validate_live_runtime(provider_name, model_id or "")
+    except Exception:
+        config_ok = False
+    if not config_ok:
+        return {
+            "status": "unavailable",
+            "reason": "invalid_configuration",
+            "provider": provider_name,
+            "model_id": model_id,
+        }
+    return {
+        "status": "available",
+        "reason": None,
+        "provider": provider_name,
+        "model_id": model_id,
+    }
+
+
 def _run_analysis_job(
     run_id: str,
     app_id: int,
@@ -305,11 +368,12 @@ def _run_analysis_job(
     metadata: AnalyzeMetadata,
     game_context: Optional[dict],
     output_language: str = "zh",
+    semantic_runtime: Optional[dict] = None,
 ) -> None:
     total_reviews = len(all_reviews)
-    progress_active = total_reviews > 0
     snapshot_hash: Optional[str] = None
     context_hash: Optional[str] = None
+    runtime = dict(semantic_runtime or _resolve_semantic_runtime())
 
     # Keep the exact raw population scope separate from the sampled review
     # payload.  This is deliberately minimal immutable provenance for
@@ -332,6 +396,10 @@ def _run_analysis_job(
         if current.get("status") != "running":
             storage.transition_general_analysis_run(run_id, "failed", error="background started before run entered running")
             return
+        if storage.is_general_analysis_cancel_requested(run_id):
+            storage.transition_general_analysis_run(run_id, "cancelled", phase="research_core", error="Analysis cancelled by user")
+            storage.clear_progress(app_id)
+            return
     except Exception as exc:
         logger.exception("Failed to start general analysis run %s", run_id)
         try:
@@ -340,21 +408,18 @@ def _run_analysis_job(
             logger.exception("Failed to persist start failure for run %s", run_id)
         return
 
-    if progress_active:
-        try:
-            storage.reset_progress(app_id, total_reviews, phase="classifying")
-        except Exception as exc:
-            logger.error("Failed to reset progress to classifying: %s", exc)
+    try:
+        storage.reset_progress(app_id, total_reviews, phase="research_core")
+    except Exception as exc:
+        logger.error("Failed to reset progress to research_core: %s", exc)
 
-        def _progress_callback(processed: int, total: int) -> None:
-            if storage.is_cancelled(app_id) or storage.is_general_analysis_cancel_requested(run_id):
-                raise InterruptedError("Analysis cancelled by user")
-            try:
-                storage.update_progress(app_id, processed, total)
-            except Exception as exc:
-                logger.warning("Progress update failed: %s", exc)
-    else:
-        storage.clear_progress(app_id)
+    def _progress_callback(processed: int, total: int) -> None:
+        if storage.is_cancelled(app_id) or storage.is_general_analysis_cancel_requested(run_id):
+            raise InterruptedError("Analysis cancelled by user")
+        try:
+            storage.update_progress(app_id, processed, total)
+        except Exception as exc:
+            logger.warning("Progress update failed: %s", exc)
 
     def _save_starred_snapshot(insights_payload: Optional[dict], sample_payload: List[dict]) -> None:
         """Best-effort server-side persistence of completed analysis for starred games."""
@@ -378,34 +443,170 @@ def _run_analysis_job(
         except Exception as exc:
             logger.warning("Failed to persist starred snapshot for app %s: %s", app_id, exc)
 
+    def _research_counts(research_report: dict, *, classified_count: int = 0, valid_review_count: Optional[int] = None) -> dict:
+        if valid_review_count is None:
+            valid_review_count = int(
+                ((research_report.get("recommendation") or {}).get("population") or {}).get("valid_n") or 0
+            )
+        return {
+            "available_matching_reviews": metadata.available_matching_reviews,
+            "retrieved_count": metadata.retrieved_count or total_reviews,
+            "deduplicated_count": metadata.deduplicated_count,
+            "analysis_population_count": total_reviews,
+            "valid_review_count": valid_review_count,
+            "classified_count": classified_count,
+        }
+
+    def _semantic_status(status: str, reason: Optional[str]) -> dict:
+        return {
+            "status": status,
+            "reason": reason,
+            "provider": runtime.get("provider"),
+            "model_id": runtime.get("model_id"),
+        }
+
+    def _finalize_quantitative_only(research_report: dict, status: dict) -> None:
+        final_insights = {
+            # Transitional envelope: Research Core is not part of the semantic
+            # layer; it is stored here only until Stage 2P.4 adds formal
+            # Research Report persistence/API semantics.
+            "research_report": research_report,
+            "semantic_status": status,
+        }
+        try:
+            storage.update_progress_phase(app_id, "finalizing")
+            storage.update_progress(app_id, total_reviews, total_reviews)
+        except Exception:
+            logger.debug("Failed to mark quantitative-only finalization for %s", run_id, exc_info=True)
+        storage.finalize_general_analysis_run(
+            run_id,
+            app_id,
+            metadata_payload,
+            final_insights,
+            [],
+            snapshot_hash=snapshot_hash,
+            context_hash=context_hash,
+            counts=_research_counts(research_report),
+        )
+
+    # Research Core is the canonical minimum analytical product.  Any failure
+    # here is a run failure and must prevent all semantic/provider work.
     try:
-        with llm.llm_usage_context(app_id=app_id, run_id=run_id, phase="classifying", operation="classify", prompt_version=llm.active_classifier_prompt_version(), taxonomy_version=llm.TAXONOMY_VERSION, requested_review_count=len(all_reviews)):
-            llm_labels = llm.ensure_review_labels(
+        research_report = build_snapshot_research_report(
+            all_reviews,
+            metadata=metadata_payload,
+        )
+    except Exception as exc:
+        logger.exception("Research Core failed for analysis %s", run_id)
+        try:
+            storage.save_analysis_result(
+                app_id=app_id,
+                metadata=metadata_payload,
+                insights=None,
+                reviews=[],
+                status="failed",
+                error=f"Research Core failed: {exc}",
+                run_id=run_id,
+                snapshot_hash=snapshot_hash,
+                context_hash=context_hash,
+            )
+            storage.transition_general_analysis_run(run_id, "failed", phase="research_core", error=f"Research Core failed: {exc}")
+        except Exception:
+            logger.exception("Failed to persist Research Core failure for %s", run_id)
+        storage.clear_progress(app_id)
+        return
+
+    if not all_reviews:
+        semantic_state = _semantic_status("unavailable", "no_reviews")
+    elif runtime.get("status") != "available":
+        semantic_state = _semantic_status("unavailable", runtime.get("reason") or "invalid_configuration")
+    else:
+        semantic_state = _semantic_status("pending", None)
+
+    # Materialize quantitative output before attempting optional semantic work.
+    # This running compatibility row is deliberately the same existing storage
+    # envelope used by legacy consumers; Stage 2P.4 will formalize the field.
+    base_insights = {
+        "research_report": research_report,
+        "semantic_status": semantic_state,
+    }
+    try:
+        storage.save_analysis_result(
+            app_id=app_id,
+            metadata=metadata_payload,
+            insights=base_insights,
+            reviews=[],
+            status="running",
+            run_id=run_id,
+            snapshot_hash=snapshot_hash,
+            context_hash=context_hash,
+        )
+    except Exception as exc:
+        logger.exception("Failed to persist Research Core result for %s", run_id)
+        try:
+            storage.transition_general_analysis_run(run_id, "failed", phase="research_core", error=str(exc))
+        except Exception:
+            logger.exception("Failed to persist Research Core persistence failure for %s", run_id)
+        storage.clear_progress(app_id)
+        return
+
+    if semantic_state["status"] == "unavailable":
+        try:
+            _finalize_quantitative_only(research_report, semantic_state)
+        except Exception as exc:
+            logger.exception("Failed to finalize quantitative-only analysis %s", run_id)
+            try:
+                storage.save_analysis_result(
+                    app_id=app_id,
+                    metadata=metadata_payload,
+                    insights=base_insights,
+                    reviews=[],
+                    status="failed",
+                    error=str(exc),
+                    run_id=run_id,
+                    snapshot_hash=snapshot_hash,
+                    context_hash=context_hash,
+                )
+                storage.transition_general_analysis_run(run_id, "failed", error=str(exc))
+            except Exception:
+                logger.exception("Failed to persist quantitative-only finalization failure for %s", run_id)
+        finally:
+            storage.clear_progress(app_id)
+        return
+
+    try:
+        storage.update_progress_phase(app_id, "classifying")
+        storage.transition_general_analysis_run(run_id, "running", phase="classifying")
+        storage.reset_progress(app_id, total_reviews, phase="classifying")
+        with llm.llm_usage_context(
+            app_id=app_id,
+            run_id=run_id,
+            phase="classifying",
+            operation="classify",
+            prompt_version=llm.active_classifier_prompt_version(),
+            taxonomy_version=llm.TAXONOMY_VERSION,
+            requested_review_count=len(all_reviews),
+        ):
+            llm.ensure_review_labels(
                 app_id,
                 all_reviews,
-                progress_callback=_progress_callback if progress_active else None,
+                progress_callback=_progress_callback if total_reviews > 0 else None,
                 game_context=game_context,
             )
             # `ensure_review_labels` returns flat prediction payloads for
             # callers, while `apply_review_labels` also needs the canonical
             # storage envelope (label_origin/validated/provider/input hash).
-            # Reload that envelope so run counts and provenance cannot silently
-            # collapse to zero after successful provider calls.
             llm_labels = storage.load_review_labels(app_id)
+
+        if storage.is_general_analysis_cancel_requested(run_id):
+            raise InterruptedError("Analysis cancelled by user")
 
         df = build_reviews_dataframe(all_reviews)
         df = llm.apply_review_labels(df, llm_labels)
 
         if df is None or df.empty:
-            storage.finalize_general_analysis_run(run_id, app_id, metadata_payload, None, [], snapshot_hash=snapshot_hash, context_hash=context_hash, counts={
-                "available_matching_reviews": metadata.available_matching_reviews,
-                "retrieved_count": metadata.retrieved_count or total_reviews,
-                "deduplicated_count": metadata.deduplicated_count,
-                "analysis_population_count": total_reviews,
-                "valid_review_count": 0,
-                "classified_count": 0,
-            })
-            _save_starred_snapshot(None, [])
+            semantic_state = _semantic_status("unavailable", "no_classifiable_reviews")
+            _finalize_quantitative_only(research_report, semantic_state)
             return
 
         storage.update_progress_phase(app_id, "building_insights")
@@ -439,7 +640,8 @@ def _run_analysis_job(
         else:
             reviews_payload = []
 
-        # Auto-generate health overview
+        # Auto-generate health overview.  This remains non-fatal and does not
+        # alter the semantic availability status when it fails.
         try:
             baseline = None
             try:
@@ -462,7 +664,14 @@ def _run_analysis_job(
                         }
             except Exception:
                 pass
-            with llm.llm_usage_context(app_id=app_id, run_id=run_id, phase="aggregating", operation="health_overview", prompt_version=llm.ACTIVE_PROMPT_VERSION, taxonomy_version=llm.TAXONOMY_VERSION):
+            with llm.llm_usage_context(
+                app_id=app_id,
+                run_id=run_id,
+                phase="aggregating",
+                operation="health_overview",
+                prompt_version=llm.ACTIVE_PROMPT_VERSION,
+                taxonomy_version=llm.TAXONOMY_VERSION,
+            ):
                 health_overview = llm.generate_health_overview(
                     reviews=reviews_payload,
                     game_context=game_context,
@@ -476,24 +685,29 @@ def _run_analysis_job(
             if insights is not None:
                 insights["health_overview"] = None
 
-        # Store review fingerprint so auto-refresh can detect changes
+        # Store review fingerprint so auto-refresh can detect changes.
         metadata.review_fingerprint = storage.get_reviews_fingerprint(app_id)
         metadata_payload = metadata.dict()
         metadata_payload["population_provenance"] = population_provenance
+        final_insights = dict(insights or {})
+        final_insights["research_report"] = research_report
+        final_insights["semantic_status"] = _semantic_status("available", None)
 
         storage.finalize_general_analysis_run(
-            run_id=run_id, app_id=app_id, metadata=metadata_payload, insights=insights,
-            reviews=reviews_payload, snapshot_hash=snapshot_hash, context_hash=context_hash,
-            counts={
-            "available_matching_reviews": metadata.available_matching_reviews,
-            "retrieved_count": metadata.retrieved_count or total_reviews,
-            "deduplicated_count": metadata.deduplicated_count,
-            "analysis_population_count": total_reviews,
-            "valid_review_count": int(len(df)) if df is not None else 0,
-            "classified_count": validated_classified_count,
-            },
+            run_id=run_id,
+            app_id=app_id,
+            metadata=metadata_payload,
+            insights=final_insights,
+            reviews=reviews_payload,
+            snapshot_hash=snapshot_hash,
+            context_hash=context_hash,
+            counts=_research_counts(
+                research_report,
+                classified_count=validated_classified_count,
+                valid_review_count=int(len(df)) if df is not None else 0,
+            ),
         )
-        _save_starred_snapshot(insights, reviews_payload)
+        _save_starred_snapshot(final_insights, reviews_payload)
     except InterruptedError as exc:
         logger.info(f"Analysis cancelled for app {app_id}: {exc}")
         try:
@@ -509,23 +723,36 @@ def _run_analysis_job(
         except Exception:
             logger.exception("Failed to persist cancelled run %s", run_id)
     except Exception as exc:
-        logger.exception("Analysis job failed: %s", exc)
+        # Semantic failures cannot erase an already materialized Research Core
+        # result.  They produce a completed quantitative run with an explicit
+        # semantic failure state rather than a globally failed analysis.
+        logger.exception("Semantic analysis failed after Research Core: %s", exc)
+        failed_status = _semantic_status("failed", "runtime_error")
         try:
-            storage.save_analysis_result(
-                app_id=app_id, metadata=metadata.dict(), insights=None, reviews=[],
-                status="failed", error=str(exc), run_id=run_id,
-                snapshot_hash=snapshot_hash, context_hash=context_hash,
-            )
-        except Exception:
-            logger.exception("Failed to persist failed analysis result for %s", run_id)
-        try:
-            storage.transition_general_analysis_run(run_id, "failed", error=str(exc))
-        except Exception:
-            logger.exception("Failed to persist failed run %s", run_id)
+            _finalize_quantitative_only(research_report, failed_status)
+        except Exception as finalize_exc:
+            logger.exception("Failed to finalize semantic failure for %s", run_id)
+            try:
+                storage.save_analysis_result(
+                    app_id=app_id,
+                    metadata=metadata_payload,
+                    insights={"research_report": research_report, "semantic_status": failed_status},
+                    reviews=[],
+                    status="failed",
+                    error=str(finalize_exc),
+                    run_id=run_id,
+                    snapshot_hash=snapshot_hash,
+                    context_hash=context_hash,
+                )
+                storage.transition_general_analysis_run(run_id, "failed", error=str(finalize_exc))
+            except Exception:
+                logger.exception("Failed to persist semantic finalization failure for %s", run_id)
     finally:
-        if progress_active:
+        try:
+            storage.update_progress_phase(app_id, "finalizing")
             storage.update_progress(app_id, total_reviews, total_reviews)
-            storage.update_progress_phase(app_id, "classifying")
+        except Exception:
+            logger.debug("Failed to finalize progress state for %s", run_id, exc_info=True)
 
 
 # ---------------------------------------------------------------------------
@@ -539,21 +766,10 @@ def analyze(
 ) -> AnalyzeResponse:
     sampling_contract = _sampling_contract_for_request(request)
     filter_type = sampling_contract.collection_order
-
-    # Pre-flight: verify LLM provider is configured and has an API key
-    from ..providers import get_active_provider
-    from ..providers.config import _provider_has_key, validate_live_runtime, validate_provider_configuration
-    provider_name, active_model = get_active_provider()
-    if not provider_name:
-        raise HTTPException(
-            status_code=400,
-            detail="No LLM provider configured. Please set one in Settings before analyzing.",
-        )
-    if not _provider_has_key(provider_name):
-        raise HTTPException(
-            status_code=400,
-            detail=f"Provider '{provider_name}' is configured but has no API key. Add one in Settings or set the appropriate environment variable.",
-        )
+    # LLM availability is semantic-layer provenance, not an analysis-wide
+    # preflight gate.  Steam acquisition and Research Core remain available
+    # when this optional runtime cannot execute.
+    semantic_runtime = _resolve_semantic_runtime()
 
     # Clean up any analyses stuck in 'running' state for > 5 minutes
     cleared = storage.clear_stale_running_analyses(max_age_seconds=300)
@@ -569,10 +785,6 @@ def analyze(
                 "run_id": active_same.get("run_id"),
             },
         )
-    config_ok, config_error = validate_live_runtime(provider_name, active_model)
-    if not config_ok:
-        raise HTTPException(status_code=400, detail=config_error)
-
     active_other = storage.get_active_general_analysis()
     if active_other is not None and int(active_other.get("target_app_id")) != request.app_id:
         raise HTTPException(
@@ -613,6 +825,7 @@ def analyze(
 
     run_id = uuid4().hex
     languages_to_fetch = sampling_contract.languages
+    runtime_available = semantic_runtime.get("status") == "available"
     storage.create_general_analysis_run(
         run_id,
         request.app_id,
@@ -622,12 +835,13 @@ def analyze(
             "day_range": request.day_range, "refresh_days": request.refresh_days,
             "persist": request.persist, "output_language": request.output_language,
             "sampling_contract": sampling_contract.to_dict(),
+            "semantic_runtime": semantic_runtime,
         },
         requested_languages=sampling_contract.languages,
         requested_review_count=sampling_contract.max_reviews,
-        provider=provider_name,
-        model_id=str(active_model or "") or None,
-        prompt_version=llm.active_classifier_prompt_version(),
+        provider=semantic_runtime.get("provider") if runtime_available else None,
+        model_id=semantic_runtime.get("model_id") if runtime_available else None,
+        prompt_version=llm.active_classifier_prompt_version() if runtime_available else None,
         analysis_version="general-analysis-v1",
     )
     # The request handler performs the existing synchronous ingestion path.
@@ -731,19 +945,20 @@ def analyze(
     all_reviews.sort(key=lambda r: (r.get("language", "english"), -(r.get("timestamp_created") or 0)))
 
     label_estimate = None
-    try:
-        estimate = llm.estimate_review_labeling(request.app_id, all_reviews)
-        label_estimate = LabelReuseEstimate(
-            total_reviews=int(estimate.get("total_reviews", len(all_reviews)) or 0),
-            cached_reviews=int(estimate.get("cached_reviews", 0) or 0),
-            llm_reviews=int(estimate.get("llm_reviews", 0) or 0),
-            needs_refresh_reviews=int(estimate.get("needs_refresh_reviews", 0) or 0),
-            empty_reviews=int(estimate.get("empty_reviews", 0) or 0),
-            short_reviews=int(estimate.get("short_reviews", 0) or 0),
-            reasons={str(key): int(value) for key, value in (estimate.get("reasons") or {}).items() if key},
-        )
-    except Exception as exc:
-        logger.warning("Failed to estimate cached labels for app %s: %s", request.app_id, exc)
+    if semantic_runtime.get("status") == "available" and all_reviews:
+        try:
+            estimate = llm.estimate_review_labeling(request.app_id, all_reviews)
+            label_estimate = LabelReuseEstimate(
+                total_reviews=int(estimate.get("total_reviews", len(all_reviews)) or 0),
+                cached_reviews=int(estimate.get("cached_reviews", 0) or 0),
+                llm_reviews=int(estimate.get("llm_reviews", 0) or 0),
+                needs_refresh_reviews=int(estimate.get("needs_refresh_reviews", 0) or 0),
+                empty_reviews=int(estimate.get("empty_reviews", 0) or 0),
+                short_reviews=int(estimate.get("short_reviews", 0) or 0),
+                reasons={str(key): int(value) for key, value in (estimate.get("reasons") or {}).items() if key},
+            )
+        except Exception as exc:
+            logger.warning("Failed to estimate cached labels for app %s: %s", request.app_id, exc)
 
     with db_module.get_connection() as conn:
         lock_acquired = d.try_advisory_lock(conn, request.app_id + 1_000_000_000)
@@ -873,8 +1088,8 @@ def analyze(
         snapshot_hash=None,
         stale=False,
     )
-    storage.transition_general_analysis_run(run_id, "running", phase="classifying")
-    storage.reset_progress(request.app_id, total=len(all_reviews), phase="classifying")
+    storage.transition_general_analysis_run(run_id, "running", phase="research_core")
+    storage.reset_progress(request.app_id, total=len(all_reviews), phase="research_core")
 
     if game_context:
         logger.info(f"Fetched game context for {game_context.get('name', request.app_id)}")
@@ -888,6 +1103,7 @@ def analyze(
             metadata,
             game_context,
             request.output_language,
+            semantic_runtime,
         )
     except Exception as exc:
         logger.exception("Failed to schedule general analysis run %s", run_id)
