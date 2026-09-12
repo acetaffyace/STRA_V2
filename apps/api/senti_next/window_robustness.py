@@ -332,6 +332,8 @@ def matched_window_robustness(
     comparability_report: Any = None,
     windows_days: Iterable[int | float] = DEFAULT_WINDOWS_DAYS,
     standardization_variables: Optional[Iterable[str]] = None,
+    standardization_target: str = "reference",
+    confidence_level: float = 0.95,
     events: Optional[Iterable[Mapping[str, Any]]] = None,
 ) -> dict[str, Any]:
     """Compare equal lifecycle windows anchored to two release timestamps."""
@@ -368,6 +370,7 @@ def matched_window_robustness(
             comparison_subset,
             reference_metadata=reference_window_metadata,
             comparison_metadata=comparison_window_metadata,
+            confidence_level=confidence_level,
         )
         recommendation_difference = recommendation_report["difference"]
         raw_difference = recommendation_difference.get("difference")
@@ -380,6 +383,7 @@ def matched_window_robustness(
                 comparison_metadata=comparison_window_metadata,
                 comparability_report=population_comparability,
                 variables=standardization_variables_list,
+                target=standardization_target,
             )
 
         if reference_coverage["status"] != "complete" or comparison_coverage["status"] != "complete":
@@ -433,6 +437,8 @@ def matched_window_robustness(
             },
             "standardization": (
                 {
+                    "variables": standardization_report["standardization"]["variables"],
+                    "target": standardization_report["standardization"]["target"],
                     "raw_difference": standardization_report["raw"]["difference"],
                     "reference_standardized_rate": standardization_report["standardization"]["reference_standardized_rate"],
                     "comparison_standardized_rate": standardization_report["standardization"]["comparison_standardized_rate"],
@@ -457,6 +463,11 @@ def matched_window_robustness(
         "anchors": {"reference": reference_anchor_timestamp, "comparison": comparison_anchor_timestamp},
         "window_definition": "anchor <= timestamp_created < anchor + window_days * 86400",
         "requested_windows_days": windows,
+        "configuration": {
+            "confidence_level": confidence_level,
+            "standardization_variables": list(standardization_variables_list) if standardization_variables_list is not None else None,
+            "standardization_target": standardization_target,
+        },
         "reference_missing_timestamp_n": sum(_as_timestamp(row.get("timestamp_created")) is None for row in reference),
         "comparison_missing_timestamp_n": sum(_as_timestamp(row.get("timestamp_created")) is None for row in comparison),
         "windows": window_reports,

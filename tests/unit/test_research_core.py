@@ -149,6 +149,118 @@ def test_comparison_report_schema_and_direct_stage_parity():
     assert report["orchestration"]["configuration"]["standardization_variables"] == ["language"]
 
 
+def test_non_default_confidence_is_propagated_to_every_window_and_matches_direct_stage_2d():
+    reference = _population(REFERENCE_ANCHOR, "reference")
+    comparison = _population(COMPARISON_ANCHOR, "comparison")
+    reference_metadata = _metadata(REFERENCE_ANCHOR)
+    comparison_metadata = _metadata(COMPARISON_ANCHOR)
+    report = build_comparison_research_report(
+        reference,
+        comparison,
+        reference_metadata=reference_metadata,
+        comparison_metadata=comparison_metadata,
+        reference_anchor=REFERENCE_ANCHOR,
+        comparison_anchor=COMPARISON_ANCHOR,
+        confidence_level=0.90,
+        standardization_variables=("language",),
+        windows_days=(3, 7, 14),
+    )
+    direct = matched_window_robustness(
+        reference,
+        comparison,
+        REFERENCE_ANCHOR,
+        COMPARISON_ANCHOR,
+        reference_metadata=reference_metadata,
+        comparison_metadata=comparison_metadata,
+        windows_days=(3, 7, 14),
+        standardization_variables=("language",),
+        standardization_target="reference",
+        confidence_level=0.90,
+    )
+    assert report["window_robustness"] == direct
+    assert report["orchestration"]["configuration"]["confidence_level"] == 0.90
+    for window in report["window_robustness"]["windows"].values():
+        if window["recommendation"]["reference_wilson_interval"] is not None:
+            assert window["recommendation"]["reference_wilson_interval"]["confidence_level"] == 0.90
+            assert window["recommendation"]["comparison_wilson_interval"]["confidence_level"] == 0.90
+            assert window["recommendation"]["newcombe_difference_interval"]["confidence_level"] == 0.90
+
+
+def test_pooled_standardization_target_is_visible_in_top_level_and_each_window():
+    report = build_comparison_research_report(
+        _population(REFERENCE_ANCHOR, "reference"),
+        _population(COMPARISON_ANCHOR, "comparison"),
+        reference_metadata=_metadata(REFERENCE_ANCHOR),
+        comparison_metadata=_metadata(COMPARISON_ANCHOR),
+        reference_anchor=REFERENCE_ANCHOR,
+        comparison_anchor=COMPARISON_ANCHOR,
+        standardization_variables=("language",),
+        standardization_target="pooled",
+        windows_days=(3, 7),
+    )
+    assert report["standardization"]["standardization"]["target"] == "pooled"
+    assert report["window_robustness"]["configuration"]["standardization_target"] == "pooled"
+    for window in report["window_robustness"]["windows"].values():
+        assert window["standardization"]["target"] == "pooled"
+
+
+def test_research_core_resolves_stage_2c_default_variables_for_stage_2d():
+    report = build_comparison_research_report(
+        _population(REFERENCE_ANCHOR, "reference"),
+        _population(COMPARISON_ANCHOR, "comparison"),
+        reference_metadata=_metadata(REFERENCE_ANCHOR),
+        comparison_metadata=_metadata(COMPARISON_ANCHOR),
+        reference_anchor=REFERENCE_ANCHOR,
+        comparison_anchor=COMPARISON_ANCHOR,
+        standardization_variables=None,
+        windows_days=(3, 7),
+    )
+    configuration = report["orchestration"]["configuration"]
+    assert configuration["requested_standardization_variables"] is None
+    assert configuration["effective_standardization_variables"] == ["language"]
+    assert report["window_robustness"]["configuration"]["standardization_variables"] == ["language"]
+    assert report["window_robustness"]["robustness"]["standardized"] is not None
+
+
+def test_combined_non_default_configuration_has_exact_stage_2d_parity():
+    reference = _population(REFERENCE_ANCHOR, "reference")
+    comparison = _population(COMPARISON_ANCHOR, "comparison")
+    reference_metadata = _metadata(REFERENCE_ANCHOR)
+    comparison_metadata = _metadata(COMPARISON_ANCHOR)
+    variables = ("language", "playtime_cohort")
+    report = build_comparison_research_report(
+        reference,
+        comparison,
+        reference_metadata=reference_metadata,
+        comparison_metadata=comparison_metadata,
+        reference_anchor=REFERENCE_ANCHOR,
+        comparison_anchor=COMPARISON_ANCHOR,
+        confidence_level=0.90,
+        standardization_variables=variables,
+        standardization_target="pooled",
+        windows_days=(3, 7),
+    )
+    direct = matched_window_robustness(
+        reference,
+        comparison,
+        REFERENCE_ANCHOR,
+        COMPARISON_ANCHOR,
+        reference_metadata=reference_metadata,
+        comparison_metadata=comparison_metadata,
+        windows_days=(3, 7),
+        standardization_variables=variables,
+        standardization_target="pooled",
+        confidence_level=0.90,
+    )
+    assert report["window_robustness"] == direct
+    configuration = report["orchestration"]["configuration"]
+    assert configuration["confidence_level"] == 0.90
+    assert configuration["requested_standardization_variables"] == list(variables)
+    assert configuration["effective_standardization_variables"] == list(variables)
+    assert configuration["standardization_target"] == "pooled"
+    assert configuration["windows_days"] == [3, 7]
+
+
 def test_missing_anchors_are_explicitly_unavailable():
     report = build_comparison_research_report(
         _population(REFERENCE_ANCHOR, "reference"),

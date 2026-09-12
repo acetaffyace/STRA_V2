@@ -94,19 +94,25 @@ def _orchestration(
     stages_executed: list[str],
     stages_unavailable: Mapping[str, str],
     *,
-    standardization_variables: Optional[Iterable[str]] = None,
+    confidence_level: float | None = None,
+    requested_standardization_variables: Optional[Iterable[str]] = None,
+    effective_standardization_variables: Optional[Iterable[str]] = None,
     standardization_target: str | None = None,
     windows_days: Optional[Iterable[int | float]] = None,
     activity_grain: str = "day",
 ) -> dict[str, Any]:
-    requested_variables = None if standardization_variables is None else list(standardization_variables)
+    requested_variables = None if requested_standardization_variables is None else list(requested_standardization_variables)
+    effective_variables = None if effective_standardization_variables is None else list(effective_standardization_variables)
     requested_windows = None if windows_days is None else list(windows_days)
     return {
         "research_core_version": RESEARCH_CORE_VERSION,
         "stages_executed": list(stages_executed),
         "stages_unavailable": dict(stages_unavailable),
         "configuration": {
+            "confidence_level": confidence_level,
             "standardization_variables": requested_variables,
+            "requested_standardization_variables": requested_variables,
+            "effective_standardization_variables": effective_variables,
             "standardization_target": standardization_target,
             "windows_days": requested_windows,
             "activity_grain": activity_grain,
@@ -180,6 +186,7 @@ def build_snapshot_research_report(
         "orchestration": _orchestration(
             ["2B", "2E"],
             {"2A": "comparison_required", "2C": "comparison_required", "2D": "comparison_required"},
+            confidence_level=confidence_level,
             activity_grain=activity_grain,
         ),
     }
@@ -230,6 +237,11 @@ def build_comparison_research_report(
         variables=variables,
         target=standardization_target,
     )
+    # Stage 2C is the source of truth for defaults (currently language).  Pass
+    # its effective variables to Stage 2D rather than duplicating that policy.
+    effective_variables = tuple(
+        standardization.get("standardization", {}).get("variables") or ()
+    )
     activity_reference = analyze_review_activity(reference, grain=activity_grain)
     activity_comparison = analyze_review_activity(comparison, grain=activity_grain)
 
@@ -248,7 +260,9 @@ def build_comparison_research_report(
             comparison_metadata=comparison_metadata,
             comparability_report=comparability,
             windows_days=requested_windows,
-            standardization_variables=variables,
+            standardization_variables=effective_variables,
+            standardization_target=standardization_target,
+            confidence_level=confidence_level,
             events=event_rows,
         )
         stages_executed = ["2A", "2B", "2C", "2D", "2E"]
@@ -286,7 +300,9 @@ def build_comparison_research_report(
         "orchestration": _orchestration(
             stages_executed,
             stages_unavailable,
-            standardization_variables=variables,
+            confidence_level=confidence_level,
+            requested_standardization_variables=variables,
+            effective_standardization_variables=effective_variables,
             standardization_target=standardization_target,
             windows_days=requested_windows,
             activity_grain=activity_grain,

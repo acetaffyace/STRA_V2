@@ -149,8 +149,38 @@ def test_custom_windows_are_supported_and_default_does_not_choose_standardizatio
     reference, comparison = basic_populations()
     report = matched_window_robustness(reference, comparison, REFERENCE_ANCHOR, COMPARISON_ANCHOR, reference_metadata=metadata(REFERENCE_ANCHOR, 30), comparison_metadata=metadata(COMPARISON_ANCHOR, 30), windows_days=[30, 7, 3])
     assert report["requested_windows_days"] == [3, 7, 30]
+    assert report["configuration"] == {
+        "confidence_level": 0.95,
+        "standardization_variables": None,
+        "standardization_target": "reference",
+    }
     assert report["windows"]["3"]["standardization"] is None
     assert report["robustness"]["standardized"] is None
+
+
+def test_explicit_stage_2d_configuration_is_exposed_without_changing_slicing() -> None:
+    reference, comparison = basic_populations()
+    report = matched_window_robustness(
+        reference,
+        comparison,
+        REFERENCE_ANCHOR,
+        COMPARISON_ANCHOR,
+        reference_metadata=metadata(REFERENCE_ANCHOR),
+        comparison_metadata=metadata(COMPARISON_ANCHOR),
+        windows_days=(3,),
+        standardization_variables=("language",),
+        standardization_target="pooled",
+        confidence_level=0.90,
+    )
+    assert report["configuration"] == {
+        "confidence_level": 0.90,
+        "standardization_variables": ["language"],
+        "standardization_target": "pooled",
+    }
+    window = report["windows"]["3"]
+    assert window["standardization"]["target"] == "pooled"
+    assert window["standardization"]["variables"] == ["language"]
+    assert window["recommendation"]["reference_wilson_interval"]["confidence_level"] == 0.90
 
 
 def test_incomplete_acquisition_propagates_limitation() -> None:
