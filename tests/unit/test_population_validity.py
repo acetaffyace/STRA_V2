@@ -298,3 +298,16 @@ def test_empty_populations_have_unknown_composition_and_null_distributions() -> 
     assert report["dimensions"]["language"]["comparison_distribution"] is None
     assert report["dimensions"]["language"]["reason"] == "insufficient_observed_data"
     assert report["composition_comparability"]["level"] == "unknown"
+
+
+def test_equal_complete_missingness_is_not_called_high_data_quality() -> None:
+    report = compare_populations(
+        [review("a", steam_purchase=None)],
+        [review("b", steam_purchase=None)],
+        reference_metadata=metadata(),
+        comparison_metadata=metadata(),
+    )
+    assert report["dimensions"]["purchase_source"]["observability"] == "none"
+    assert report["data_quality"]["missingness_shift_level"] == "low"
+    assert report["data_quality"]["level"] == "low"
+    assert report["data_quality"]["level_semantics"] == "missingness_pattern_similarity"

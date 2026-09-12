@@ -526,7 +526,18 @@ def compare_populations(
     data_quality = {
         "missingness": missingness,
         "observability": observability,
-        "level": missingness["level"],
+        # Backward-compatible alias: this is similarity of missingness
+        # patterns, not a claim that the data are complete or high quality.
+        "level": missingness["shift_level"],
+        "level_semantics": "missingness_pattern_similarity",
+        "missingness_shift_level": missingness["shift_level"],
+        "coverage_summary": {
+            name: {
+                "reference": composition_dimensions[name]["reference"].get("coverage"),
+                "comparison": composition_dimensions[name]["comparison"].get("coverage"),
+            }
+            for name in composition_dimensions
+        },
         "warnings": ["missingness_shift"] if missingness["warning_fields"] else [],
     }
     composition_level, unknown_composition = _aggregate_composition_level(composition_dimensions)
