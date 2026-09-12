@@ -5,6 +5,7 @@ from typing import Any
 import pytest
 
 from apps.api.senti_next import steam_api
+from apps.api.senti_next.steam_api import SteamAPIError
 from apps.api.senti_next.ingest import normalize_steam_reviews
 from apps.api.senti_next.sampling import SamplingContract
 
@@ -178,3 +179,131 @@ def test_duplicate_text_does_not_change_population_count(monkeypatch: pytest.Mon
     result = steam_api.fetch_reviews(10, sampling_contract=SamplingContract(app_id=10, max_reviews=0))
     assert len(result) == 2
     assert {item["recommendationid"] for item in result} == {"same-a", "same-b"}
+
+
+def test_max_reviews_before_lower_boundary_is_truncated(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = _mock_pages(monkeypatch, [{
+        "success": 1,
+        "reviews": [_review("inside-a", 200), _review("inside-b", 180)],
+        "cursor": "next",
+    }])
+    stats: list[dict[str, Any]] = []
+    result = steam_api.fetch_reviews(
+        10,
+        sampling_contract=SamplingContract(app_id=10, start_time=100, end_time=250, max_reviews=1),
+        stats_callback=stats.append,
+    )
+    assert len(result) == 1
+    assert stats[-1]["collection_complete"] is False
+    assert stats[-1]["truncated_by_max_reviews"] is True
+    assert stats[-1]["stop_reason"] == "max_reviews_reached"
+    assert len(calls) == 1
+
+
+def test_max_reviews_without_stream_exhaustion_is_not_complete(monkeypatch: pytest.MonkeyPatch) -> None:
+    _mock_pages(monkeypatch, [{
+        "success": 1,
+        "reviews": [_review("r1", 200)],
+        "cursor": "next",
+    }])
+    stats: list[dict[str, Any]] = []
+    steam_api.fetch_reviews(10, sampling_contract=SamplingContract(app_id=10, max_reviews=1), stats_callback=stats.append)
+    assert stats[-1]["collection_complete"] is False
+    assert stats[-1]["truncated_by_max_reviews"] is True
+    assert stats[-1]["stop_reason"] == "max_reviews_reached"
+
+
+def test_normal_end_of_results_is_complete(monkeypatch: pytest.MonkeyPatch) -> None:
+    _mock_pages(monkeypatch, [{
+        "success": 1,
+        "reviews": [_review("r1", 200)],
+        "cursor": "next",
+    }, {"success": 1, "reviews": [], "cursor": ""}])
+    stats: list[dict[str, Any]] = []
+    steam_api.fetch_reviews(10, sampling_contract=SamplingContract(app_id=10, max_reviews=0), stats_callback=stats.append)
+    assert stats[-1]["collection_complete"] is True
+    assert stats[-1]["truncated_by_max_reviews"] is False
+    assert stats[-1]["stop_reason"] == "end_of_results"
+
+
+def test_safe_lower_boundary_crossing_is_complete(monkeypatch: pytest.MonkeyPatch) -> None:
+    _mock_pages(monkeypatch, [{
+        "success": 1,
+        "reviews": [_review("old", 90), _review("older", 80)],
+        "cursor": "next",
+    }])
+    stats: list[dict[str, Any]] = []
+    steam_api.fetch_reviews(10, sampling_contract=SamplingContract(app_id=10, start_time=100), stats_callback=stats.append)
+    assert stats[-1]["collection_complete"] is True
+    assert stats[-1]["stop_reason"] == "lower_boundary_reached"
+
+
+def test_repeated_cursor_is_abnormal_and_incomplete(monkeypatch: pytest.MonkeyPatch) -> None:
+    _mock_pages(monkeypatch, [{
+        "success": 1,
+        "reviews": [_review("r1", 200)],
+        "cursor": "*",
+    }])
+    stats: list[dict[str, Any]] = []
+    steam_api.fetch_reviews(10, sampling_contract=SamplingContract(app_id=10, max_reviews=0), stats_callback=stats.append)
+    assert stats[-1]["collection_complete"] is False
+    assert stats[-1]["stop_reason"] == "cursor_repeated"
+
+
+def test_api_failure_is_not_reported_as_exhaustion(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fail_get(url: str, **kwargs: Any) -> _Response:
+        raise SteamAPIError("temporary outage")
+
+    monkeypatch.setattr(steam_api, "_protected_get", fail_get)
+    stats: list[dict[str, Any]] = []
+    with pytest.raises(SteamAPIError):
+        steam_api.fetch_reviews(10, sampling_contract=SamplingContract(app_id=10), stats_callback=stats.append)
+    assert stats[-1]["collection_complete"] is False
+    assert stats[-1]["stop_reason"] == "api_failure"
+
+
+def test_malformed_response_is_invalid_not_exhausted(monkeypatch: pytest.MonkeyPatch) -> None:
+    _mock_pages(monkeypatch, [{"success": 1, "reviews": {"not": "a list"}}])
+    stats: list[dict[str, Any]] = []
+    steam_api.fetch_reviews(10, sampling_contract=SamplingContract(app_id=10), stats_callback=stats.append)
+    assert stats[-1]["collection_complete"] is False
+    assert stats[-1]["stop_reason"] == "invalid_response"
+
+
+def test_multilanguage_failure_is_explicitly_recorded(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_get(url: str, **kwargs: Any) -> _Response:
+        language = kwargs["params"]["language"]
+        if language == "schinese":
+            raise SteamAPIError("schinese unavailable")
+        return _Response({"success": 1, "reviews": [_review("en-1", 200, language=language)], "cursor": ""})
+
+    monkeypatch.setattr(steam_api, "_protected_get", fake_get)
+    stats: list[dict[str, Any]] = []
+    result = steam_api.fetch_reviews_multi_language(
+        10,
+        sampling_contract=SamplingContract(app_id=10, languages=["english", "schinese"]),
+        stats_callback=stats.append,
+    )
+    aggregate = stats[-1]
+    assert len(result) == 1
+    assert aggregate["collection_complete"] is False
+    assert aggregate["language_stats"]["schinese"]["status"] == "failed"
+    assert aggregate["language_stats"]["schinese"]["error"] == "schinese unavailable"
+
+
+def test_multilanguage_all_complete_is_complete(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_get(url: str, **kwargs: Any) -> _Response:
+        language = kwargs["params"]["language"]
+        return _Response({"success": 1, "reviews": [_review(language, 200, language=language)], "cursor": ""})
+
+    monkeypatch.setattr(steam_api, "_protected_get", fake_get)
+    stats: list[dict[str, Any]] = []
+    steam_api.fetch_reviews_multi_language(
+        10,
+        sampling_contract=SamplingContract(app_id=10, languages=["english", "schinese"]),
+        stats_callback=stats.append,
+    )
+    aggregate = stats[-1]
+    assert aggregate["collection_complete"] is True
+    assert aggregate["stop_reason"] == "end_of_results"
+    assert {item["status"] for item in aggregate["language_stats"].values()} == {"complete"}

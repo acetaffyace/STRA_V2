@@ -88,6 +88,10 @@ class AnalyzeMetadata(BaseModel):
     window_end: Optional[str] = None
     data_cutoff: Optional[str] = None
     active_filters: Optional[Dict[str, Any]] = None
+    collection_complete: Optional[bool] = None
+    truncated_by_max_reviews: Optional[bool] = None
+    stop_reason: Optional[str] = None
+    language_stats: Optional[Dict[str, Any]] = None
     sampling_contract: Optional[Dict[str, Any]] = None
     population_provenance: Optional[Dict[str, Any]] = None
     classification_population: Optional[int] = None

@@ -262,6 +262,10 @@ def _build_population_provenance(all_reviews: List[dict], metadata: Optional[Ana
         "retrieved_reviews": metadata.retrieved_reviews if metadata is not None else None,
         "population_reviews_after_scope": metadata.population_reviews_after_scope if metadata is not None else None,
         "scope_complete": active_filters.get("scope_complete"),
+        "collection_complete": active_filters.get("collection_complete"),
+        "truncated_by_max_reviews": active_filters.get("truncated_by_max_reviews"),
+        "stop_reason": active_filters.get("stop_reason"),
+        "language_stats": active_filters.get("language_stats"),
         "lower_boundary_reached": active_filters.get("lower_boundary_reached"),
         "deduplication_policy": "transport review-id duplicates only; duplicate text is retained",
         "population_count": len(all_reviews),
@@ -617,6 +621,10 @@ def analyze(
         "retrieved_reviews": 0,
         "population_reviews_after_scope": 0,
         "scope_complete": None,
+        "collection_complete": None,
+        "truncated_by_max_reviews": False,
+        "stop_reason": None,
+        "language_stats": None,
         "lower_boundary_reached": None,
         "steam_num_reviews": None,
         "steam_total_reviews": None,
@@ -637,6 +645,8 @@ def analyze(
                 value = stats.get(key)
                 if key in {"retrieved_count", "retrieved_reviews", "population_reviews_after_scope", "steam_num_reviews", "steam_total_reviews"}:
                     fetch_stats[key] = None if value is None else int(value)
+                elif key in {"truncated_by_max_reviews"}:
+                    fetch_stats[key] = bool(value)
                 else:
                     fetch_stats[key] = value
 
@@ -727,6 +737,9 @@ def analyze(
                 analysis_population_count=0,
                 language=sampling_contract.languages[0],
                 languages=sampling_contract.languages,
+                collection_complete=False,
+                truncated_by_max_reviews=False,
+                stop_reason="api_failure",
                 sampling_contract=sampling_contract.to_dict(),
                 fetched_at=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             ),
@@ -765,6 +778,10 @@ def analyze(
         window_end=window_end,
         classification_population=len(all_reviews),
         evidence_population=0,
+        collection_complete=fetch_stats.get("collection_complete"),
+        truncated_by_max_reviews=fetch_stats.get("truncated_by_max_reviews"),
+        stop_reason=fetch_stats.get("stop_reason"),
+        language_stats=fetch_stats.get("language_stats"),
         sampling_contract=sampling_contract.to_dict(),
         active_filters={
             "collection_order": sampling_contract.collection_order,
@@ -772,6 +789,10 @@ def analyze(
             "purchase_type": sampling_contract.purchase_type,
             "include_offtopic_activity": sampling_contract.include_offtopic_activity,
             "scope_complete": fetch_stats.get("scope_complete"),
+            "collection_complete": fetch_stats.get("collection_complete"),
+            "truncated_by_max_reviews": fetch_stats.get("truncated_by_max_reviews"),
+            "stop_reason": fetch_stats.get("stop_reason"),
+            "language_stats": fetch_stats.get("language_stats"),
             "lower_boundary_reached": fetch_stats.get("lower_boundary_reached"),
             "steam_num_reviews": fetch_stats.get("steam_num_reviews"),
             "steam_total_reviews": fetch_stats.get("steam_total_reviews"),

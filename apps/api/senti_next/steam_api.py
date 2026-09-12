@@ -267,13 +267,40 @@ def _fetch_reviews_contract(
     # must not short-circuit pagination.  The emitted ``lower_boundary_reached``
     # flag below treats that unconstrained case as trivially satisfied.
     boundary_reached = False
-    exhausted = False
+    collection_complete = False
+    truncated_by_max_reviews = False
+    stop_reason: Optional[str] = None
+    stop_error: Optional[str] = None
+
+    def _stats() -> dict:
+        return {
+            "steam_num_reviews": steam_num_reviews,
+            "steam_total_reviews": steam_total_reviews,
+            "available_matching_reviews": (
+                steam_total_reviews
+                if contract.collection_order != "helpful" and contract.start_time is None and contract.end_time is None
+                else None
+            ),
+            "retrieved_reviews": len(raw_reviews),
+            "retrieved_count": len(raw_reviews),
+            "deduplicated_count": len(raw_reviews),
+            "population_reviews_after_scope": len(population),
+            "collection_complete": collection_complete,
+            # Backward-compatible alias; callers should use collection_complete.
+            "scope_complete": collection_complete,
+            "truncated_by_max_reviews": truncated_by_max_reviews,
+            "stop_reason": stop_reason,
+            "lower_boundary_reached": lower_boundary is None or boundary_reached,
+            "error": stop_error,
+        }
 
     while True:
         if contract.max_reviews > 0 and len(population) >= contract.max_reviews:
+            stop_reason = "max_reviews_reached"
+            truncated_by_max_reviews = True
             break
         if cursor in seen_cursors:
-            exhausted = True
+            stop_reason = "cursor_repeated"
             break
         seen_cursors.add(cursor)
 
@@ -285,10 +312,21 @@ def _fetch_reviews_contract(
             num_per_page=remaining,
             day_range=day_range,
         )
-        resp = _protected_get(APP_REVIEWS_URL.format(app_id=contract.app_id), params=params, timeout=20)
-        data = resp.json()
+        try:
+            resp = _protected_get(APP_REVIEWS_URL.format(app_id=contract.app_id), params=params, timeout=20)
+        except Exception as exc:
+            stop_reason = "api_failure"
+            stop_error = str(exc)
+            _emit_fetch_stats(stats_callback, _stats())
+            raise
+        try:
+            data = resp.json()
+        except Exception as exc:
+            stop_reason = "invalid_response"
+            stop_error = str(exc)
+            break
         if not isinstance(data, dict):
-            exhausted = True
+            stop_reason = "invalid_response"
             break
 
         if first_summary:
@@ -304,9 +342,17 @@ def _fetch_reviews_contract(
                 except (TypeError, ValueError):
                     steam_total_reviews = None
 
-        batch = data.get("reviews") or []
-        if not isinstance(batch, list) or not batch:
-            exhausted = True
+        if data.get("success") is False:
+            stop_reason = "api_failure"
+            stop_error = str(data.get("error") or "Steam returned success=false")
+            break
+        if "reviews" not in data or not isinstance(data.get("reviews"), list):
+            stop_reason = "invalid_response"
+            break
+        batch = data["reviews"]
+        if not batch:
+            stop_reason = "end_of_results"
+            collection_complete = True
             break
 
         new_batch: List[dict] = []
@@ -322,7 +368,8 @@ def _fetch_reviews_contract(
                 seen_review_ids.add(review_id)
             new_batch.append(review)
         if not new_batch:
-            exhausted = True
+            next_cursor = data.get("cursor")
+            stop_reason = "cursor_repeated" if not next_cursor or next_cursor == cursor else "invalid_response"
             break
 
         raw_reviews.extend(new_batch)
@@ -364,8 +411,12 @@ def _fetch_reviews_contract(
             "retrieved_count": len(raw_reviews),
             "deduplicated_count": len(raw_reviews),
             "population_reviews_after_scope": len(population),
-            "scope_complete": bool(boundary_reached or exhausted or contract.max_reviews > 0 and len(population) >= contract.max_reviews),
+            "collection_complete": collection_complete,
+            "scope_complete": collection_complete,
+            "truncated_by_max_reviews": truncated_by_max_reviews,
+            "stop_reason": stop_reason,
             "lower_boundary_reached": lower_boundary is None or boundary_reached,
+            "error": stop_error,
         })
         if progress_callback is not None:
             try:
@@ -373,38 +424,34 @@ def _fetch_reviews_contract(
             except Exception:
                 logger.debug("Fetch progress callback failed", exc_info=True)
 
-        if contract.max_reviews > 0 and len(population) >= contract.max_reviews:
-            break
         if lower_boundary is not None and boundary_reached:
-            break
-        if not data.get("success"):
-            exhausted = True
+            stop_reason = "lower_boundary_reached"
+            collection_complete = True
             break
         next_cursor = data.get("cursor")
-        if not next_cursor or next_cursor == cursor:
-            exhausted = True
+        if next_cursor == cursor or (next_cursor and str(next_cursor) in seen_cursors):
+            stop_reason = "cursor_repeated"
+            break
+        if not next_cursor:
+            if contract.max_reviews > 0 and len(population) >= contract.max_reviews:
+                stop_reason = "end_of_results"
+                collection_complete = True
+            else:
+                stop_reason = "end_of_results"
+                collection_complete = True
+            break
+        if contract.max_reviews > 0 and len(population) >= contract.max_reviews:
+            stop_reason = "max_reviews_reached"
+            truncated_by_max_reviews = True
             break
         cursor = str(next_cursor)
 
     # A helpfulness query is a sliding window, so its total is not a reliable
     # population denominator.  Time-window results are post-fetch subsets and
     # likewise cannot inherit Steam's unscoped total.
-    final_stats = {
-        "steam_num_reviews": steam_num_reviews,
-        "steam_total_reviews": steam_total_reviews,
-        "available_matching_reviews": (
-            steam_total_reviews
-            if contract.collection_order != "helpful" and contract.start_time is None and contract.end_time is None
-            else None
-        ),
-        "retrieved_reviews": len(raw_reviews),
-        "retrieved_count": len(raw_reviews),
-        "deduplicated_count": len(raw_reviews),
-        "population_reviews_after_scope": len(population),
-        "scope_complete": bool(boundary_reached or exhausted or contract.max_reviews > 0 and len(population) >= contract.max_reviews),
-        "lower_boundary_reached": lower_boundary is None or boundary_reached,
-    }
-    _emit_fetch_stats(stats_callback, final_stats)
+    if stop_reason is None:
+        stop_reason = "invalid_response"
+    _emit_fetch_stats(stats_callback, _stats())
     if contract.max_reviews > 0:
         return population[: contract.max_reviews]
     return population
@@ -602,6 +649,7 @@ def fetch_reviews_multi_language(
     aggregate_stats: dict[str, object] = {}
     available_values: List[int] = []
     scope_complete_values: List[bool] = []
+    language_stats: dict[str, dict] = {}
     progress_lock = threading.Lock()
 
     def report_progress(fetched: int) -> None:
@@ -631,8 +679,13 @@ def fetch_reviews_multi_language(
         try:
             reviews = _fetch_reviews_contract(language_contract, day_range=day_range, progress_callback=lang_progress, stats_callback=lang_stats)
             return (lang, reviews, local_stats)
-        except SteamAPIError as e:
+        except Exception as e:
             logger.warning(f"Failed to fetch {lang} reviews for app {app_id}: {e}")
+            local_stats.setdefault("collection_complete", False)
+            local_stats.setdefault("scope_complete", False)
+            local_stats.setdefault("truncated_by_max_reviews", False)
+            local_stats.setdefault("stop_reason", "api_failure")
+            local_stats.setdefault("error", str(e))
             return (lang, [], local_stats)
 
     all_reviews: List[dict] = []
@@ -649,7 +702,26 @@ def fetch_reviews_multi_language(
             available = local_stats.get("available_matching_reviews")
             if available is not None:
                 available_values.append(int(available))
-            scope_complete_values.append(bool(local_stats.get("scope_complete", False)))
+            complete = bool(local_stats.get("collection_complete", local_stats.get("scope_complete", False)))
+            scope_complete_values.append(complete)
+            stop_reason = local_stats.get("stop_reason")
+            error = local_stats.get("error")
+            if complete:
+                status = "complete"
+            elif stop_reason in {"api_failure", "invalid_response"} or error:
+                status = "failed"
+            else:
+                status = "incomplete"
+            language_stats[lang] = {
+                "status": status,
+                "retrieved": int(local_stats.get("retrieved_reviews") or local_stats.get("retrieved_count") or 0),
+                "population_after_scope": int(local_stats.get("population_reviews_after_scope") or 0),
+                "collection_complete": complete,
+                "truncated_by_max_reviews": bool(local_stats.get("truncated_by_max_reviews", False)),
+                "stop_reason": stop_reason,
+            }
+            if error:
+                language_stats[lang]["error"] = error
             for review in reviews:
                 review_id = review.get("recommendationid")
                 if review_id and review_id not in seen_ids:
@@ -664,6 +736,21 @@ def fetch_reviews_multi_language(
         all_reviews.sort(key=lambda r: r.get("timestamp_created", 0), reverse=True)
     population = all_reviews if contract.unlimited else all_reviews[: contract.max_reviews]
     retrieved_total = int(aggregate_stats.get("retrieved_reviews") or 0)
+    aggregate_complete = bool(
+        len(language_stats) == len(contract.languages)
+        and all(item.get("collection_complete") is True for item in language_stats.values())
+    )
+    if aggregate_complete:
+        aggregate_stop_reason = "end_of_results"
+    elif any(item.get("status") == "failed" for item in language_stats.values()):
+        aggregate_stop_reason = "api_failure"
+    elif any(item.get("truncated_by_max_reviews") for item in language_stats.values()):
+        aggregate_stop_reason = "max_reviews_reached"
+    else:
+        aggregate_stop_reason = next(
+            (item.get("stop_reason") for item in language_stats.values() if item.get("stop_reason")),
+            "invalid_response",
+        )
     aggregate_stats.update({
         # Keep retrieval counts as the number of raw review records received
         # from Steam.  ``deduplicated_count`` is the post-ID-dedup population.
@@ -671,7 +758,11 @@ def fetch_reviews_multi_language(
         "retrieved_count": retrieved_total,
         "deduplicated_count": len(all_reviews),
         "population_reviews_after_scope": len(population),
-        "scope_complete": all(scope_complete_values) if scope_complete_values else True,
+        "collection_complete": aggregate_complete,
+        "scope_complete": aggregate_complete,
+        "truncated_by_max_reviews": any(bool(item.get("truncated_by_max_reviews")) for item in language_stats.values()),
+        "stop_reason": aggregate_stop_reason,
+        "language_stats": language_stats,
         "available_matching_reviews": sum(available_values) if len(available_values) == len(contract.languages) else None,
         "deduplication_policy": "transport review-id duplicates only; duplicate text is retained",
     })
