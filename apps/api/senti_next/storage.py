@@ -2021,6 +2021,10 @@ def get_analysis_run(run_id: str) -> Optional[Dict[str, Any]]:
         "metrics": _parse_json_field(row["metrics"], None),
     }
     result["requested_languages"] = _parse_json_field(row["requested_languages"], [])
+    # Explicit research-population vocabulary; keep the legacy SQL column
+    # names available for compatibility with existing clients.
+    result["retrieved_reviews"] = result.get("retrieved_count")
+    result["population_reviews_after_scope"] = result.get("analysis_population_count")
     return result
 
 

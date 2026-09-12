@@ -32,6 +32,7 @@ from .insights import prepare_insights
 from . import storage
 from . import llm
 from . import ingest
+from .sampling import ReviewQuery, SamplingContract
 from .ingest import (
     SOURCE_DISCORD,
     SOURCE_REDDIT,
@@ -63,6 +64,8 @@ __all__ = [
     "REVIEW_METADATA_FIELDS",
     "STEAM_LANGUAGES",
     "SteamAPIError",
+    "SamplingContract",
+    "ReviewQuery",
     "fetch_reviews_multi_language",
     "build_reviews_dataframe",
 

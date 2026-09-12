@@ -11,6 +11,7 @@ from typing import Dict, Iterable, List, Optional, Tuple
 import requests
 
 from .circuit_breaker import steam_api_breaker, CircuitOpenError
+from .sampling import SamplingContract
 
 logger = logging.getLogger(__name__)
 
@@ -185,6 +186,230 @@ AUTHOR_METADATA_FIELDS: Dict[str, str] = {
 }
 
 
+def _legacy_collection_order(filter_type: str) -> str:
+    normalized = (filter_type or "recent").strip().lower()
+    if normalized in {"all", "best", "helpful"}:
+        return "helpful"
+    if normalized == "updated":
+        return "updated"
+    return "recent"
+
+
+def _steam_filter(collection_order: str) -> str:
+    # Steam calls the helpfulness mode ``all``.  STRA keeps the research name
+    # ``helpful`` so provenance never claims that it collected all reviews.
+    return "all" if collection_order == "helpful" else collection_order
+
+
+def _build_review_params(
+    contract: SamplingContract,
+    *,
+    language: str,
+    cursor: str,
+    num_per_page: int,
+    day_range: Optional[int] = None,
+) -> Dict[str, object]:
+    params: Dict[str, object] = {
+        "json": 1,
+        "language": language,
+        "purchase_type": contract.purchase_type,
+        "review_type": contract.review_type,
+        "num_per_page": min(100, max(1, num_per_page)),
+        "cursor": cursor,
+        "filter": _steam_filter(contract.collection_order),
+        # Steam's documented default is to exclude off-topic activity.  Pass
+        # the value explicitly so the population contract is auditable.
+        "filter_offtopic_activity": 0 if contract.include_offtopic_activity else 1,
+    }
+    # day_range is only meaningful for Steam's helpfulness/sliding-window
+    # mode.  It is retained for legacy callers but is never used to represent
+    # an arbitrary start/end research window.
+    if day_range is not None and contract.collection_order == "helpful":
+        params["day_range"] = max(1, min(int(day_range), 365))
+    return params
+
+
+def _emit_fetch_stats(stats_callback: Optional[callable], stats: dict) -> None:
+    if stats_callback is None:
+        return
+    try:
+        stats_callback(stats)
+    except Exception:
+        logger.debug("Fetch stats callback failed", exc_info=True)
+
+
+def _fetch_reviews_contract(
+    contract: SamplingContract,
+    *,
+    day_range: Optional[int] = None,
+    legacy_stop_before_timestamp: Optional[int] = None,
+    progress_callback: Optional[callable] = None,
+    stats_callback: Optional[callable] = None,
+) -> List[dict]:
+    """Acquire one population using the supplied contract.
+
+    Steam's ``recent`` mode is used for arbitrary creation-time windows.  The
+    lower-bound stop rule is page-level: every review on the page must have a
+    creation timestamp at or before the lower boundary.  A single old review
+    therefore never terminates the crawl while another review on that page is
+    still newer.
+    """
+    lower_boundary = contract.start_time if contract.start_time is not None else legacy_stop_before_timestamp
+    raw_reviews: List[dict] = []
+    population: List[dict] = []
+    cursor = "*"
+    seen_review_ids: set[str] = set()
+    seen_cursors: set[str] = set()
+    first_summary = True
+    steam_num_reviews: Optional[int] = None
+    steam_total_reviews: Optional[int] = None
+    # A missing lower boundary means there is no boundary stop condition; it
+    # must not short-circuit pagination.  The emitted ``lower_boundary_reached``
+    # flag below treats that unconstrained case as trivially satisfied.
+    boundary_reached = False
+    exhausted = False
+
+    while True:
+        if contract.max_reviews > 0 and len(population) >= contract.max_reviews:
+            break
+        if cursor in seen_cursors:
+            exhausted = True
+            break
+        seen_cursors.add(cursor)
+
+        remaining = 100 if contract.unlimited else max(1, contract.max_reviews - len(population))
+        params = _build_review_params(
+            contract,
+            language=contract.languages[0],
+            cursor=cursor,
+            num_per_page=remaining,
+            day_range=day_range,
+        )
+        resp = _protected_get(APP_REVIEWS_URL.format(app_id=contract.app_id), params=params, timeout=20)
+        data = resp.json()
+        if not isinstance(data, dict):
+            exhausted = True
+            break
+
+        if first_summary:
+            first_summary = False
+            query_summary = data.get("query_summary")
+            if isinstance(query_summary, dict):
+                try:
+                    steam_num_reviews = int(query_summary["num_reviews"]) if query_summary.get("num_reviews") is not None else None
+                except (TypeError, ValueError):
+                    steam_num_reviews = None
+                try:
+                    steam_total_reviews = int(query_summary["total_reviews"]) if query_summary.get("total_reviews") is not None else None
+                except (TypeError, ValueError):
+                    steam_total_reviews = None
+
+        batch = data.get("reviews") or []
+        if not isinstance(batch, list) or not batch:
+            exhausted = True
+            break
+
+        new_batch: List[dict] = []
+        for review in batch:
+            if not isinstance(review, dict):
+                continue
+            review_id = str(review.get("recommendationid") or "")
+            # Repeated IDs are pagination transport duplicates.  Distinct
+            # reviews with identical text are intentionally retained.
+            if review_id and review_id in seen_review_ids:
+                continue
+            if review_id:
+                seen_review_ids.add(review_id)
+            new_batch.append(review)
+        if not new_batch:
+            exhausted = True
+            break
+
+        raw_reviews.extend(new_batch)
+        for review in new_batch:
+            timestamp = review.get("timestamp_created")
+            try:
+                timestamp_value = int(timestamp) if timestamp is not None else None
+            except (TypeError, ValueError):
+                timestamp_value = None
+            if contract.start_time is not None or contract.end_time is not None:
+                if timestamp_value is None:
+                    continue
+                if contract.start_time is not None and timestamp_value < contract.start_time:
+                    continue
+                if contract.end_time is not None and timestamp_value > contract.end_time:
+                    continue
+            population.append(review)
+
+        timestamps: List[int] = []
+        for review in new_batch:
+            try:
+                timestamps.append(int(review["timestamp_created"]))
+            except (KeyError, TypeError, ValueError):
+                pass
+        if lower_boundary is not None and len(timestamps) == len(new_batch) and max(timestamps) <= int(lower_boundary):
+            boundary_reached = True
+
+        _emit_fetch_stats(stats_callback, {
+            # ``num_reviews`` is the number returned in this response, not a
+            # population total.  ``total_reviews`` is retained separately.
+            "steam_num_reviews": steam_num_reviews,
+            "steam_total_reviews": steam_total_reviews,
+            "available_matching_reviews": (
+                steam_total_reviews
+                if contract.collection_order != "helpful" and contract.start_time is None and contract.end_time is None
+                else None
+            ),
+            "retrieved_reviews": len(raw_reviews),
+            "retrieved_count": len(raw_reviews),
+            "deduplicated_count": len(raw_reviews),
+            "population_reviews_after_scope": len(population),
+            "scope_complete": bool(boundary_reached or exhausted or contract.max_reviews > 0 and len(population) >= contract.max_reviews),
+            "lower_boundary_reached": lower_boundary is None or boundary_reached,
+        })
+        if progress_callback is not None:
+            try:
+                progress_callback(len(raw_reviews))
+            except Exception:
+                logger.debug("Fetch progress callback failed", exc_info=True)
+
+        if contract.max_reviews > 0 and len(population) >= contract.max_reviews:
+            break
+        if lower_boundary is not None and boundary_reached:
+            break
+        if not data.get("success"):
+            exhausted = True
+            break
+        next_cursor = data.get("cursor")
+        if not next_cursor or next_cursor == cursor:
+            exhausted = True
+            break
+        cursor = str(next_cursor)
+
+    # A helpfulness query is a sliding window, so its total is not a reliable
+    # population denominator.  Time-window results are post-fetch subsets and
+    # likewise cannot inherit Steam's unscoped total.
+    final_stats = {
+        "steam_num_reviews": steam_num_reviews,
+        "steam_total_reviews": steam_total_reviews,
+        "available_matching_reviews": (
+            steam_total_reviews
+            if contract.collection_order != "helpful" and contract.start_time is None and contract.end_time is None
+            else None
+        ),
+        "retrieved_reviews": len(raw_reviews),
+        "retrieved_count": len(raw_reviews),
+        "deduplicated_count": len(raw_reviews),
+        "population_reviews_after_scope": len(population),
+        "scope_complete": bool(boundary_reached or exhausted or contract.max_reviews > 0 and len(population) >= contract.max_reviews),
+        "lower_boundary_reached": lower_boundary is None or boundary_reached,
+    }
+    _emit_fetch_stats(stats_callback, final_stats)
+    if contract.max_reviews > 0:
+        return population[: contract.max_reviews]
+    return population
+
+
 def fetch_reviews(
     app_id: int,
     count: int = 100,
@@ -195,121 +420,25 @@ def fetch_reviews(
     stop_before_timestamp: Optional[int] = None,
     progress_callback: Optional[callable] = None,
     stats_callback: Optional[callable] = None,
+    sampling_contract: Optional[SamplingContract] = None,
 ) -> List[dict]:
-    """Fetch up to ``count`` reviews for the given Steam application.
-
-    Steam's review API returns results in pages using a cursor. This helper keeps
-    requesting pages until enough reviews are gathered or the API stops
-    providing additional data.
-
-    Args:
-        app_id: Steam application ID
-        count: Number of reviews to fetch. 0 means fetch all available reviews (no limit).
-        language: Language code or "all" for all languages
-        filter_type: "recent", "updated", or "all" (by helpfulness)
-        day_range: For filter="all", range from now to n days ago (max 365)
-        include_review_bombs: If True, includes reviews flagged as off-topic activity (review bombs).
-                              Default False filters them out.
-        stop_before_timestamp: When set, stop after receiving a page that
-                              reaches this creation timestamp. This allows
-                              unlimited-by-count window collection without
-                              crawling the entire lifetime review archive.
-        progress_callback: Optional callback(fetched_count) called after each batch
-    """
-    unlimited = count == 0
-
-    reviews: List[dict] = []
-    cursor = "*"
-    seen_review_ids: set[str] = set()
-    raw_fetched = 0
-    available_matching_reviews: Optional[int] = None
-
-    while unlimited or len(reviews) < count:
-        remaining = 100 if unlimited else min(100, count - len(reviews))
-        params = {
-            "json": 1,
-            "language": language,
-            "purchase_type": "all",
-            "review_type": "all",
-            "num_per_page": remaining,
-            "cursor": cursor,
-            "filter": filter_type,
-        }
-        if day_range is not None:
-            params["day_range"] = max(1, min(day_range, 365))
-        if include_review_bombs:
-            params["filter_offtopic_activity"] = 0
-        resp = _protected_get(
-            APP_REVIEWS_URL.format(app_id=app_id),
-            params=params,
-            timeout=20,
-        )
-
-        data = resp.json()
-        query_summary = data.get("query_summary") if isinstance(data, dict) else None
-        if isinstance(query_summary, dict) and query_summary.get("num_reviews") is not None:
-            try:
-                available_matching_reviews = int(query_summary["num_reviews"])
-            except (TypeError, ValueError):
-                pass
-        batch = data.get("reviews", []) if isinstance(data, dict) else []
-        if not batch:
-            break
-
-        # Steam may return the same cursor/page again at the end of an
-        # unlimited crawl. Keep unlimited mode, but stop when a page adds no
-        # new review IDs or when the cursor does not advance.
-        raw_fetched += len(batch)
-        new_batch = []
-        for review in batch:
-            review_id = str(review.get("recommendationid", "")) if isinstance(review, dict) else ""
-            if review_id and review_id in seen_review_ids:
-                continue
-            if review_id:
-                seen_review_ids.add(review_id)
-            new_batch.append(review)
-        if not new_batch:
-            break
-
-        reviews.extend(new_batch)
-
-        # Report progress after each batch
-        if progress_callback is not None:
-            try:
-                progress_callback(len(reviews))
-            except Exception:
-                pass  # Don't let progress callback errors stop fetching
-        if stats_callback is not None:
-            try:
-                stats_callback({
-                    "retrieved_count": raw_fetched,
-                    "deduplicated_count": len(reviews),
-                    "available_matching_reviews": available_matching_reviews,
-                })
-            except Exception:
-                pass
-
-        if stop_before_timestamp is not None:
-            timestamps = [
-                int(review.get("timestamp_created") or 0)
-                for review in new_batch
-                if isinstance(review, dict) and review.get("timestamp_created")
-            ]
-            # Steam pages are not guaranteed to be strictly ordered by
-            # creation time.  Seeing one old review on a page is therefore
-            # not sufficient evidence that the crawl reached the boundary;
-            # stop only when the entire page is at or before it.
-            if timestamps and max(timestamps) <= int(stop_before_timestamp):
-                break
-
-        next_cursor = data.get("cursor", cursor)
-        if not data.get("success"):
-            break
-        if next_cursor == cursor:
-            break
-        cursor = next_cursor
-
-    return reviews if unlimited else reviews[:count]
+    """Compatibility wrapper routed through :class:`SamplingContract`."""
+    contract = sampling_contract or SamplingContract(
+        app_id=app_id,
+        languages=[language or "all"],
+        collection_order=_legacy_collection_order(filter_type),
+        include_offtopic_activity=include_review_bombs,
+        max_reviews=count,
+    )
+    if contract.app_id != app_id:
+        raise ValueError("sampling_contract.app_id must match app_id")
+    return _fetch_reviews_contract(
+        contract,
+        day_range=day_range,
+        legacy_stop_before_timestamp=stop_before_timestamp,
+        progress_callback=progress_callback,
+        stats_callback=stats_callback,
+    )
 
 
 def resolve_app_id(user_input: str) -> Optional[int]:
@@ -445,114 +574,111 @@ def fetch_reviews_multi_language(
     include_review_bombs: bool = False,
     progress_callback: Optional[callable] = None,
     stats_callback: Optional[callable] = None,
+    sampling_contract: Optional[SamplingContract] = None,
 ) -> List[dict]:
-    """Fetch reviews across multiple languages in parallel.
+    """Fetch a multi-language population through one contract implementation.
 
-    Distributes the count evenly across languages, then fetches from each
-    concurrently for faster performance.
-    Reviews are deduplicated by recommendationid and sorted by timestamp.
-
-    Args:
-        app_id: Steam application ID
-        count: Total number of reviews to fetch across all languages
-        languages: List of language codes (e.g., ["english", "german", "french"])
-                   If None or empty, defaults to ["all"] which fetches all languages
-        filter_type: "recent" or "all"
-        day_range: Optional day range filter
-        include_review_bombs: If True, includes reviews flagged as off-topic activity
-        progress_callback: Optional callback(fetched_count) called to report total fetched
-
-    Returns:
-        List of review dicts, deduplicated and sorted by timestamp
+    Languages are fetched independently because Steam accepts one language per
+    request.  We do not divide ``count`` across languages (which would silently
+    rebalance the population); each language uses the same contract cap and the
+    combined population is capped only after scope filtering.
     """
     from concurrent.futures import ThreadPoolExecutor, as_completed
     import threading
 
-    if not languages:
-        # Default to "all" which Steam API interprets as all languages
-        return fetch_reviews(app_id, count, "all", filter_type, day_range, include_review_bombs, progress_callback=progress_callback, stats_callback=stats_callback)
+    contract = sampling_contract or SamplingContract(
+        app_id=app_id,
+        languages=languages or ["all"],
+        collection_order=_legacy_collection_order(filter_type),
+        include_offtopic_activity=include_review_bombs,
+        max_reviews=count,
+    )
+    if contract.app_id != app_id:
+        raise ValueError("sampling_contract.app_id must match app_id")
+    if contract.languages == ["all"]:
+        return _fetch_reviews_contract(contract, day_range=day_range, progress_callback=progress_callback, stats_callback=stats_callback)
 
-    if len(languages) == 1:
-        return fetch_reviews(app_id, count, languages[0], filter_type, day_range, include_review_bombs, progress_callback=progress_callback, stats_callback=stats_callback)
-
-    unlimited = count == 0
-
-    # Distribute count across languages (0 = unlimited per language)
-    if unlimited:
-        per_language = 0
-        first_language_count = 0
-    else:
-        per_language = max(1, count // len(languages))
-        # First language gets any remainder
-        first_language_count = count - (per_language * (len(languages) - 1))
-
-    # Thread-safe counter for progress tracking across parallel fetches
-    total_fetched = [0]  # Use list for mutability in nested function
-    total_raw = [0]
-    available_totals: dict[str, int] = {}
+    total_fetched = [0]
+    aggregate_stats: dict[str, object] = {}
+    available_values: List[int] = []
+    scope_complete_values: List[bool] = []
     progress_lock = threading.Lock()
 
-    def report_progress(batch_count: int) -> None:
-        """Thread-safe progress reporter that aggregates counts from all languages."""
+    def report_progress(fetched: int) -> None:
         if progress_callback is None:
             return
         with progress_lock:
-            total_fetched[0] += batch_count
+            total_fetched[0] += fetched
             try:
                 progress_callback(total_fetched[0])
             except Exception:
-                pass
+                logger.debug("Multi-language progress callback failed", exc_info=True)
 
-    def fetch_single_language(lang: str, lang_count: int) -> Tuple[str, List[dict]]:
-        """Fetch reviews for a single language."""
+    def fetch_single_language(lang: str) -> Tuple[str, List[dict], dict]:
+        language_contract = contract.model_copy(update={"languages": [lang]})
+        local_stats: dict = {}
         last_reported = [0]
 
         def lang_progress(fetched: int) -> None:
-            """Report incremental progress for this language."""
             increment = fetched - last_reported[0]
             if increment > 0:
                 last_reported[0] = fetched
                 report_progress(increment)
 
         def lang_stats(stats: dict) -> None:
-            total_raw[0] += int(stats.get("retrieved_count") or 0) - int(last_reported[0])
-            if stats.get("available_matching_reviews") is not None:
-                available_totals[lang] = int(stats["available_matching_reviews"])
-            if stats_callback is not None:
-                stats_callback({
-                    "retrieved_count": total_raw[0],
-                    "available_matching_reviews": sum(available_totals.values()) if available_totals else None,
-                })
+            local_stats.update(stats)
 
         try:
-            reviews = fetch_reviews(app_id, lang_count, lang, filter_type, day_range, include_review_bombs, progress_callback=lang_progress, stats_callback=lang_stats)
-            return (lang, reviews)
+            reviews = _fetch_reviews_contract(language_contract, day_range=day_range, progress_callback=lang_progress, stats_callback=lang_stats)
+            return (lang, reviews, local_stats)
         except SteamAPIError as e:
             logger.warning(f"Failed to fetch {lang} reviews for app {app_id}: {e}")
-            return (lang, [])
+            return (lang, [], local_stats)
 
     all_reviews: List[dict] = []
     seen_ids: set = set()
 
-    # Fetch all languages in parallel (limit to 4 concurrent to avoid rate limiting)
-    max_workers = min(4, len(languages))
+    max_workers = min(4, len(contract.languages))
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = []
-        for i, lang in enumerate(languages):
-            lang_count = first_language_count if i == 0 else per_language
-            futures.append(executor.submit(fetch_single_language, lang, lang_count))
+        futures = [executor.submit(fetch_single_language, lang) for lang in contract.languages]
 
         for future in as_completed(futures):
-            lang, reviews = future.result()
+            lang, reviews, local_stats = future.result()
+            for key in ("retrieved_reviews", "retrieved_count", "population_reviews_after_scope"):
+                aggregate_stats[key] = int(aggregate_stats.get(key) or 0) + int(local_stats.get(key) or 0)
+            available = local_stats.get("available_matching_reviews")
+            if available is not None:
+                available_values.append(int(available))
+            scope_complete_values.append(bool(local_stats.get("scope_complete", False)))
             for review in reviews:
                 review_id = review.get("recommendationid")
                 if review_id and review_id not in seen_ids:
                     seen_ids.add(review_id)
                     all_reviews.append(review)
 
-    # Sort by timestamp (most recent first) and limit to requested count
-    all_reviews.sort(key=lambda r: r.get("timestamp_created", 0), reverse=True)
-    return all_reviews if unlimited else all_reviews[:count]
+    if contract.collection_order == "updated":
+        all_reviews.sort(key=lambda r: r.get("timestamp_updated", 0), reverse=True)
+    elif contract.collection_order == "helpful":
+        all_reviews.sort(key=lambda r: r.get("weighted_vote_score", 0), reverse=True)
+    else:
+        all_reviews.sort(key=lambda r: r.get("timestamp_created", 0), reverse=True)
+    population = all_reviews if contract.unlimited else all_reviews[: contract.max_reviews]
+    retrieved_total = int(aggregate_stats.get("retrieved_reviews") or 0)
+    aggregate_stats.update({
+        # Keep retrieval counts as the number of raw review records received
+        # from Steam.  ``deduplicated_count`` is the post-ID-dedup population.
+        "retrieved_reviews": retrieved_total,
+        "retrieved_count": retrieved_total,
+        "deduplicated_count": len(all_reviews),
+        "population_reviews_after_scope": len(population),
+        "scope_complete": all(scope_complete_values) if scope_complete_values else True,
+        "available_matching_reviews": sum(available_values) if len(available_values) == len(contract.languages) else None,
+        "deduplication_policy": "transport review-id duplicates only; duplicate text is retained",
+    })
+    if contract.start_time is not None or contract.end_time is not None:
+        aggregate_stats["available_matching_reviews"] = None
+    _emit_fetch_stats(stats_callback, aggregate_stats)
+    return population
 
 
 # Steam language codes mapping (display name -> API code)

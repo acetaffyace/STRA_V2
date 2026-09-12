@@ -16,6 +16,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from .. import storage, llm, db as db_module, dialect as d
 from ..steam_api import fetch_app_details, fetch_news_for_app, SteamAPIError
+from ..sampling import SamplingContract
 from ..insights import prepare_insights
 from ..analysis import recommended_share_over_time
 from ..adaptive_analysis import build_analysis_design, infer_game_profile
@@ -44,7 +45,7 @@ router = APIRouter()
 
 class AnalyzeRequest(BaseModel):
     app_id: int = Field(..., gt=0)
-    review_count: int = Field(FETCH_LIMIT, ge=1, le=10000)
+    review_count: int = Field(FETCH_LIMIT, ge=0, le=10000, description="Legacy alias for sampling.max_reviews; 0 means unlimited")
     language: str = Field("all", min_length=2, max_length=32)
     languages: Optional[List[str]] = Field(None, description="List of language codes for multi-language analysis")
     filter: str = Field("recent")
@@ -53,6 +54,7 @@ class AnalyzeRequest(BaseModel):
     refresh: bool = Field(False)
     refresh_days: Optional[int] = Field(None, ge=1, le=365, description="Only fetch reviews from the last N days")
     output_language: str = Field("zh", min_length=2, max_length=8, description="Language for generated summaries: zh, en, or ja")
+    sampling: Optional[SamplingContract] = Field(default=None, description="Explicit Steam research population contract")
 
 
 class LabelReuseEstimate(BaseModel):
@@ -214,21 +216,54 @@ class SummarizeNewsResponse(BaseModel):
 # Background analysis job
 # ---------------------------------------------------------------------------
 
-def _build_population_provenance(all_reviews: List[dict]) -> dict:
+def _sampling_contract_for_request(request: AnalyzeRequest) -> SamplingContract:
+    """Resolve the explicit contract, retaining the legacy request path."""
+    if request.sampling is not None:
+        if request.sampling.app_id != request.app_id:
+            raise HTTPException(status_code=422, detail="sampling.app_id must match app_id")
+        return request.sampling
+
+    legacy_filter = (request.filter or "recent").lower()
+    collection_order = {
+        "recent": "recent",
+        "recent_created": "recent",
+        "updated": "updated",
+        "all": "helpful",
+        "best": "helpful",
+    }.get(legacy_filter, "recent")
+    languages = request.languages or ([request.language] if request.language and request.language != "all" else ["all"])
+    return SamplingContract(
+        app_id=request.app_id,
+        languages=languages,
+        collection_order=collection_order,
+        max_reviews=request.review_count,
+    )
+
+def _build_population_provenance(all_reviews: List[dict], metadata: Optional[AnalyzeMetadata] = None) -> dict:
     """Build the immutable temporal source contract before sampling."""
-    rows = [
-        {
+    rows = []
+    for review in all_reviews:
+        if not (review.get("recommendationid") or review.get("review_id")):
+            continue
+        try:
+            timestamp_created = int(review.get("timestamp_created"))
+        except (TypeError, ValueError):
+            continue
+        rows.append({
             "review_id": str(review.get("recommendationid") or review.get("review_id") or ""),
-            "timestamp_created": int(review.get("timestamp_created")),
+            "timestamp_created": timestamp_created,
             "voted_up": review.get("voted_up") is True,
-        }
-        for review in all_reviews
-        if (review.get("recommendationid") or review.get("review_id"))
-        and review.get("timestamp_created") is not None
-        and isinstance(review.get("voted_up"), bool)
-    ]
+        })
+    active_filters = (metadata.active_filters or {}) if metadata is not None else {}
     return {
-        "schema_version": "general-population-temporal-v1",
+        "schema_version": "research-population-v1",
+        "sampling_contract": metadata.sampling_contract if metadata is not None else None,
+        "available_matching_reviews": metadata.available_matching_reviews if metadata is not None else None,
+        "retrieved_reviews": metadata.retrieved_reviews if metadata is not None else None,
+        "population_reviews_after_scope": metadata.population_reviews_after_scope if metadata is not None else None,
+        "scope_complete": active_filters.get("scope_complete"),
+        "lower_boundary_reached": active_filters.get("lower_boundary_reached"),
+        "deduplication_policy": "transport review-id duplicates only; duplicate text is retained",
         "population_count": len(all_reviews),
         "complete": len(rows) == len(all_reviews),
         "rows": rows,
@@ -251,7 +286,7 @@ def _run_analysis_job(
     # payload.  This is deliberately minimal immutable provenance for
     # deterministic temporal projections; it does not alter classification
     # or any analytical denominator.
-    population_provenance = _build_population_provenance(all_reviews)
+    population_provenance = _build_population_provenance(all_reviews, metadata)
     metadata_payload = metadata.dict()
     metadata_payload["population_provenance"] = population_provenance
 
@@ -473,10 +508,8 @@ def analyze(
     request: AnalyzeRequest,
     background_tasks: BackgroundTasks,
 ) -> AnalyzeResponse:
-
-    filter_type = (request.filter or "recent").lower()
-    if filter_type not in {"recent", "updated", "all", "recent_created", "best"}:
-        filter_type = "recent"
+    sampling_contract = _sampling_contract_for_request(request)
+    filter_type = sampling_contract.collection_order
 
     # Pre-flight: verify LLM provider is configured and has an API key
     from ..providers import get_active_provider
@@ -550,7 +583,7 @@ def analyze(
                 storage.clear_progress(request.app_id)
 
     run_id = uuid4().hex
-    languages_to_fetch = request.languages or ([request.language] if request.language and request.language != "all" else None)
+    languages_to_fetch = sampling_contract.languages
     storage.create_general_analysis_run(
         run_id,
         request.app_id,
@@ -559,9 +592,10 @@ def analyze(
             "languages": languages_to_fetch or [], "filter": filter_type,
             "day_range": request.day_range, "refresh_days": request.refresh_days,
             "persist": request.persist, "output_language": request.output_language,
+            "sampling_contract": sampling_contract.to_dict(),
         },
-        requested_languages=languages_to_fetch,
-        requested_review_count=request.review_count,
+        requested_languages=sampling_contract.languages,
+        requested_review_count=sampling_contract.max_reviews,
         provider=provider_name,
         model_id=str(active_model or "") or None,
         prompt_version=llm.active_classifier_prompt_version(),
@@ -577,9 +611,15 @@ def analyze(
         stored_reviews = storage.load_reviews(request.app_id)
 
     fetched_reviews: List[dict] = []
-    fetch_stats: Dict[str, Optional[int]] = {
+    fetch_stats: Dict[str, Any] = {
         "available_matching_reviews": None,
         "retrieved_count": 0,
+        "retrieved_reviews": 0,
+        "population_reviews_after_scope": 0,
+        "scope_complete": None,
+        "lower_boundary_reached": None,
+        "steam_num_reviews": None,
+        "steam_total_reviews": None,
     }
     def _fetch_progress_callback(fetched_count: int) -> None:
         try:
@@ -592,34 +632,39 @@ def analyze(
             logger.warning("Fetch progress update failed: %s", exc)
 
     def _fetch_stats_callback(stats: dict) -> None:
-        for key in ("available_matching_reviews", "retrieved_count"):
-            value = stats.get(key)
-            if value is not None:
-                fetch_stats[key] = max(int(fetch_stats.get(key) or 0), int(value)) if key == "retrieved_count" else int(value)
+        for key in fetch_stats:
+            if key in stats:
+                value = stats.get(key)
+                if key in {"retrieved_count", "retrieved_reviews", "population_reviews_after_scope", "steam_num_reviews", "steam_total_reviews"}:
+                    fetch_stats[key] = None if value is None else int(value)
+                else:
+                    fetch_stats[key] = value
 
     # Always fetch latest Steam reviews for every analysis run.
     storage.reset_progress(request.app_id, total=0, phase="fetching")
 
     try:
-        if languages_to_fetch and len(languages_to_fetch) > 1:
+        if len(sampling_contract.languages) > 1:
             fetched_reviews = fetch_reviews_multi_language(
                 request.app_id,
-                count=request.review_count,
-                languages=languages_to_fetch,
+                count=sampling_contract.max_reviews,
+                languages=sampling_contract.languages,
                 filter_type=filter_type,
                 day_range=request.refresh_days or request.day_range,
                 progress_callback=_fetch_progress_callback,
                 stats_callback=_fetch_stats_callback,
+                sampling_contract=sampling_contract,
             )
         else:
             fetched_reviews = fetch_reviews(
                 request.app_id,
-                count=request.review_count,
-                language=languages_to_fetch[0] if languages_to_fetch else "all",
+                count=sampling_contract.max_reviews,
+                language=sampling_contract.languages[0],
                 filter_type=filter_type,
                 day_range=request.refresh_days or request.day_range,
                 progress_callback=_fetch_progress_callback,
                 stats_callback=_fetch_stats_callback,
+                sampling_contract=sampling_contract,
             )
     except SteamAPIError as exc:
         storage.transition_general_analysis_run(run_id, "failed", error=str(exc))
@@ -645,8 +690,8 @@ def analyze(
 
     all_reviews = fetched_reviews
 
-    if len(all_reviews) > request.review_count:
-        all_reviews = all_reviews[: request.review_count]
+    if sampling_contract.max_reviews > 0 and len(all_reviews) > sampling_contract.max_reviews:
+        all_reviews = all_reviews[: sampling_contract.max_reviews]
 
     all_reviews.sort(key=lambda r: (r.get("language", "english"), -(r.get("timestamp_created") or 0)))
 
@@ -674,13 +719,15 @@ def analyze(
         return AnalyzeResponse(
             metadata=AnalyzeMetadata(
                 app_id=request.app_id,
-                requested=request.review_count,
+                requested=sampling_contract.max_reviews,
                 retrieved=0,
-                requested_limit=request.review_count,
+                requested_limit=sampling_contract.max_reviews,
                 retrieved_count=0,
                 deduplicated_count=0,
                 analysis_population_count=0,
-                language=request.language,
+                language=sampling_contract.languages[0],
+                languages=sampling_contract.languages,
+                sampling_contract=sampling_contract.to_dict(),
                 fetched_at=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             ),
             insights=None,
@@ -698,15 +745,17 @@ def analyze(
     window_end = datetime.fromtimestamp(max(review_timestamps), tz=timezone.utc).date().isoformat() if review_timestamps else None
     metadata = AnalyzeMetadata(
         app_id=request.app_id,
-        requested=request.review_count,
+        requested=sampling_contract.max_reviews,
         retrieved=len(all_reviews),
-        requested_limit=request.review_count,
-        available_matching_reviews=fetch_stats.get("available_matching_reviews") or len(all_reviews),
+        requested_limit=sampling_contract.max_reviews,
+        available_matching_reviews=fetch_stats.get("available_matching_reviews"),
+        retrieved_reviews=fetch_stats.get("retrieved_reviews") or fetch_stats.get("retrieved_count") or len(fetched_reviews),
+        population_reviews_after_scope=len(all_reviews),
         retrieved_count=fetch_stats.get("retrieved_count") or len(fetched_reviews),
         deduplicated_count=len(all_reviews),
         analysis_population_count=len(all_reviews),
-        language=request.language,
-        languages=languages_to_fetch,
+        language=sampling_contract.languages[0],
+        languages=sampling_contract.languages,
         fetched_at=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         header_image=header_image,
         mode="live_provider",
@@ -716,6 +765,18 @@ def analyze(
         window_end=window_end,
         classification_population=len(all_reviews),
         evidence_population=0,
+        sampling_contract=sampling_contract.to_dict(),
+        active_filters={
+            "collection_order": sampling_contract.collection_order,
+            "review_type": sampling_contract.review_type,
+            "purchase_type": sampling_contract.purchase_type,
+            "include_offtopic_activity": sampling_contract.include_offtopic_activity,
+            "scope_complete": fetch_stats.get("scope_complete"),
+            "lower_boundary_reached": fetch_stats.get("lower_boundary_reached"),
+            "steam_num_reviews": fetch_stats.get("steam_num_reviews"),
+            "steam_total_reviews": fetch_stats.get("steam_total_reviews"),
+            "deduplication_policy": "transport review-id duplicates only; duplicate text retained",
+        },
     )
 
     # Persist the intended methodology before the provider is invoked.  A
@@ -787,41 +848,39 @@ def analyze(
 
 @router.post("/analyze/estimate", response_model=AnalyzeEstimateResponse)
 def analyze_estimate(request: AnalyzeRequest) -> AnalyzeEstimateResponse:
-
-    filter_type = (request.filter or "recent").lower()
-    if filter_type not in {"recent", "updated", "all", "recent_created", "best"}:
-        filter_type = "recent"
+    sampling_contract = _sampling_contract_for_request(request)
+    filter_type = sampling_contract.collection_order
 
     stored_reviews: List[dict] = []
     if request.persist:
         stored_reviews = storage.load_reviews(request.app_id)
 
-    languages_to_fetch = request.languages or ([request.language] if request.language and request.language != "all" else None)
-
     fetched_reviews: List[dict] = []
     try:
-        if languages_to_fetch and len(languages_to_fetch) > 1:
+        if len(sampling_contract.languages) > 1:
             fetched_reviews = fetch_reviews_multi_language(
                 request.app_id,
-                count=request.review_count,
-                languages=languages_to_fetch,
+                count=sampling_contract.max_reviews,
+                languages=sampling_contract.languages,
                 filter_type=filter_type,
                 day_range=request.refresh_days or request.day_range,
+                sampling_contract=sampling_contract,
             )
         else:
             fetched_reviews = fetch_reviews(
                 request.app_id,
-                count=request.review_count,
-                language=languages_to_fetch[0] if languages_to_fetch else "all",
+                count=sampling_contract.max_reviews,
+                language=sampling_contract.languages[0],
                 filter_type=filter_type,
                 day_range=request.refresh_days or request.day_range,
+                sampling_contract=sampling_contract,
             )
     except SteamAPIError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     all_reviews = fetched_reviews if fetched_reviews else stored_reviews
-    if len(all_reviews) > request.review_count:
-        all_reviews = all_reviews[: request.review_count]
+    if sampling_contract.max_reviews > 0 and len(all_reviews) > sampling_contract.max_reviews:
+        all_reviews = all_reviews[: sampling_contract.max_reviews]
 
     cached_labels = storage.load_review_labels(request.app_id)
     estimate = llm.estimate_review_labeling(
@@ -833,7 +892,7 @@ def analyze_estimate(request: AnalyzeRequest) -> AnalyzeEstimateResponse:
         app_id=request.app_id,
         will_fetch=True,
         will_persist=bool(request.persist),
-        review_count_requested=int(request.review_count or 0),
+        review_count_requested=int(sampling_contract.max_reviews or 0),
         reviews_considered=len(all_reviews),
         cached_labels_total=len(cached_labels),
         cached_reviews=int(estimate.get("cached_reviews", 0) or 0),
