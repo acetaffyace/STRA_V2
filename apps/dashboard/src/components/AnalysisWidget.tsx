@@ -24,6 +24,7 @@ function formatRemainingTime(seconds: number | null | undefined, language: strin
 export function AnalysisWidget() {
   const { tasks, clearTask } = useAnalysis();
   const { language } = useLanguage();
+  const [semanticPhaseObserved, setSemanticPhaseObserved] = useState<Record<string, boolean>>({});
   const ui = language === 'zh'
     ? { queue: '分析队列', expand: '展开', minimize: '最小化', cancel: '取消分析', remove: '移出队列', dismiss: '关闭', waiting: '排队中', another: '其他分析', fetching: '正在获取评论', fetched: '条评论', connecting: '正在连接 Steam API…', researchCore: '正在进行定量研究分析', classifying: '正在进行语义分类', analyzed: '条评论', preparingClassify: '正在准备分析…', building: '正在生成指标', aggregating: '正在整理语义洞察', finalizing: '正在保存分析结果', saving: '正在保存分析结果…', starting: '正在准备分析', preparing: '准备中…', remaining: '剩余时间', fetch: '获取', research: '定量研究', classify: '语义分类', insights: '洞察', save: '保存', complete: '分析完成', view: '查看结果' }
     : language === 'ja'
@@ -42,6 +43,29 @@ export function AnalysisWidget() {
     const timer = window.setInterval(refresh, 3000);
     return () => { cancelled = true; window.clearInterval(timer); };
   }, []);
+
+  useEffect(() => {
+    setSemanticPhaseObserved((previous) => {
+      const next = { ...previous };
+      let changed = false;
+      for (const [appId, task] of tasks.entries()) {
+        const phase = task.progress?.run_phase || task.progress?.phase;
+        const runKey = task.progress?.run_id || task.result?.run_id || `app:${appId}`;
+        if ((phase === 'classifying' || phase === 'aggregating' || phase === 'building_insights' || phase === 'summarizing') && !next[runKey]) {
+          next[runKey] = true;
+          changed = true;
+        }
+        // A queued task without a run id is a new app-level run. Do not inherit
+        // the semantic pipeline from a previous run for the same app.
+        const appKey = `app:${appId}`;
+        if (task.status === 'queued' && !task.progress?.run_id && !task.result?.run_id && next[appKey]) {
+          delete next[appKey];
+          changed = true;
+        }
+      }
+      return changed ? next : previous;
+    });
+  }, [tasks]);
 
   const activeTasks = Array.from(tasks.entries());
   const hasActiveTasks = activeTasks.length > 0 || remoteRuns.length > 0;
@@ -141,13 +165,18 @@ export function AnalysisWidget() {
                         const total = task.progress?.total ?? 0;
                         const processed = task.progress?.processed ?? 0;
                         const fetchedCount = task.progress?.fetched_count ?? 0;
+                        const runKey = task.progress?.run_id || task.result?.run_id || `app:${appId}`;
+                        const currentPhaseIsSemantic = phase === 'classifying' || phase === 'aggregating' || phase === 'building_insights' || phase === 'summarizing';
+                        const hasObservedSemanticPhase = currentPhaseIsSemantic || semanticPhaseObserved[runKey] === true;
+                        const quantitativePipeline = [ui.fetch, ui.research, ui.save];
+                        const semanticPipeline = [ui.fetch, ui.research, ui.classify, ui.insights, ui.save];
+                        const pipelineLabels = hasObservedSemanticPhase ? semanticPipeline : quantitativePipeline;
                         // Determine current step and label
                         let stepNumber = 1;
                         let stepLabel = '';
                         let stepDetail = '';
                         let showProgress = false;
 
-                        let pipelineLabels = [ui.fetch, ui.classify, ui.insights, ui.save];
                         if (phase === 'ingesting' || phase === 'fetching' || (!phase && total === 0 && !task.progress)) {
                           stepNumber = 1;
                           stepLabel = ui.fetching;
@@ -156,20 +185,17 @@ export function AnalysisWidget() {
                           stepNumber = 2;
                           stepLabel = ui.researchCore;
                           stepDetail = language === 'zh' ? 'Research Core 正在整理观测总体、推荐率与评论活动' : 'Assembling population, recommendation, and activity evidence';
-                          pipelineLabels = [ui.fetch, ui.research, ui.save];
-                        } else if (phase === 'classifying' || (!phase && processed < total)) {
-                          stepNumber = 2;
+                        } else if (phase === 'classifying' || (hasObservedSemanticPhase && !phase && processed < total)) {
+                          stepNumber = 3;
                           stepLabel = ui.classifying;
                           stepDetail = total > 0 ? `${language === 'zh' ? '正在分析评论 · ' : ''}${processed} / ${total} ${ui.analyzed}` : ui.preparingClassify;
                           showProgress = total > 0;
                         } else if (phase === 'aggregating' || phase === 'building_insights') {
-                          stepNumber = 3;
+                          stepNumber = 4;
                           stepLabel = ui.building;
                           stepDetail = ui.aggregating;
                         } else if (phase === 'finalizing' || phase === 'summarizing' || phase === 'idle' && total > 0) {
-                          // Only show "Finalizing" when total > 0, meaning
-                          // classification actually happened and is wrapping up.
-                          stepNumber = 4;
+                          stepNumber = hasObservedSemanticPhase ? 5 : 3;
                           stepLabel = ui.finalizing;
                           stepDetail = ui.saving;
                         } else {

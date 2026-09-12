@@ -48,6 +48,40 @@ function semanticReason(reason: string | null | undefined, zh: boolean): string 
   return '语义分析当前不可用，定量研究结果仍然有效。';
 }
 
+function safeStaleReason(reason: string | null | undefined): string | null {
+  if (!reason) return null;
+  const sanitized = reason.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160);
+  if (!sanitized || /traceback|stack trace|exception|\berror\b| at \w+[./]/i.test(sanitized)) return null;
+  return sanitized;
+}
+
+export function staleReasonLabel(reason: string | null | undefined, zh: boolean): string {
+  const normalized = reason?.trim().toLowerCase() || '';
+  const action = zh
+    ? '重新运行 Analyze 可生成新的可复现 Research Report。'
+    : 'Run Analyze again to create a new reproducible Research Report.';
+
+  if (normalized === 'review pool changed since analysis run' || normalized.includes('review pool changed')) {
+    return zh
+      ? `当前评论池与该分析运行时的评论总体已发生变化。${action}`
+      : `The review pool changed since this analysis ran. ${action}`;
+  }
+  if (normalized.includes('freshness') || normalized.includes('older') || normalized.includes('expired') || normalized.includes('age') || normalized.includes('threshold')) {
+    return zh
+      ? `该分析结果已超过当前新鲜度阈值。${action}`
+      : `This analysis result is older than the current freshness threshold. ${action}`;
+  }
+  if (normalized.includes('app details') || normalized.includes('game details') || normalized.includes('metadata')) {
+    return zh
+      ? `当前游戏信息与该分析保存时相比已发生变化。${action}`
+      : `The game details changed since this analysis was saved. ${action}`;
+  }
+
+  const detail = safeStaleReason(reason);
+  if (zh) return `该已保存分析可能已过期或与当前状态不完全一致。${detail ? `原因：${detail}` : ''}${action}`;
+  return `This stored analysis may be stale.${detail ? ` Reason: ${detail}.` : ''} ${action}`;
+}
+
 export function ResearchOverview({
   report,
   semanticStatus,
@@ -132,7 +166,7 @@ export function ResearchOverview({
 
         {stale && (
           <div role="status" className="mt-4 rounded-lg border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
-            {zh ? '已保存的分析与当前评论池不一致。请重新运行 Analyze 以创建新的可复现 Research Report。' : (staleReason || 'The stored analysis no longer matches the current review pool. Run Analyze again to create a new reproducible Research Report.')}
+            {staleReasonLabel(staleReason, zh)}
           </div>
         )}
 
