@@ -47,7 +47,7 @@ validation status are included for heuristic records.
 | --- | --- | --- |
 | Steam `voted_up` and recommendation rate | Research Core Stage 2B | `share_positive`, `share_negative`, `summarize_sentiment`, and `sentiment_counts` are legacy compatibility aliases only |
 | `valid_n`, `recommended_n`, `not_recommended_n`, Wilson interval, difference, Newcombe interval, interval-zero flag | Research Core Stage 2B | Canonical uncertainty fields; no silent fallback to a legacy point estimate |
-| Language, playtime, purchase, free-copy, early-access, Deck, missingness | Research Core Stage 2A | Descriptive composition of the acquired population |
+| Language, `playtime_at_review`, purchase, free-copy, early-access, Deck, missingness | Research Core Stage 2A | Descriptive composition of the acquired population |
 | Review count, reviews/day, activity bins, spikes, near-duplicate expression | Research Core Stage 2E (with population count in 2A) | Never remove or rebalance population rows |
 | Composition standardization | Research Core Stage 2C | Descriptive sensitivity against a shared observed composition |
 | Matched-window robustness | Research Core Stage 2D | Comparison-only; unavailable in a snapshot |
@@ -56,9 +56,16 @@ validation status are included for heuristic records.
 
 ### Canonical playtime cohorts
 
-Stage 2A is the sole canonical definition:
+Stage 2A is the sole canonical definition for **`author.playtime_at_review`**:
 
 `0–2h`, `2–10h`, `10–30h`, `30–100h`, `100h+`.
+
+This means playtime already accumulated when the player wrote the review. It is
+the canonical comparison/composition variable. The separate
+**`author.playtime_forever`** field is Steam-reported cumulative lifetime
+playtime at acquisition time. The legacy `summarize_playtime()` output uses
+`playtime_forever`; it remains descriptive metadata only and must not replace
+Stage 2A cohorts.
 
 The older `<2h`, `2–20h`, `20h+`, and `30h+` buckets occur in legacy
 `analysis.py` and `version_analysis.py`. They are not deleted in this audit;
@@ -94,7 +101,9 @@ is:
 | Field | Owner | Notes |
 | --- | --- | --- |
 | `metrics`, `recommendation`, `metric_provenance` | Research Core projection | Stage 2B takes precedence for quantitative values |
-| `playtime`, `segments`, `player_segments`, `helpful` | Research Core | Descriptive composition/metadata; canonical cohorts from Stage 2A |
+| `playtime`, `segments`, `helpful` | Legacy compatibility → Research Core | `playtime` currently uses lifetime `playtime_forever`; canonical cohorts use `playtime_at_review` |
+| `player_segments.population_counts`, `player_segments.recommendation_rates` | Legacy compatibility → Research Core | Deterministic segment counts/rates with explicit denominators |
+| `player_segments.issue_counts`, `player_segments.top_issues` | Semantic Layer | These consume `llm_issue_subcategories`, `top_issues`, or related semantic labels; they are not population metrics |
 | `llm`, `category_breakdown`, `category_recommendation_rates`, `version_insights`, `subcategory_insights`, `five_questions` | Semantic Layer | Denominators and coverage must be explicit; evidence remains semantic |
 | `sentiment_counts` | Legacy compatibility | Rename/display as recommendation counts in future migration |
 | `trend`, `category_trend`, `theme` | Presentation only | Charts and visual theme cannot define research metrics |
@@ -119,19 +128,28 @@ same audit applies to:
 * treating semantic sample counts as population counts;
 * allowing legacy `metrics` fields to overwrite Stage 2B values.
 
+The player-segment container is also mixed ownership: deterministic segment
+counts and Steam recommendation rates can become Research Core projections,
+while `issue_count`, `top_issues`, and semantic topic fields remain Semantic
+Layer outputs with classified-sample denominators.
+
 Missing population information must remain unknown, not zero. Raw metadata
 should be retained before normalization so missingness can be measured.
 
 ## Version-analysis overlap
 
-`version_analysis.py` currently combines deterministic period assignment,
-recommendation summaries, legacy playtime/purchase segments, daily review
-volume, and semantic topic/issue/request/evidence cards. Period assignment,
-recommendation outcomes, review activity, and future composition fields map to
-Research Core Stage 2A–2E. Topic, issue, request, aspect sentiment, emerging
-topic candidates, and evidence remain Semantic Layer outputs. Priority,
-actionability, and confidence are explicitly heuristic/proxy fields pending
-future review; they are not statistical confidence or product priority facts.
+`version_analysis.py` currently combines legacy calendar-date period assignment
+(`pre`/`event_day`/`post`), recommendation summaries, legacy playtime/purchase
+segments, and daily review volume with semantic topic/issue/request/evidence
+cards. The calendar-date assignment is not the validated Stage 2D lifecycle
+contract (`anchor <= timestamp_created < anchor + window_days*86400` for matched
+3d/7d/14d windows), so it is `LEGACY_COMPAT → RESEARCH_CORE`. Legacy version
+recommendation and daily-volume fields are likewise transitional; their future
+owners are Stage 2B/2E contracts rather than the old implementation. Topic,
+issue, request, aspect sentiment, emerging topic candidates, and evidence remain
+Semantic Layer outputs. Priority, actionability, and confidence are explicitly
+heuristic/proxy fields pending future review; they are not statistical
+confidence or product priority facts.
 
 ## Future report contract (preview only)
 
@@ -141,8 +159,16 @@ The registry exports `RESEARCH_REPORT_CONTRACT` for later orchestrator work.
   limitations. It must not fabricate a “change” or comparison without a second
   compatible population.
 * **Comparison mode** additionally contains comparability,
-  standardization, and window robustness, and requires compatible contracts and
-  complete provenance for both populations.
+  standardization, and window robustness. Raw observed-population rates and
+  differences may still be reported when provenance is incomplete, but must be
+  marked as limited. Coverage-dependent robustness claims require sufficient
+  verified acquisition coverage, and incomplete acquisition must never be
+  silently treated as complete.
+
+The registry also exports explicit `CANONICAL_SOURCE_CHECKS`; tests import each
+listed module and verify the referenced callable or approved constant exists.
+This is intentionally a small source-integrity map rather than a general
+reflection system.
 
 The future orchestrator should be named along the lines of
 `build_snapshot_research_report(...)` and

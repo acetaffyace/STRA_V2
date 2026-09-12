@@ -8,6 +8,7 @@ functions until the later orchestrator stages are implemented.
 from __future__ import annotations
 
 from copy import deepcopy
+import importlib
 from typing import Any, Mapping
 
 
@@ -77,7 +78,8 @@ METRIC_OWNERSHIP_REGISTRY: tuple[dict[str, Any], ...] = (
     # Stage 2A: descriptive population composition and acquisition coverage.
     _entry("stage2a.population_count", "population_validity.compare_populations", RESEARCH_CORE, RESEARCH_CORE, "population_review_count", "Reviews satisfying the acquired SamplingContract scope."),
     _entry("stage2a.language_composition", "population_validity.compare_populations", RESEARCH_CORE, RESEARCH_CORE, "language_composition", "Counts and shares by raw Steam review language."),
-    _entry("stage2a.playtime_cohort", "population_validity.PLAYTIME_COHORTS", RESEARCH_CORE, RESEARCH_CORE, "playtime_cohort_composition", "Counts and shares using canonical at-review playtime cohorts: 0–2h, 2–10h, 10–30h, 30–100h, 100h+.", notes="The old <2h/2–20h/20h+ and 30h+ buckets remain compatibility outputs only."),
+    _entry("stage2a.playtime_at_review_composition", "population_validity.PLAYTIME_COHORTS", RESEARCH_CORE, RESEARCH_CORE, "playtime_at_review_cohort_composition", "Counts and shares using the playtime already accumulated when the player wrote the review: 0–2h, 2–10h, 10–30h, 30–100h, 100h+.", notes="This is the canonical comparison/composition variable; it must not be substituted with playtime_forever."),
+    _entry("stage2a.playtime_cohort", "population_validity.PLAYTIME_COHORTS", RESEARCH_CORE, LEGACY_COMPAT, "playtime_cohort_composition", "Compatibility name for the canonical at-review playtime composition variable.", replacement_metric="stage2a.playtime_at_review_composition", notes="The old <2h/2–20h/20h+ and 30h+ buckets remain compatibility outputs only."),
     _entry("stage2a.purchase_composition", "population_validity.compare_populations", RESEARCH_CORE, RESEARCH_CORE, "purchase_composition", "Counts and shares by Steam purchase-source metadata."),
     _entry("stage2a.free_copy_composition", "population_validity.compare_populations", RESEARCH_CORE, RESEARCH_CORE, "free_copy_composition", "Counts and shares by received_for_free."),
     _entry("stage2a.early_access_composition", "population_validity.compare_populations", RESEARCH_CORE, RESEARCH_CORE, "early_access_composition", "Counts and shares by written_during_early_access."),
@@ -86,7 +88,7 @@ METRIC_OWNERSHIP_REGISTRY: tuple[dict[str, Any], ...] = (
 
     # Stage 2C–2E are already implemented as deterministic diagnostics.
     _entry("stage2c.composition_standardization", "standardization.standardize_populations", RESEARCH_CORE, RESEARCH_CORE, "composition_standardization", "Sensitivity of an observed recommendation difference under a shared observed composition.", notes="Descriptive sensitivity, not causal adjustment or bias removal."),
-    _entry("stage2d.window_robustness", "window_robustness.analyze_window_robustness", RESEARCH_CORE, RESEARCH_CORE, "window_robustness", "Sensitivity of a lifecycle comparison to matched window lengths.", notes="Research Core Stage 2D; no fabricated comparison in a snapshot."),
+    _entry("stage2d.window_robustness", "window_robustness.matched_window_robustness", RESEARCH_CORE, RESEARCH_CORE, "window_robustness", "Sensitivity of a lifecycle comparison to matched window lengths.", notes="Research Core Stage 2D; no fabricated comparison in a snapshot."),
     _entry("stage2e.review_activity", "activity_diagnostics.analyze_review_activity", RESEARCH_CORE, RESEARCH_CORE, "review_activity", "Review volume, reviews/day, bins, and unusual activity spikes in the acquired population.", notes="Descriptive activity signals; not intent or causality."),
     _entry("stage2e.coordinated_expression", "activity_diagnostics.analyze_review_activity", RESEARCH_CORE, RESEARCH_CORE, "coordinated_expression", "Near-duplicate expression and temporal concentration diagnostics without removing reviews.", notes="Does not label spam, bots, review bombing, or intent."),
 
@@ -113,7 +115,9 @@ METRIC_OWNERSHIP_REGISTRY: tuple[dict[str, Any], ...] = (
     # Semantic ownership is deliberately separate from population metrics.
     _entry("semantic.topic", "insights.category_breakdown / version_analysis", SEMANTIC_LAYER, SEMANTIC_LAYER, "topic", "LLM/taxonomy-derived topic or category mentions in a future semantic sample.", notes="Must use validated classified reviews and retain evidence provenance."),
     _entry("semantic.issue", "insights.subcategory_insights / version_analysis", SEMANTIC_LAYER, SEMANTIC_LAYER, "issue", "Semantic issue mentions and evidence spans selected from the population.", notes="Not a population count unless explicitly defined with a denominator."),
+    _entry("semantic.issue_count", "insights.subcategory_insights / version_analysis", SEMANTIC_LAYER, SEMANTIC_LAYER, "issue_count", "Count of semantic issue labels within a validated classified or semantic sample.", notes="Not a Research Core population count."),
     _entry("semantic.request", "insights.subcategory_insights / version_analysis", SEMANTIC_LAYER, SEMANTIC_LAYER, "request", "Semantic feature/request mentions and evidence spans.", notes="Future semantic sample; never silently replaces population composition."),
+    _entry("semantic.top_issues", "insights.subcategory_insights / version_analysis", SEMANTIC_LAYER, SEMANTIC_LAYER, "top_issues", "Ranked semantic issue labels or issue cards.", notes="Ranking is semantic/presentation output, not a population metric."),
     _entry("semantic.aspect_sentiment", "version_analysis.calculate_version_metrics", SEMANTIC_LAYER, SEMANTIC_LAYER, "aspect_sentiment", "Model-derived sentiment attached to a reviewed aspect/evidence span.", notes="Separate from Steam voted_up recommendation outcome."),
     _entry("semantic.evidence", "evidence.build_evidence / version_analysis", SEMANTIC_LAYER, SEMANTIC_LAYER, "evidence", "Verified quote and provenance for a semantic claim.", notes="Evidence supports interpretation; it does not change research denominators."),
 
@@ -125,16 +129,20 @@ METRIC_OWNERSHIP_REGISTRY: tuple[dict[str, Any], ...] = (
     _entry("presentation.category_recommendation_rates", "insights.prepare_insights.category_recommendation_rates", SEMANTIC_LAYER, SEMANTIC_LAYER, "topic_recommendation_association", "Recommendation outcomes within a semantic topic subset.", notes="Semantic association; overall Recommendation Rate remains Research Core."),
     _entry("presentation.category_trend", "insights.category_trend_over_time", PRESENTATION_ONLY, PRESENTATION_ONLY, "topic_trend_projection", "Presentation trend of semantic category mentions."),
     _entry("presentation.version_insights", "insights.version_based_insights / version_analysis", SEMANTIC_LAYER, SEMANTIC_LAYER, "version_semantic_insights", "Version/event semantic issue, request, topic, and evidence outputs.", notes="Raw period metrics should be sourced from Research Core Stage 2A–2E."),
-    _entry("presentation.playtime", "analysis.summarize_playtime", RESEARCH_CORE, RESEARCH_CORE, "playtime_summary", "Descriptive playtime distribution; canonical cohorts belong to Stage 2A."),
+    _entry("legacy.playtime_forever_summary", "analysis.summarize_playtime", RESEARCH_CORE, LEGACY_COMPAT, "playtime_forever_descriptive_summary", "Descriptive lifetime playtime reported by Steam at acquisition time.", replacement_metric="stage2a.playtime_at_review_composition", notes="playtime_forever is not interchangeable with playtime_at_review and must not replace Stage 2A cohorts."),
+    _entry("presentation.playtime", "analysis.summarize_playtime", RESEARCH_CORE, LEGACY_COMPAT, "playtime_summary", "Legacy projection of Steam lifetime playtime metadata; canonical cohorts belong to Stage 2A.", replacement_metric="stage2a.playtime_at_review_composition", notes="Current summarize_playtime uses playtime_forever, not playtime_at_review."),
     _entry("presentation.helpful", "analysis.helpfulness_summary", RESEARCH_CORE, RESEARCH_CORE, "helpfulness_summary", "Descriptive Steam helpful-vote metadata."),
-    _entry("presentation.recommendation", "analysis.recommendation_rate", RESEARCH_CORE, RESEARCH_CORE, "recommendation_summary", "Legacy projection of Steam recommendation outcomes.", replacement_metric="stage2b.recommendation_rate", notes="Stage 2B has precedence."),
+    _entry("presentation.recommendation", "analysis.recommendation_rate", RESEARCH_CORE, LEGACY_COMPAT, "recommendation_summary", "Legacy projection of Steam recommendation outcomes.", replacement_metric="stage2b.recommendation_rate", notes="Stage 2B has precedence."),
     _entry("presentation.sentiment_counts", "insights.prepare_insights.sentiment_counts", LEGACY_COMPAT, LEGACY_COMPAT, "recommendation_counts_legacy", "Positive/negative labels projected from voted_up.", replacement_metric="stage2b.recommended_n", notes="Do not call this text sentiment."),
     _entry("presentation.trend", "insights.prepare_insights.trend", PRESENTATION_ONLY, PRESENTATION_ONLY, "activity_trend_projection", "Legacy time-series chart projection."),
-    _entry("presentation.segments", "insights.prepare_insights.segments", RESEARCH_CORE, RESEARCH_CORE, "population_segments", "Descriptive composition segments; playtime uses Stage 2A cohorts."),
+    _entry("presentation.segments", "insights.prepare_insights.segments", RESEARCH_CORE, LEGACY_COMPAT, "population_segments", "Legacy descriptive composition segment projection.", replacement_metric="stage2a.playtime_at_review_composition", notes="The current container includes legacy playtime buckets; canonical composition comes from Stage 2A."),
     _entry("presentation.audience", "insights.prepare_insights.audience", DEPRECATED_CANDIDATE, DEPRECATED_CANDIDATE, "audience_heuristics", "Legacy reviewer/audience heuristic projections.", replacement_metric="stage2a.metadata_missingness", notes="No validated influence or veteran interpretation."),
     _entry("presentation.risk", "insights.prepare_insights.risk", DEPRECATED_CANDIDATE, DEPRECATED_CANDIDATE, "risk_heuristics", "Legacy refund/core-fan heuristic projections.", replacement_metric="stage2a.population_count", notes="Not a Research Core risk estimate."),
     _entry("presentation.subcategory_insights", "insights.aggregate_subcategory_insights", SEMANTIC_LAYER, SEMANTIC_LAYER, "semantic_subcategory_insights", "Validated semantic issue/request evidence cards."),
-    _entry("presentation.player_segments", "insights.prepare_insights.player_segments", RESEARCH_CORE, RESEARCH_CORE, "descriptive_player_segments", "Descriptive composition slices with explicit denominators."),
+    _entry("presentation.player_segments.population_counts", "insights.experience_level_issues / purchase_type_insights / activity_based_feedback / platform_segment_insights / language_segment_insights", RESEARCH_CORE, LEGACY_COMPAT, "player_segment_population_counts", "Deterministic counts of reviews in descriptive player segments.", notes="Current helpers are legacy projections; future Research Core output must retain explicit segment denominators."),
+    _entry("presentation.player_segments.recommendation_rates", "insights.experience_level_issues / purchase_type_insights / activity_based_feedback / platform_segment_insights / language_segment_insights", RESEARCH_CORE, LEGACY_COMPAT, "player_segment_recommendation_rates", "Steam voted_up recommendation rates within descriptive player segments.", replacement_metric="stage2b.recommendation_rate", notes="Segment rates are descriptive Research Core projections and must not be confused with semantic issue rates."),
+    _entry("presentation.player_segments.issue_counts", "insights.engagement_based_topics / activity_based_feedback / platform_segment_insights / language_segment_insights", SEMANTIC_LAYER, LEGACY_COMPAT, "player_segment_issue_counts", "Issue counts attached to semantic labels within a player segment.", notes="Consumes llm_issue_subcategories or top_issues; denominator is the classified segment, not the full population."),
+    _entry("presentation.player_segments.top_issues", "insights.engagement_based_topics / activity_based_feedback / platform_segment_insights / language_segment_insights", SEMANTIC_LAYER, LEGACY_COMPAT, "player_segment_top_issues", "Top semantic issues associated with a player segment.", notes="Semantic topic/issue output; not a Research Core population metric."),
     _entry("presentation.quality_weighted", "analysis.quality_weighted_insights", DEPRECATED_CANDIDATE, DEPRECATED_CANDIDATE, "quality_weighted_legacy", "Legacy quality-weighted projection.", replacement_metric="stage2b.recommendation_rate", notes="Must not replace unweighted population metrics."),
     _entry("presentation.cross_segment", "analysis.cross_segment_analysis", DEPRECATED_CANDIDATE, DEPRECATED_CANDIDATE, "cross_segment_legacy", "Legacy exploratory cross-segment projection."),
     _entry("presentation.theme", "insights.derive_theme", PRESENTATION_ONLY, PRESENTATION_ONLY, "visual_theme", "Color/presentation theme derived from legacy metrics."),
@@ -143,17 +151,86 @@ METRIC_OWNERSHIP_REGISTRY: tuple[dict[str, Any], ...] = (
 
     # Version analysis overlap is explicit: raw metrics map to Research Core;
     # semantic outputs remain in the semantic/version layer.
-    _entry("version.period_assignment", "version_analysis.assign_period", RESEARCH_CORE, RESEARCH_CORE, "version_window_assignment", "Deterministic assignment to pre/event_day/post windows."),
-    _entry("version.recommendation_rate", "version_analysis._review_summary", RESEARCH_CORE, RESEARCH_CORE, "version_recommendation_rate", "Recommendation outcome by version period.", replacement_metric="stage2b.recommendation_rate", notes="Future orchestrator supplies the canonical rate and uncertainty."),
+    _entry("version.period_assignment", "version_analysis.assign_period", RESEARCH_CORE, LEGACY_COMPAT, "version_window_assignment_legacy", "Legacy calendar-date assignment to pre/event_day/post windows.", replacement_metric="stage2d.window_robustness", notes="Not the validated matched lifecycle contract: anchor <= timestamp_created < anchor + window_days*86400 for 3d/7d/14d windows."),
+    _entry("version.recommendation_rate", "version_analysis._review_summary", RESEARCH_CORE, LEGACY_COMPAT, "version_recommendation_rate_legacy", "Legacy recommendation outcome by calendar period.", replacement_metric="stage2b.recommendation_rate", notes="Future orchestrator supplies the canonical rate and uncertainty."),
     _entry("version.playtime_buckets", "version_analysis._playtime_bucket", LEGACY_COMPAT, RESEARCH_CORE, "version_playtime_cohort", "Version-period playtime composition.", replacement_metric="stage2a.playtime_cohort", notes="Current 0–2h/2–10h/10–30h/30h+ output is incomplete versus canonical 30–100h/100h+."),
     _entry("version.purchase_segmentation", "version_analysis._purchase_bucket", LEGACY_COMPAT, RESEARCH_CORE, "version_purchase_composition", "Version-period purchase metadata composition.", replacement_metric="stage2a.purchase_composition", notes="Current helper returns unknown and needs future wiring."),
-    _entry("version.daily_review_volume", "version_analysis.calculate_version_metrics", RESEARCH_CORE, RESEARCH_CORE, "version_review_activity", "Daily review volume and post/pre volume index."),
+    _entry("version.daily_review_volume", "version_analysis.calculate_version_metrics", RESEARCH_CORE, LEGACY_COMPAT, "version_review_activity_legacy", "Legacy daily review volume and post/pre volume index from calendar periods.", replacement_metric="stage2e.review_activity", notes="Transitional output; canonical activity uses Research Core Stage 2A/2E contracts and does not inherit legacy period semantics."),
     _entry("version.priority_score", "version_analysis._build_priority_and_evidence", DEPRECATED_CANDIDATE, SEMANTIC_LAYER, "semantic_priority_proxy", "Heuristic issue-card priority score combining reach, severity, deterioration, actionability, and confidence multiplier.", formula="100*(.30*reach+.30*severity+.20*deterioration+.20*actionability)*multiplier", inputs=("mention_rate", "negative_rate_or_issue_rate", "delta_rates", "taxonomy_actionability", "sample_size", "label_confidence"), notes="Proxy only; requires empirical validation before product prioritization.", empirical_validation="none"),
     _entry("version.actionability", "version_analysis._actionability", DEPRECATED_CANDIDATE, SEMANTIC_LAYER, "semantic_actionability_proxy", "Hand-authored taxonomy actionability weight used in the issue-card proxy.", formula="fixed taxonomy lookup", inputs=("subcategory",), notes="Not a product priority fact; requires stakeholder/empirical review.", empirical_validation="none"),
     _entry("version.confidence", "version_analysis._confidence", DEPRECATED_CANDIDATE, SEMANTIC_LAYER, "semantic_confidence_proxy", "Sample-size label and multiplier for semantic issue cards.", formula="low<min_sample, medium<50, high otherwise", inputs=("mentions", "min_sample_size"), notes="Not a statistical confidence interval.", empirical_validation="none"),
     _entry("version.emerging_topics", "version_analysis._discover_emerging_topics", SEMANTIC_LAYER, SEMANTIC_LAYER, "emerging_topic_candidates", "Lexical candidates from negative reviews classified as other."),
     _entry("version.evidence", "version_analysis._build_priority_and_evidence", SEMANTIC_LAYER, SEMANTIC_LAYER, "version_evidence", "Verified semantic evidence cards attached to version-period topics/issues."),
 )
+
+
+# Small explicit integrity map for canonical/future Research Core sources.
+# Values are (importable module, attribute).  Constants such as
+# PLAYTIME_COHORTS are checked for existence; callable functions are checked
+# for callability as well.  Keeping this map explicit avoids a fragile
+# reflection framework while preventing documentation drift.
+CANONICAL_SOURCE_CHECKS: dict[str, tuple[str, str]] = {
+    "stage2b.valid_n": ("apps.api.senti_next.rate_inference", "calculate_recommendation_rate"),
+    "stage2b.recommended_n": ("apps.api.senti_next.rate_inference", "calculate_recommendation_rate"),
+    "stage2b.not_recommended_n": ("apps.api.senti_next.rate_inference", "calculate_recommendation_rate"),
+    "stage2b.recommendation_rate": ("apps.api.senti_next.rate_inference", "calculate_recommendation_rate"),
+    "stage2b.wilson_interval": ("apps.api.senti_next.rate_inference", "calculate_recommendation_rate"),
+    "stage2b.difference": ("apps.api.senti_next.rate_inference", "compare_recommendation_rates"),
+    "stage2b.newcombe_interval": ("apps.api.senti_next.rate_inference", "compare_recommendation_rates"),
+    "stage2b.interval_contains_zero": ("apps.api.senti_next.rate_inference", "compare_recommendation_rates"),
+    "stage2a.population_count": ("apps.api.senti_next.population_validity", "compare_populations"),
+    "stage2a.language_composition": ("apps.api.senti_next.population_validity", "compare_populations"),
+    "stage2a.playtime_at_review_composition": ("apps.api.senti_next.population_validity", "PLAYTIME_COHORTS"),
+    "stage2a.playtime_cohort": ("apps.api.senti_next.population_validity", "PLAYTIME_COHORTS"),
+    "stage2a.purchase_composition": ("apps.api.senti_next.population_validity", "compare_populations"),
+    "stage2a.free_copy_composition": ("apps.api.senti_next.population_validity", "compare_populations"),
+    "stage2a.early_access_composition": ("apps.api.senti_next.population_validity", "compare_populations"),
+    "stage2a.deck_composition": ("apps.api.senti_next.population_validity", "compare_populations"),
+    "stage2a.metadata_missingness": ("apps.api.senti_next.population_validity", "compare_populations"),
+    "stage2c.composition_standardization": ("apps.api.senti_next.standardization", "standardize_populations"),
+    "stage2d.window_robustness": ("apps.api.senti_next.window_robustness", "matched_window_robustness"),
+    "stage2e.review_activity": ("apps.api.senti_next.activity_diagnostics", "analyze_review_activity"),
+    "stage2e.coordinated_expression": ("apps.api.senti_next.activity_diagnostics", "analyze_review_activity"),
+    "legacy.playtime_forever_summary": ("apps.api.senti_next.analysis", "summarize_playtime"),
+    "presentation.playtime": ("apps.api.senti_next.analysis", "summarize_playtime"),
+    "presentation.helpful": ("apps.api.senti_next.analysis", "helpfulness_summary"),
+    "presentation.recommendation": ("apps.api.senti_next.analysis", "recommendation_rate"),
+    "presentation.player_segments.population_counts": ("apps.api.senti_next.analysis", "experience_level_issues"),
+    "presentation.player_segments.recommendation_rates": ("apps.api.senti_next.analysis", "experience_level_issues"),
+    "presentation.segments": ("apps.api.senti_next.analysis", "early_access_vs_release_sentiment"),
+    "presentation.metric_provenance": ("apps.api.senti_next.metric_provenance", "build_metric_provenance"),
+    "version.period_assignment": ("apps.api.senti_next.version_analysis", "assign_period"),
+    "version.recommendation_rate": ("apps.api.senti_next.version_analysis", "_review_summary"),
+    "version.playtime_buckets": ("apps.api.senti_next.version_analysis", "_playtime_bucket"),
+    "version.purchase_segmentation": ("apps.api.senti_next.version_analysis", "_purchase_bucket"),
+    "version.daily_review_volume": ("apps.api.senti_next.version_analysis", "calculate_version_metrics"),
+}
+
+
+def validate_canonical_sources(
+    registry: tuple[Mapping[str, Any], ...] | list[Mapping[str, Any]] = METRIC_OWNERSHIP_REGISTRY,
+) -> list[str]:
+    """Verify explicit source references resolve to real implementation objects."""
+    errors: list[str] = []
+    entries = {str(entry.get("metric_id")): entry for entry in registry}
+    for metric_id, (module_name, attribute_name) in CANONICAL_SOURCE_CHECKS.items():
+        if metric_id not in entries:
+            errors.append(f"source check has no registry entry: {metric_id}")
+            continue
+        try:
+            module = importlib.import_module(module_name)
+            attribute = getattr(module, attribute_name)
+        except (ImportError, AttributeError) as exc:
+            errors.append(f"{metric_id} source does not resolve: {module_name}.{attribute_name} ({exc})")
+            continue
+        if callable(attribute) or attribute_name == "PLAYTIME_COHORTS":
+            continue
+        errors.append(f"{metric_id} source is neither callable nor an approved constant: {module_name}.{attribute_name}")
+    checked = set(CANONICAL_SOURCE_CHECKS)
+    for entry in registry:
+        if entry.get("future_owner") == RESEARCH_CORE and entry.get("current_source") and entry.get("metric_id") not in checked:
+            errors.append(f"missing canonical source check: {entry.get('metric_id')}")
+    return errors
 
 
 RESEARCH_REPORT_CONTRACT: dict[str, Any] = {
@@ -164,7 +241,9 @@ RESEARCH_REPORT_CONTRACT: dict[str, Any] = {
     },
     "comparison": {
         "required": ["population", "recommendation", "activity", "comparability", "standardization", "window_robustness", "limitations"],
-        "requirement": "Both populations must have compatible SamplingContracts and complete provenance before comparison metrics are reported.",
+        "descriptive_observed_population": "Raw recommendation rates and observed differences may be reported from available rows when provenance is incomplete, but must be explicitly marked limited.",
+        "coverage_dependent": "Matched-window robustness and coverage-complete lifecycle claims require sufficient verified temporal/acquisition coverage.",
+        "incomplete_provenance": "Incomplete acquisition must never be silently treated as complete.",
     },
     "precedence": [
         "Research Core owns quantitative population metrics and uncertainty.",
@@ -210,6 +289,7 @@ def validate_ownership_registry(registry: tuple[Mapping[str, Any], ...] | list[M
             errors.append(f"entry {metric_id} has invalid future_owner")
         if entry.get("status") not in allowed_status:
             errors.append(f"entry {metric_id} has invalid status")
+    errors.extend(validate_canonical_sources(registry))
     return errors
 
 
@@ -222,7 +302,9 @@ __all__ = [
     "RESEARCH_CORE",
     "RESEARCH_REPORT_CONTRACT",
     "SEMANTIC_LAYER",
+    "CANONICAL_SOURCE_CHECKS",
     "get_metric_ownership_registry",
     "ownership_by_id",
+    "validate_canonical_sources",
     "validate_ownership_registry",
 ]

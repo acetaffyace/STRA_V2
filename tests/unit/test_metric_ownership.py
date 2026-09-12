@@ -3,15 +3,16 @@ from __future__ import annotations
 
 import json
 
-import pandas as pd
-
 from apps.api.senti_next.analysis import build_reviews_dataframe, recommendation_rate, summarize_sentiment
 from apps.api.senti_next.metric_ownership import (
+    CANONICAL_SOURCE_CHECKS,
     DEPRECATED_CANDIDATE,
     LEGACY_COMPAT,
     METRIC_OWNERSHIP_REGISTRY,
+    RESEARCH_REPORT_CONTRACT,
     RESEARCH_CORE,
     SEMANTIC_LAYER,
+    validate_canonical_sources,
     validate_ownership_registry,
 )
 from apps.api.senti_next.population_validity import PLAYTIME_COHORTS
@@ -50,6 +51,18 @@ def test_legacy_playtime_buckets_are_not_canonical():
     assert entries["legacy.playtime_buckets"]["replacement_metric"] == "stage2a.playtime_cohort"
 
 
+def test_playtime_at_review_and_playtime_forever_are_distinct():
+    entries = _by_id()
+    at_review = entries["stage2a.playtime_at_review_composition"]
+    lifetime = entries["legacy.playtime_forever_summary"]
+    assert at_review["future_owner"] == RESEARCH_CORE
+    assert at_review["canonical_name"] == "playtime_at_review_cohort_composition"
+    assert lifetime["status"] == LEGACY_COMPAT
+    assert lifetime["future_owner"] == RESEARCH_CORE
+    assert lifetime["replacement_metric"] == "stage2a.playtime_at_review_composition"
+    assert "not interchangeable" in lifetime["notes"]
+
+
 def test_heuristic_risk_and_core_fan_are_deprecated_candidates():
     entries = _by_id()
     for metric_id in ("heuristic.refund_risk_index", "heuristic.core_fan_disappointment"):
@@ -66,8 +79,45 @@ def test_stage2_precedence_and_layer_ownership():
     assert entries["stage2c.composition_standardization"]["future_owner"] == RESEARCH_CORE
     assert entries["stage2d.window_robustness"]["future_owner"] == RESEARCH_CORE
     assert entries["stage2e.coordinated_expression"]["future_owner"] == RESEARCH_CORE
+    assert entries["stage2d.window_robustness"]["current_source"] == "window_robustness.matched_window_robustness"
     for metric_id in ("semantic.topic", "semantic.issue", "semantic.request"):
         assert entries[metric_id]["future_owner"] == SEMANTIC_LAYER
+
+
+def test_source_integrity_checks_resolve():
+    assert CANONICAL_SOURCE_CHECKS
+    assert validate_canonical_sources() == []
+
+
+def test_player_segments_are_mixed_not_one_research_core_block():
+    entries = _by_id()
+    assert "presentation.player_segments" not in entries
+    assert entries["presentation.player_segments.population_counts"]["future_owner"] == RESEARCH_CORE
+    assert entries["presentation.player_segments.recommendation_rates"]["future_owner"] == RESEARCH_CORE
+    assert entries["presentation.player_segments.issue_counts"]["future_owner"] == SEMANTIC_LAYER
+    assert entries["presentation.player_segments.top_issues"]["future_owner"] == SEMANTIC_LAYER
+
+
+def test_known_semantic_fields_cannot_be_research_core_owned():
+    entries = _by_id()
+    for metric_id in ("semantic.issue_count", "semantic.top_issues", "semantic.topic", "semantic.request", "semantic.evidence", "semantic.aspect_sentiment"):
+        assert entries[metric_id]["future_owner"] == SEMANTIC_LAYER
+
+
+def test_legacy_version_temporal_outputs_are_transitional():
+    entries = _by_id()
+    for metric_id in ("version.period_assignment", "version.recommendation_rate", "version.daily_review_volume"):
+        assert entries[metric_id]["status"] == LEGACY_COMPAT
+        assert entries[metric_id]["future_owner"] == RESEARCH_CORE
+    assert entries["version.period_assignment"]["replacement_metric"] == "stage2d.window_robustness"
+    assert entries["version.daily_review_volume"]["replacement_metric"] == "stage2e.review_activity"
+
+
+def test_comparison_contract_distinguishes_limited_descriptive_metrics():
+    comparison = RESEARCH_REPORT_CONTRACT["comparison"]
+    assert "may be reported" in comparison["descriptive_observed_population"]
+    assert "sufficient verified" in comparison["coverage_dependent"]
+    assert "never" in comparison["incomplete_provenance"]
 
 
 def test_audit_does_not_change_existing_stage1_numerical_behavior():
