@@ -46,6 +46,12 @@ from .standardization import (
     build_single_dimension_sensitivity,
     standardize_populations,
 )
+from .window_robustness import (
+    DEFAULT_WINDOWS_DAYS,
+    WINDOW_SENSITIVITY_THRESHOLDS,
+    build_window_robustness_report,
+    matched_window_robustness,
+)
 from .ingest import (
     SOURCE_DISCORD,
     SOURCE_REDDIT,
@@ -89,6 +95,10 @@ __all__ = [
     "standardize_populations",
     "build_composition_standardization_report",
     "build_single_dimension_sensitivity",
+    "DEFAULT_WINDOWS_DAYS",
+    "WINDOW_SENSITIVITY_THRESHOLDS",
+    "matched_window_robustness",
+    "build_window_robustness_report",
     "fetch_reviews_multi_language",
     "build_reviews_dataframe",
 
