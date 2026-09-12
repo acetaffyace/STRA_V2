@@ -5,6 +5,7 @@ import json
 import pytest
 
 from apps.api.senti_next.window_robustness import matched_window_robustness
+from apps.api.senti_next.window_robustness import _as_timestamp, _coverage_bounds
 
 
 REFERENCE_ANCHOR = 1_000_000.0
@@ -173,3 +174,96 @@ def test_report_is_deterministic_and_json_serializable() -> None:
     first = json.dumps(matched_window_robustness(reference, comparison, REFERENCE_ANCHOR, COMPARISON_ANCHOR, **kwargs), sort_keys=True)
     second = json.dumps(matched_window_robustness(reference, comparison, REFERENCE_ANCHOR, COMPARISON_ANCHOR, **kwargs), sort_keys=True)
     assert first == second
+
+
+def test_complete_contract_coverage_does_not_follow_observed_review_bounds() -> None:
+    metadata_with_contract = {
+        "collection_complete": True,
+        "sampling_contract": {"start_time": REFERENCE_ANCHOR, "end_time": REFERENCE_ANCHOR + 14 * DAY},
+        "window_start": "1970-01-02",
+        "window_end": "1970-01-03",
+    }
+    start, end, complete, reason = _coverage_bounds(metadata_with_contract)
+    assert start == REFERENCE_ANCHOR
+    assert end == REFERENCE_ANCHOR + 14 * DAY
+    assert complete is True
+    assert reason is None
+
+
+def test_legacy_observed_only_window_range_is_unknown_coverage() -> None:
+    start, end, complete, reason = _coverage_bounds(
+        {
+            "collection_complete": True,
+            "window_start": "2026-09-01",
+            "window_end": "2026-09-14",
+        }
+    )
+    assert start is None
+    assert end is None
+    assert complete is True
+    assert reason == "acquisition_temporal_coverage_unknown"
+
+
+def test_stage_2d_does_not_treat_legacy_observed_range_as_window_coverage() -> None:
+    reference, comparison = basic_populations()
+    legacy = {"collection_complete": True, "window_start": "1970-01-12", "window_end": "1970-01-20"}
+    report = matched_window_robustness(
+        reference,
+        comparison,
+        REFERENCE_ANCHOR,
+        COMPARISON_ANCHOR,
+        reference_metadata=legacy,
+        comparison_metadata=legacy,
+    )
+    assert report["windows"]["3"]["status"] == "incomplete_coverage"
+    assert report["windows"]["7"]["status"] == "incomplete_coverage"
+    assert report["windows"]["14"]["status"] == "incomplete_coverage"
+
+
+def test_truncated_and_incomplete_contracts_do_not_claim_full_coverage() -> None:
+    metadata_incomplete = {
+        "collection_complete": False,
+        "truncated_by_max_reviews": True,
+        "sampling_contract": {"start_time": REFERENCE_ANCHOR, "end_time": REFERENCE_ANCHOR + 14 * DAY},
+    }
+    start, end, complete, reason = _coverage_bounds(metadata_incomplete)
+    assert start is None and end is None
+    assert complete is False
+    assert reason == "acquisition_incomplete"
+
+
+def test_date_only_and_full_datetime_parsing_are_explicit_and_deterministic() -> None:
+    assert _as_timestamp("2026-09-14") == _as_timestamp("2026-09-14T00:00:00Z")
+    assert _as_timestamp("2026-09-14", end_boundary=True) == _as_timestamp("2026-09-15T00:00:00Z")
+    assert _as_timestamp("2026-09-14T12:34:56Z") == _as_timestamp("2026-09-14T12:34:56+00:00")
+
+
+def test_complete_contract_coverage_survives_zero_review_interior_day() -> None:
+    reference = [review("r0", REFERENCE_ANCHOR, False), review("r7", REFERENCE_ANCHOR + 7 * DAY, False)]
+    comparison = [review("c0", COMPARISON_ANCHOR, True), review("c7", COMPARISON_ANCHOR + 7 * DAY, True)]
+    report = matched_window_robustness(
+        reference,
+        comparison,
+        REFERENCE_ANCHOR,
+        COMPARISON_ANCHOR,
+        reference_metadata={"collection_complete": True, "sampling_contract": {"start_time": REFERENCE_ANCHOR, "end_time": REFERENCE_ANCHOR + 14 * DAY}},
+        comparison_metadata={"collection_complete": True, "sampling_contract": {"start_time": COMPARISON_ANCHOR, "end_time": COMPARISON_ANCHOR + 14 * DAY}},
+    )
+    assert report["windows"]["14"]["status"] == "complete"
+
+
+def test_observed_first_and_last_review_do_not_shift_contract_coverage() -> None:
+    reference = [review("r", REFERENCE_ANCHOR + 2 * DAY, False)]
+    comparison = [review("c", COMPARISON_ANCHOR + 10 * DAY, True)]
+    report = matched_window_robustness(
+        reference,
+        comparison,
+        REFERENCE_ANCHOR,
+        COMPARISON_ANCHOR,
+        reference_metadata={"collection_complete": True, "sampling_contract": {"start_time": REFERENCE_ANCHOR, "end_time": REFERENCE_ANCHOR + 14 * DAY}},
+        comparison_metadata={"collection_complete": True, "sampling_contract": {"start_time": COMPARISON_ANCHOR, "end_time": COMPARISON_ANCHOR + 14 * DAY}},
+    )
+    reference_coverage = report["windows"]["14"]["reference_population"]["coverage"]
+    comparison_coverage = report["windows"]["14"]["comparison_population"]["coverage"]
+    assert reference_coverage["source_start_time"] == REFERENCE_ANCHOR
+    assert comparison_coverage["source_end_time"] == COMPARISON_ANCHOR + 14 * DAY

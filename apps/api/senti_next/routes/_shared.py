@@ -84,6 +84,14 @@ class AnalyzeMetadata(BaseModel):
     mode: Optional[str] = None
     source: Optional[str] = None
     run_id: Optional[str] = None
+    # ``window_start``/``window_end`` are legacy observed-review date fields.
+    # These explicit fields describe acquisition scope instead.
+    coverage_start_time: Optional[float] = None
+    coverage_end_time: Optional[float] = None
+    coverage_status: Optional[str] = None
+    coverage_end_inclusive: Optional[bool] = None
+    observed_review_start_time: Optional[float] = None
+    observed_review_end_time: Optional[float] = None
     window_start: Optional[str] = None
     window_end: Optional[str] = None
     data_cutoff: Optional[str] = None

@@ -255,6 +255,13 @@ def _build_population_provenance(all_reviews: List[dict], metadata: Optional[Ana
             "voted_up": review.get("voted_up") is True,
         })
     active_filters = (metadata.active_filters or {}) if metadata is not None else {}
+    observed_timestamps = [row["timestamp_created"] for row in rows]
+    observed_start = min(observed_timestamps) if observed_timestamps else None
+    observed_end = max(observed_timestamps) if observed_timestamps else None
+    coverage_start = metadata.coverage_start_time if metadata is not None else None
+    coverage_end = metadata.coverage_end_time if metadata is not None else None
+    coverage_status = metadata.coverage_status if metadata is not None else None
+    coverage_end_inclusive = metadata.coverage_end_inclusive if metadata is not None else None
     return {
         "schema_version": "research-population-v1",
         "sampling_contract": metadata.sampling_contract if metadata is not None else None,
@@ -267,10 +274,64 @@ def _build_population_provenance(all_reviews: List[dict], metadata: Optional[Ana
         "stop_reason": active_filters.get("stop_reason"),
         "language_stats": active_filters.get("language_stats"),
         "lower_boundary_reached": active_filters.get("lower_boundary_reached"),
+        "coverage_start_time": coverage_start,
+        "coverage_end_time": coverage_end,
+        "coverage_status": coverage_status,
+        "coverage_end_inclusive": coverage_end_inclusive,
+        "acquisition_coverage": {
+            "start_time": coverage_start,
+            "end_time": coverage_end,
+            "status": coverage_status,
+            "end_inclusive": coverage_end_inclusive,
+        },
+        "observed_review_start_time": observed_start,
+        "observed_review_end_time": observed_end,
+        "observed_review_range": {
+            "first_review_timestamp": observed_start,
+            "last_review_timestamp": observed_end,
+        },
         "deduplication_policy": "transport review-id duplicates only; duplicate text is retained",
         "population_count": len(all_reviews),
         "complete": len(rows) == len(all_reviews),
         "rows": rows,
+    }
+
+
+def _derive_acquisition_coverage(sampling_contract: SamplingContract, fetch_stats: dict[str, Any]) -> dict[str, Any]:
+    """Derive coverage from the requested contract plus acquisition state.
+
+    Contract timestamps are Unix seconds and the SamplingContract defines both
+    boundaries as inclusive.  Observed review timestamps are intentionally not
+    used here: they describe what was seen, not what the crawler covered.
+    """
+    start = sampling_contract.start_time
+    end = sampling_contract.end_time
+    complete = fetch_stats.get("collection_complete")
+    if not isinstance(complete, bool):
+        complete = fetch_stats.get("scope_complete")
+    truncated = bool(fetch_stats.get("truncated_by_max_reviews"))
+    if truncated or complete is False:
+        return {
+            "coverage_start_time": None,
+            "coverage_end_time": None,
+            "coverage_status": "incomplete",
+            "coverage_end_inclusive": True if end is not None else None,
+            "coverage_reason": "acquisition_incomplete_or_truncated",
+        }
+    if complete is True and start is not None and end is not None:
+        return {
+            "coverage_start_time": float(start),
+            "coverage_end_time": float(end),
+            "coverage_status": "complete",
+            "coverage_end_inclusive": True,
+            "coverage_reason": "sampling_contract_boundaries",
+        }
+    return {
+        "coverage_start_time": None,
+        "coverage_end_time": None,
+        "coverage_status": "unknown",
+        "coverage_end_inclusive": True if end is not None else None,
+        "coverage_reason": "acquisition_temporal_coverage_unknown",
     }
 
 def _run_analysis_job(
@@ -756,6 +817,7 @@ def analyze(
     review_timestamps = [int(review.get("timestamp_created") or 0) for review in all_reviews if review.get("timestamp_created")]
     window_start = datetime.fromtimestamp(min(review_timestamps), tz=timezone.utc).date().isoformat() if review_timestamps else None
     window_end = datetime.fromtimestamp(max(review_timestamps), tz=timezone.utc).date().isoformat() if review_timestamps else None
+    acquisition_coverage = _derive_acquisition_coverage(sampling_contract, fetch_stats)
     metadata = AnalyzeMetadata(
         app_id=request.app_id,
         requested=sampling_contract.max_reviews,
@@ -774,6 +836,12 @@ def analyze(
         mode="live_provider",
         source="steam_reviews",
         run_id=run_id,
+        coverage_start_time=acquisition_coverage["coverage_start_time"],
+        coverage_end_time=acquisition_coverage["coverage_end_time"],
+        coverage_status=acquisition_coverage["coverage_status"],
+        coverage_end_inclusive=acquisition_coverage["coverage_end_inclusive"],
+        observed_review_start_time=float(min(review_timestamps)) if review_timestamps else None,
+        observed_review_end_time=float(max(review_timestamps)) if review_timestamps else None,
         window_start=window_start,
         window_end=window_end,
         classification_population=len(all_reviews),
@@ -794,6 +862,13 @@ def analyze(
             "stop_reason": fetch_stats.get("stop_reason"),
             "language_stats": fetch_stats.get("language_stats"),
             "lower_boundary_reached": fetch_stats.get("lower_boundary_reached"),
+            "coverage_start_time": acquisition_coverage["coverage_start_time"],
+            "coverage_end_time": acquisition_coverage["coverage_end_time"],
+            "coverage_status": acquisition_coverage["coverage_status"],
+            "coverage_end_inclusive": acquisition_coverage["coverage_end_inclusive"],
+            "coverage_reason": acquisition_coverage["coverage_reason"],
+            "observed_review_start_time": float(min(review_timestamps)) if review_timestamps else None,
+            "observed_review_end_time": float(max(review_timestamps)) if review_timestamps else None,
             "steam_num_reviews": fetch_stats.get("steam_num_reviews"),
             "steam_total_reviews": fetch_stats.get("steam_total_reviews"),
             "deduplication_policy": "transport review-id duplicates only; duplicate text retained",

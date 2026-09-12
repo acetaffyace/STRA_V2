@@ -27,7 +27,12 @@ _REQUIRED_EVENT_FIELDS = ("side", "timestamp")
 
 
 def _as_timestamp(value: Any, *, end_boundary: bool = False) -> Optional[float]:
-    """Parse Unix seconds or ISO/date values; naive values are UTC."""
+    """Parse Unix seconds or ISO values; naive values are UTC.
+
+    Date-only start values mean 00:00:00 UTC.  Date-only end values mean the
+    exclusive boundary at 00:00:00 UTC on the following day.  Full ISO
+    datetimes are never shifted or rounded.
+    """
     if isinstance(value, bool) or value is None:
         return None
     if isinstance(value, (int, float)):
@@ -46,6 +51,13 @@ def _as_timestamp(value: Any, *, end_boundary: bool = False) -> Optional[float]:
             return number if isfinite(number) else None
         except ValueError:
             pass
+        if len(text) == 10 and text[4] == "-" and text[7] == "-":
+            try:
+                parsed_date = date.fromisoformat(text)
+            except ValueError:
+                return None
+            parsed = datetime.combine(parsed_date, time.min, tzinfo=timezone.utc)
+            return parsed.timestamp() + (_DAY_SECONDS if end_boundary else 0.0)
         normalized = text.replace("Z", "+00:00")
         try:
             parsed = datetime.fromisoformat(normalized)
@@ -85,19 +97,43 @@ def _coverage_bounds(metadata: Any) -> tuple[Optional[float], Optional[float], O
     data = _metadata_mapping(metadata)
     contract = data.get("sampling_contract")
     contract = contract if isinstance(contract, Mapping) else {}
+    acquisition_coverage = data.get("acquisition_coverage")
+    acquisition_coverage = acquisition_coverage if isinstance(acquisition_coverage, Mapping) else {}
+    provenance = data.get("population_provenance")
+    provenance = provenance if isinstance(provenance, Mapping) else {}
+    nested_coverage = provenance.get("acquisition_coverage")
+    nested_coverage = nested_coverage if isinstance(nested_coverage, Mapping) else {}
+    active_filters = data.get("active_filters")
+    active_filters = active_filters if isinstance(active_filters, Mapping) else {}
     start_value = next(
         (
-            data.get(key)
-            for key in ("coverage_start_time", "acquisition_start_time", "window_start_time", "window_start")
-            if data.get(key) is not None
+            value
+            for value in (
+                data.get("coverage_start_time"),
+                acquisition_coverage.get("start_time"),
+                provenance.get("coverage_start_time"),
+                nested_coverage.get("start_time"),
+                active_filters.get("coverage_start_time"),
+                data.get("acquisition_start_time"),
+                data.get("window_start_time"),
+            )
+            if value is not None
         ),
         None,
     )
     end_value = next(
         (
-            data.get(key)
-            for key in ("coverage_end_time", "acquisition_end_time", "window_end_time", "window_end")
-            if data.get(key) is not None
+            value
+            for value in (
+                data.get("coverage_end_time"),
+                acquisition_coverage.get("end_time"),
+                provenance.get("coverage_end_time"),
+                nested_coverage.get("end_time"),
+                active_filters.get("coverage_end_time"),
+                data.get("acquisition_end_time"),
+                data.get("window_end_time"),
+            )
+            if value is not None
         ),
         None,
     )
@@ -110,6 +146,17 @@ def _coverage_bounds(metadata: Any) -> tuple[Optional[float], Optional[float], O
         complete = _metadata_value(metadata, "scope_complete")
     stop_reason = _metadata_value(metadata, "stop_reason")
     truncated = bool(_metadata_value(metadata, "truncated_by_max_reviews"))
+    coverage_status = (
+        data.get("coverage_status")
+        or acquisition_coverage.get("status")
+        or provenance.get("coverage_status")
+        or nested_coverage.get("status")
+        or active_filters.get("coverage_status")
+    )
+    if coverage_status == "incomplete":
+        complete = False
+    elif coverage_status == "unknown":
+        complete = None
     if truncated or stop_reason == "max_reviews_reached":
         complete = False
     reason = None
@@ -119,6 +166,11 @@ def _coverage_bounds(metadata: Any) -> tuple[Optional[float], Optional[float], O
         reason = "acquisition_provenance_unknown"
     elif start is None or end is None:
         reason = "acquisition_temporal_coverage_unknown"
+    if complete is not True:
+        # Requested contract bounds are not acquisition evidence after an
+        # incomplete/truncated/unknown run.  Only a future explicit partial
+        # coverage provenance record may safely provide a narrower interval.
+        return None, None, complete, reason
     return start, end, complete, reason
 
 
@@ -192,6 +244,16 @@ def _window_metadata(metadata: Any, coverage: Mapping[str, Any], window_days: in
     result = dict(_metadata_mapping(metadata))
     result["window_start"] = coverage["required_start_time"]
     result["window_end"] = coverage["required_end_time"]
+    result["coverage_start_time"] = coverage["required_start_time"] if coverage["sufficient"] else None
+    result["coverage_end_time"] = coverage["required_end_time"] if coverage["sufficient"] else None
+    result["coverage_status"] = "complete" if coverage["sufficient"] else "incomplete"
+    result["coverage_end_inclusive"] = False
+    result["acquisition_coverage"] = {
+        "start_time": result["coverage_start_time"],
+        "end_time": result["coverage_end_time"],
+        "status": result["coverage_status"],
+        "end_inclusive": False,
+    }
     result["window_days"] = window_days
     result["collection_complete"] = bool(coverage["sufficient"])
     result["truncated_by_max_reviews"] = False
