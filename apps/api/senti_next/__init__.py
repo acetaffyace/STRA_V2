@@ -40,6 +40,12 @@ from .rate_inference import (
     calculate_recommendation_rate,
     compare_recommendation_rates,
 )
+from .standardization import (
+    SUPPORTED_VARIABLES,
+    build_composition_standardization_report,
+    build_single_dimension_sensitivity,
+    standardize_populations,
+)
 from .ingest import (
     SOURCE_DISCORD,
     SOURCE_REDDIT,
@@ -79,6 +85,10 @@ __all__ = [
     "compare_recommendation_rates",
     "build_rate_inference_report",
     "build_recommendation_rate_report",
+    "SUPPORTED_VARIABLES",
+    "standardize_populations",
+    "build_composition_standardization_report",
+    "build_single_dimension_sensitivity",
     "fetch_reviews_multi_language",
     "build_reviews_dataframe",
 
