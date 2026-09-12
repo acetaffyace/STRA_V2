@@ -212,3 +212,19 @@ It should call existing Stage 1–2E modules rather than reimplementing metrics.
 No Stage 2A–2E thresholds, Steam crawling, taxonomy, LLM prompts, statistics,
 version algorithms, database schema, or frontend behavior are changed by this
 audit.
+
+## Stage 2P.4 result contract
+
+The deterministic Research Core report is now a first-class result rather than
+part of the semantic insights namespace.  `analysis_results` and
+`analysis_run_results` persist nullable JSON fields named `research_report` and
+`semantic_status`; `insights` remains the legacy semantic/presentation
+compatibility payload.  The migration copies only exact Stage 2P.3 envelope
+keys when they exist and never reconstructs reports from older metrics.
+
+For a completed immutable run, `research_ready` means a recognized
+`research-report-v1` report is present. `semantic_ready` remains independent
+and requires the existing validated semantic output plus an available semantic
+status. Thus a quantitative-only run can be research-ready while semantic
+analysis is unavailable. Read endpoints report a changed review fingerprint as
+stale and do not silently recompute or mutate either result.

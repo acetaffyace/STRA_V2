@@ -185,6 +185,8 @@ def init_db() -> None:
                 metadata TEXT,
                 insights TEXT,
                 reviews TEXT,
+                research_report TEXT,
+                semantic_status TEXT,
                 error TEXT,
                 created_at TEXT DEFAULT (datetime('now')),
                 updated_at TEXT DEFAULT (datetime('now')),
@@ -642,6 +644,34 @@ def init_db() -> None:
             ux_path,
             [(12, "Web MVP UX population counters and authoritative ETA", migrate_web_mvp_ux)],
             backup_path=ux_backup,
+            restore_on_error=True,
+        )
+
+    # Stage 2P.4 formalizes the deterministic Research Core result separately
+    # from legacy semantic insights.  Migration 12 is already owned by the
+    # Web MVP UX schema in this repository, so this additive migration uses 13.
+    if database in (None, ":memory:"):
+        with get_connection() as conn:
+            raw = conn.connection.driver_connection
+            if migrations.current_version(raw) < result_schema.RESEARCH_RESULT_MIGRATION_VERSION:
+                result_schema.migrate_research_result_fields(raw)
+                migrations.record_version(
+                    raw,
+                    result_schema.RESEARCH_RESULT_MIGRATION_VERSION,
+                    "first-class Research Core result persistence",
+                )
+                raw.commit()
+    else:
+        research_result_path = Path(database).expanduser().resolve()
+        research_result_backup = research_result_path.with_name(research_result_path.name + ".research_result_v1.bak")
+        migrations.apply_ordered_migrations(
+            research_result_path,
+            [(
+                result_schema.RESEARCH_RESULT_MIGRATION_VERSION,
+                "first-class Research Core result persistence",
+                result_schema.migrate_research_result_fields,
+            )],
+            backup_path=research_result_backup,
             restore_on_error=True,
         )
 

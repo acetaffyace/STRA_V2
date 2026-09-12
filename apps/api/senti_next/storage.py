@@ -69,6 +69,7 @@ def _get_timestamp() -> int:
 
 
 _DEFAULT_USER_ID = "local"
+_UNSET = object()
 
 
 def init_db() -> None:
@@ -1437,11 +1438,21 @@ def save_analysis_result(
     stale: bool = False,
     context_hash: Optional[str] = None,
     stale_reason: Optional[str] = None,
+    research_report: Any = _UNSET,
+    semantic_status: Any = _UNSET,
 ) -> None:
     """Persist analysis output for async jobs."""
     payload_metadata = json.dumps(metadata) if metadata is not None else None
     payload_insights = json.dumps(insights) if insights is not None else None
     payload_reviews = json.dumps(reviews) if reviews is not None else None
+    report_supplied = research_report is not _UNSET
+    status_supplied = semantic_status is not _UNSET
+    payload_research_report = (
+        json.dumps(research_report) if research_report is not None else None
+    ) if report_supplied else None
+    payload_semantic_status = (
+        json.dumps(semantic_status) if semantic_status is not None else None
+    ) if status_supplied else None
     timestamp = _get_timestamp()
     from . import db as db_module
     ts_expr = d.to_timestamp_expr(":updated_at") if not d.is_sqlite() else ":updated_at"
@@ -1450,12 +1461,14 @@ def save_analysis_result(
         from sqlalchemy import text
         conn.execute(
             text(f"""
-            INSERT INTO analysis_results (user_id, app_id, metadata, insights, reviews, status, error, updated_at, run_id, snapshot_hash, stale, context_hash, stale_reason)
-            VALUES (:user_id, :app_id, :metadata, :insights, :reviews, :status, :error, {ts_expr}, :run_id, :snapshot_hash, :stale, :context_hash, :stale_reason)
+            INSERT INTO analysis_results (user_id, app_id, metadata, insights, reviews, research_report, semantic_status, status, error, updated_at, run_id, snapshot_hash, stale, context_hash, stale_reason)
+            VALUES (:user_id, :app_id, :metadata, :insights, :reviews, :research_report, :semantic_status, :status, :error, {ts_expr}, :run_id, :snapshot_hash, :stale, :context_hash, :stale_reason)
             ON CONFLICT(user_id, app_id) DO UPDATE SET
                 metadata = EXCLUDED.metadata,
                 insights = EXCLUDED.insights,
                 reviews = EXCLUDED.reviews,
+                research_report = CASE WHEN :research_report_supplied = 1 THEN EXCLUDED.research_report ELSE analysis_results.research_report END,
+                semantic_status = CASE WHEN :semantic_status_supplied = 1 THEN EXCLUDED.semantic_status ELSE analysis_results.semantic_status END,
                 status = EXCLUDED.status,
                 error = EXCLUDED.error,
                 run_id = EXCLUDED.run_id,
@@ -1471,6 +1484,10 @@ def save_analysis_result(
                 "metadata": payload_metadata,
                 "insights": payload_insights,
                 "reviews": payload_reviews,
+                "research_report": payload_research_report,
+                "semantic_status": payload_semantic_status,
+                "research_report_supplied": int(report_supplied),
+                "semantic_status_supplied": int(status_supplied),
                 "status": status,
                 "error": error,
                 "updated_at": updated_at_val,
@@ -1559,7 +1576,7 @@ def load_analysis_result(app_id: int) -> Optional[Dict[str, Any]]:
     with db_module.get_connection() as conn:
         row = conn.execute(
             text("""
-            SELECT metadata, insights, reviews, status, error, updated_at, run_id, snapshot_hash, stale, context_hash, stale_reason
+            SELECT metadata, insights, reviews, research_report, semantic_status, status, error, updated_at, run_id, snapshot_hash, stale, context_hash, stale_reason
             FROM analysis_results
             WHERE user_id = :user_id AND app_id = :app_id
             """),
@@ -1569,10 +1586,22 @@ def load_analysis_result(app_id: int) -> Optional[Dict[str, Any]]:
     if row is None:
         return None
 
+    insights = _parse_json_field(row["insights"], None)
+    research_report = _parse_json_field(row["research_report"], None)
+    semantic_status = _parse_json_field(row["semantic_status"], None)
+    # Transitional Stage 2P.3 rows may only have the reserved values inside
+    # insights. Dedicated columns always take precedence when populated.
+    if research_report is None and isinstance(insights, dict) and "research_report" in insights:
+        research_report = insights.get("research_report")
+    if semantic_status is None and isinstance(insights, dict) and "semantic_status" in insights:
+        semantic_status = insights.get("semantic_status")
+
     return {
         "metadata": _parse_json_field(row["metadata"], None),
-        "insights": _parse_json_field(row["insights"], None),
+        "insights": insights,
         "reviews": _parse_json_field(row["reviews"], []),
+        "research_report": research_report,
+        "semantic_status": semantic_status,
         "status": row["status"],
         "error": row["error"],
         "updated_at": _timestamp_to_int(row["updated_at"]) or 0,
@@ -1635,6 +1664,8 @@ def finalize_general_analysis_run(
     snapshot_hash: Optional[str] = None,
     context_hash: Optional[str] = None,
     counts: Optional[Dict[str, int]] = None,
+    research_report: Optional[Dict[str, Any]] = None,
+    semantic_status: Optional[Dict[str, Any]] = None,
 ) -> None:
     """Atomically persist an immutable result and advance a general run.
 
@@ -1646,6 +1677,8 @@ def finalize_general_analysis_run(
         "metadata": json.dumps(metadata) if metadata is not None else None,
         "insights": json.dumps(insights) if insights is not None else None,
         "reviews": json.dumps(reviews) if reviews is not None else None,
+        "research_report": json.dumps(research_report) if research_report is not None else None,
+        "semantic_status": json.dumps(semantic_status) if semantic_status is not None else None,
     }
     timestamp = _get_timestamp()
     updated_at_val = datetime.fromtimestamp(timestamp, tz=timezone.utc) if d.is_sqlite() else timestamp
@@ -1680,21 +1713,25 @@ def finalize_general_analysis_run(
         conn.execute(
             text("""INSERT INTO analysis_run_results
                     (run_id, user_id, app_id, metadata, insights, reviews,
-                     snapshot_hash, context_hash)
+                     research_report, semantic_status, snapshot_hash, context_hash)
                     VALUES (:run_id, :user_id, :app_id, :metadata, :insights,
-                            :reviews, :snapshot_hash, :context_hash)"""),
+                            :reviews, :research_report, :semantic_status,
+                            :snapshot_hash, :context_hash)"""),
             {"run_id": run_id, "user_id": _DEFAULT_USER_ID, "app_id": app_id,
              **payloads, "snapshot_hash": snapshot_hash, "context_hash": context_hash},
         )
         conn.execute(
             text("""INSERT INTO analysis_results
-                    (user_id, app_id, metadata, insights, reviews, status, error,
+                    (user_id, app_id, metadata, insights, reviews, research_report, semantic_status, status, error,
                      updated_at, run_id, snapshot_hash, stale, context_hash, stale_reason)
                     VALUES (:user_id, :app_id, :metadata, :insights, :reviews,
+                            :research_report, :semantic_status,
                             'completed', NULL, :updated_at, :run_id, :snapshot_hash,
                             0, :context_hash, NULL)
                     ON CONFLICT(user_id, app_id) DO UPDATE SET
                         metadata=EXCLUDED.metadata, insights=EXCLUDED.insights,
+                        research_report=EXCLUDED.research_report,
+                        semantic_status=EXCLUDED.semantic_status,
                         reviews=EXCLUDED.reviews, status=EXCLUDED.status,
                         error=EXCLUDED.error, run_id=EXCLUDED.run_id,
                         snapshot_hash=EXCLUDED.snapshot_hash, stale=EXCLUDED.stale,
@@ -1729,7 +1766,8 @@ def get_analysis_run_result(run_id: str) -> Optional[Dict[str, Any]]:
     with db_module.get_connection() as conn:
         row = conn.execute(
             text("""SELECT r.run_id, r.user_id, r.app_id, r.metadata, r.insights,
-                          r.reviews, r.snapshot_hash, r.context_hash,
+                          r.reviews, r.research_report, r.semantic_status,
+                          r.snapshot_hash, r.context_hash,
                           r.created_at, r.completed_at
                    FROM analysis_run_results r
                    JOIN analysis_runs ar ON ar.run_id=r.run_id
@@ -1739,11 +1777,20 @@ def get_analysis_run_result(run_id: str) -> Optional[Dict[str, Any]]:
         ).mappings().fetchone()
     if not row:
         return None
+    insights = _parse_json_field(row["insights"], None)
+    research_report = _parse_json_field(row["research_report"], None)
+    semantic_status = _parse_json_field(row["semantic_status"], None)
+    if research_report is None and isinstance(insights, dict) and "research_report" in insights:
+        research_report = insights.get("research_report")
+    if semantic_status is None and isinstance(insights, dict) and "semantic_status" in insights:
+        semantic_status = insights.get("semantic_status")
     return {
         "run_id": row["run_id"], "user_id": row["user_id"], "app_id": row["app_id"],
         "metadata": _parse_json_field(row["metadata"], None),
         "insights": _parse_json_field(row["insights"], None),
         "reviews": _parse_json_field(row["reviews"], []),
+        "research_report": research_report,
+        "semantic_status": semantic_status,
         "snapshot_hash": row["snapshot_hash"], "context_hash": row["context_hash"],
         "created_at": _format_ts(row["created_at"]),
         "completed_at": _format_ts(row["completed_at"]),

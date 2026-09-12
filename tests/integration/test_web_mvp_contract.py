@@ -76,3 +76,36 @@ def test_runtime_result_uses_canonical_label_envelope_for_coverage():
     )
     assert labeled.loc[0, "llm_label_origin"] == "llm"
     assert bool(labeled.loc[0, "llm_validated"]) is True
+
+
+def test_dashboard_exposes_independent_research_and_semantic_readiness(monkeypatch):
+    report = {"schema_version": "research-report-v1", "mode": "snapshot"}
+    semantic_status = {"status": "unavailable", "reason": "no_provider"}
+    monkeypatch.setattr(web_contract.storage, "count_reviews", lambda app_id: 2)
+    monkeypatch.setattr(web_contract.storage, "get_active_general_analysis", lambda app_id: None)
+    monkeypatch.setattr(web_contract.storage, "get_analysis_design", lambda run_id: None)
+    monkeypatch.setattr(web_contract.storage, "get_analysis_run", lambda run_id: {"status": "completed", "classified_count": 0})
+    monkeypatch.setattr(web_contract.storage, "get_analysis_run_result", lambda run_id: {
+        "run_id": run_id,
+        "research_report": report,
+        "semantic_status": semantic_status,
+    })
+    monkeypatch.setattr(web_contract.storage, "load_analysis_result", lambda app_id: {
+        "status": "completed",
+        "run_id": "run-quant",
+        "metadata": {"app_id": app_id, "retrieved": 2},
+        "insights": None,
+        "research_report": report,
+        "semantic_status": semantic_status,
+        "reviews": [],
+        "error": None,
+    })
+
+    payload = web_contract.build_dashboard_payload(4012810)
+
+    assert payload["research_report"] == report
+    assert payload["semantic_status"] == semantic_status
+    assert payload["readiness"]["research_ready"] is True
+    assert payload["readiness"]["semantic_ready"] is False
+    assert payload["readiness"]["research_result_available"] is True
+    assert payload["readiness"]["semantic_result_available"] is False

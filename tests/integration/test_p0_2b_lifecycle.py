@@ -93,7 +93,7 @@ def test_success_failure_and_cancellation_of_background_job(monkeypatch):
     )
     assert storage.get_analysis_run(failed)["status"] == "completed"
     failed_result = storage.get_analysis_run_result(failed)
-    assert failed_result["insights"]["semantic_status"]["status"] == "failed"
+    assert failed_result["semantic_status"]["status"] == "failed"
 
     cancelled = create_run(44)
     storage.transition_general_analysis_run(cancelled, "running")
@@ -250,12 +250,12 @@ def test_analyze_without_provider_completes_quantitative_only_and_persists_exact
     result = storage.load_analysis_result(60)
     immutable = storage.get_analysis_run_result(response.run_id)
     assert result["status"] == "completed"
-    assert immutable["insights"]["semantic_status"]["status"] == "unavailable"
-    assert immutable["insights"]["semantic_status"]["reason"] == "no_provider"
-    assert immutable["insights"]["research_report"] == build_snapshot_research_report(
+    assert immutable["semantic_status"]["status"] == "unavailable"
+    assert immutable["semantic_status"]["reason"] == "no_provider"
+    assert immutable["research_report"] == build_snapshot_research_report(
         args[2], metadata=immutable["metadata"]
     )
-    assert immutable["insights"]["research_report"]["population"]["review_count"] == len(reviews)
+    assert immutable["research_report"]["population"]["review_count"] == len(reviews)
     assert run["provider"] is None
     assert run["model_id"] is None
     assert run["prompt_version"] is None
@@ -275,7 +275,7 @@ def test_analyze_missing_api_key_is_quantitative_only_not_http_400(monkeypatch):
     fn, args, kwargs = background.calls[0]
     fn(*args, **kwargs)
     result = storage.get_analysis_run_result(response.run_id)
-    assert result["insights"]["semantic_status"]["reason"] == "no_api_key"
+    assert result["semantic_status"]["reason"] == "no_api_key"
     assert storage.get_analysis_run(response.run_id)["status"] == "completed"
 
 
@@ -292,7 +292,7 @@ def test_invalid_semantic_configuration_does_not_block_research_core(monkeypatch
     fn, args, kwargs = background.calls[0]
     fn(*args, **kwargs)
     result = storage.get_analysis_run_result(response.run_id)
-    assert result["insights"]["semantic_status"]["reason"] == "invalid_configuration"
+    assert result["semantic_status"]["reason"] == "invalid_configuration"
     assert storage.get_analysis_run(response.run_id)["status"] == "completed"
 
 
@@ -324,8 +324,8 @@ def test_semantic_success_preserves_legacy_insights_and_adds_reserved_fields(mon
     result = storage.get_analysis_run_result(run_id)
     assert storage.get_analysis_run(run_id)["status"] == "completed"
     assert result["insights"]["legacy_metric"] == 7
-    assert result["insights"]["research_report"]["mode"] == "snapshot"
-    assert result["insights"]["semantic_status"]["status"] == "available"
+    assert result["research_report"]["mode"] == "snapshot"
+    assert result["semantic_status"]["status"] == "available"
     assert calls["ensure"] == 1
 
 
@@ -346,9 +346,9 @@ def test_semantic_failure_preserves_research_core_and_completes_quantitatively(m
     )
     result = storage.get_analysis_run_result(run_id)
     assert storage.get_analysis_run(run_id)["status"] == "completed"
-    assert result["insights"]["research_report"]["schema_version"] == "research-report-v1"
-    assert result["insights"]["semantic_status"]["status"] == "failed"
-    assert result["insights"]["semantic_status"]["reason"] == "runtime_error"
+    assert result["research_report"]["schema_version"] == "research-report-v1"
+    assert result["semantic_status"]["status"] == "failed"
+    assert result["semantic_status"]["reason"] == "runtime_error"
     assert storage.get_analysis_run(run_id)["classified_count"] == 0
 
 
@@ -388,5 +388,5 @@ def test_empty_population_completes_without_semantic_calls(monkeypatch):
     )
     result = storage.get_analysis_run_result(run_id)
     assert storage.get_analysis_run(run_id)["status"] == "completed"
-    assert result["insights"]["research_report"]["recommendation"]["population"]["recommendation_rate"] is None
-    assert result["insights"]["semantic_status"]["reason"] == "no_reviews"
+    assert result["research_report"]["recommendation"]["population"]["recommendation_rate"] is None
+    assert result["semantic_status"]["reason"] == "no_reviews"

@@ -99,6 +99,8 @@ class AnalysisStatusResponse(BaseModel):
     status: str
     metadata: Optional[AnalyzeMetadata] = None
     insights: Optional[dict] = None
+    research_report: Optional[dict] = None
+    semantic_status: Optional[dict] = None
     reviews: List[dict] = Field(default_factory=list)
     error: Optional[str] = None
     run_id: Optional[str] = None
@@ -113,6 +115,8 @@ class DashboardPayloadResponse(BaseModel):
     readiness: Dict[str, Any]
     metadata: Optional[dict] = None
     insights: Optional[dict] = None
+    research_report: Optional[dict] = None
+    semantic_status: Optional[dict] = None
     reviews: List[dict] = Field(default_factory=list)
     error: Optional[str] = None
 
@@ -466,13 +470,6 @@ def _run_analysis_job(
         }
 
     def _finalize_quantitative_only(research_report: dict, status: dict) -> None:
-        final_insights = {
-            # Transitional envelope: Research Core is not part of the semantic
-            # layer; it is stored here only until Stage 2P.4 adds formal
-            # Research Report persistence/API semantics.
-            "research_report": research_report,
-            "semantic_status": status,
-        }
         try:
             storage.update_progress_phase(app_id, "finalizing")
             storage.update_progress(app_id, total_reviews, total_reviews)
@@ -482,11 +479,13 @@ def _run_analysis_job(
             run_id,
             app_id,
             metadata_payload,
-            final_insights,
+            None,
             [],
             snapshot_hash=snapshot_hash,
             context_hash=context_hash,
             counts=_research_counts(research_report),
+            research_report=research_report,
+            semantic_status=status,
         )
 
     # Research Core is the canonical minimum analytical product.  Any failure
@@ -509,6 +508,8 @@ def _run_analysis_job(
                 run_id=run_id,
                 snapshot_hash=snapshot_hash,
                 context_hash=context_hash,
+                research_report=None,
+                semantic_status=None,
             )
             storage.transition_general_analysis_run(run_id, "failed", phase="research_core", error=f"Research Core failed: {exc}")
         except Exception:
@@ -523,13 +524,10 @@ def _run_analysis_job(
     else:
         semantic_state = _semantic_status("pending", None)
 
-    # Materialize quantitative output before attempting optional semantic work.
-    # This running compatibility row is deliberately the same existing storage
-    # envelope used by legacy consumers; Stage 2P.4 will formalize the field.
-    base_insights = {
-        "research_report": research_report,
-        "semantic_status": semantic_state,
-    }
+    # Materialize the deterministic result in its dedicated persistence fields
+    # before attempting optional semantic work.  Legacy ``insights`` remains
+    # reserved for semantic/presentation compatibility output.
+    base_insights = None
     try:
         storage.save_analysis_result(
             app_id=app_id,
@@ -540,6 +538,8 @@ def _run_analysis_job(
             run_id=run_id,
             snapshot_hash=snapshot_hash,
             context_hash=context_hash,
+            research_report=research_report,
+            semantic_status=semantic_state,
         )
     except Exception as exc:
         logger.exception("Failed to persist Research Core result for %s", run_id)
@@ -689,15 +689,13 @@ def _run_analysis_job(
         metadata.review_fingerprint = storage.get_reviews_fingerprint(app_id)
         metadata_payload = metadata.dict()
         metadata_payload["population_provenance"] = population_provenance
-        final_insights = dict(insights or {})
-        final_insights["research_report"] = research_report
-        final_insights["semantic_status"] = _semantic_status("available", None)
+        semantic_status = _semantic_status("available", None)
 
         storage.finalize_general_analysis_run(
             run_id=run_id,
             app_id=app_id,
             metadata=metadata_payload,
-            insights=final_insights,
+            insights=insights,
             reviews=reviews_payload,
             snapshot_hash=snapshot_hash,
             context_hash=context_hash,
@@ -706,8 +704,10 @@ def _run_analysis_job(
                 classified_count=validated_classified_count,
                 valid_review_count=int(len(df)) if df is not None else 0,
             ),
+            research_report=research_report,
+            semantic_status=semantic_status,
         )
-        _save_starred_snapshot(final_insights, reviews_payload)
+        _save_starred_snapshot(insights, reviews_payload)
     except InterruptedError as exc:
         logger.info(f"Analysis cancelled for app {app_id}: {exc}")
         try:
@@ -736,13 +736,15 @@ def _run_analysis_job(
                 storage.save_analysis_result(
                     app_id=app_id,
                     metadata=metadata_payload,
-                    insights={"research_report": research_report, "semantic_status": failed_status},
+                    insights=None,
                     reviews=[],
                     status="failed",
                     error=str(finalize_exc),
                     run_id=run_id,
                     snapshot_hash=snapshot_hash,
                     context_hash=context_hash,
+                    research_report=research_report,
+                    semantic_status=failed_status,
                 )
                 storage.transition_general_analysis_run(run_id, "failed", error=str(finalize_exc))
             except Exception:
@@ -1087,6 +1089,13 @@ def analyze(
         run_id=run_id,
         snapshot_hash=None,
         stale=False,
+        research_report=None,
+        semantic_status={
+            "status": "pending" if runtime_available else "unavailable",
+            "reason": None if runtime_available else (semantic_runtime.get("reason") or "invalid_configuration"),
+            "provider": semantic_runtime.get("provider") if runtime_available else None,
+            "model_id": semantic_runtime.get("model_id") if runtime_available else None,
+        },
     )
     storage.transition_general_analysis_run(run_id, "running", phase="research_core")
     storage.reset_progress(request.app_id, total=len(all_reviews), phase="research_core")
@@ -1269,7 +1278,7 @@ def get_analysis_result(app_id: int) -> AnalysisStatusResponse:
         metadata_payload.setdefault("mode", metadata_payload.get("mode") or "legacy_result")
         metadata_payload.setdefault("source", "immutable_run" if result.get("run_id") else "legacy_cache")
     metadata = AnalyzeMetadata(**metadata_payload) if metadata_payload else None
-    stale_reason = None
+    stale_reason = result.get("stale_reason")
     if metadata and metadata.fetched_at:
         try:
             fetched_dt = datetime.fromisoformat(metadata.fetched_at.replace("Z", "+00:00"))
@@ -1290,66 +1299,26 @@ def get_analysis_result(app_id: int) -> AnalysisStatusResponse:
     except Exception:
         logger.warning("Failed to compare app context hash for %s", app_id)
 
+    # Read endpoints are analytically side-effect free.  A changed review pool
+    # invalidates the stored run for freshness purposes, but never triggers a
+    # silent semantic or Research Core recomputation.
     data_refreshed = False
     stored_fingerprint = (metadata_payload or {}).get("review_fingerprint")
     if stored_fingerprint and result.get("status") == "completed":
         try:
             current_fingerprint = storage.get_reviews_fingerprint(app_id)
             if current_fingerprint and current_fingerprint != stored_fingerprint:
-                with db_module.get_connection() as conn:
-                    lock_acquired = d.try_advisory_lock(conn, app_id + 2_000_000_000)
-                if not lock_acquired:
-                    logger.info("Auto-refresh skipped for app %s -- another rebuild in progress", app_id)
-                else:
-                    try:
-                        stored_reviews = storage.load_reviews(app_id)
-                        if stored_reviews:
-                            df = build_reviews_dataframe(stored_reviews)
-                            if df is not None and not df.empty:
-                                llm_labels = storage.load_review_labels(app_id)
-                                df = llm.apply_review_labels(df, llm_labels)
-                                insights = prepare_insights(df)
-
-                                metadata_payload["review_fingerprint"] = current_fingerprint
-                                metadata_payload["retrieved"] = len(stored_reviews)
-                                metadata = AnalyzeMetadata(**metadata_payload)
-
-                                export_columns = [col for col in REVIEW_EXPORT_COLUMNS if col in df.columns]
-                                if export_columns:
-                                    sample_limit = min(SAMPLE_LIMIT, df.shape[0])
-                                    reviews_payload = json.loads(
-                                        df[export_columns]
-                                        .head(sample_limit)
-                                        .to_json(orient="records", date_format="iso", date_unit="s")
-                                    )
-                                else:
-                                    reviews_payload = []
-
-                                storage.save_analysis_result(
-                                    app_id=app_id,
-                                    metadata=metadata_payload,
-                                    insights=insights,
-                                    reviews=reviews_payload,
-                                    status="completed",
-                                    run_id=result.get("run_id"),
-                                    snapshot_hash=result.get("snapshot_hash"),
-                                    context_hash=result.get("context_hash"),
-                                )
-
-                                result["insights"] = insights
-                                result["reviews"] = reviews_payload
-                                data_refreshed = True
-                                logger.info("Auto-refreshed insights for app %s -- review pool changed", app_id)
-                    finally:
-                        with db_module.get_connection() as conn:
-                            d.advisory_unlock(conn, app_id + 2_000_000_000)
+                result["stale"] = True
+                stale_reason = stale_reason or "Review pool changed since analysis run"
         except Exception:
-            logger.warning("Auto-refresh failed for app %s, serving cached data", app_id)
+            logger.warning("Failed to compare review fingerprint for app %s", app_id)
 
     return AnalysisStatusResponse(
         status=result.get("status", "unknown"),
         metadata=metadata,
         insights=result.get("insights"),
+        research_report=result.get("research_report"),
+        semantic_status=result.get("semantic_status"),
         reviews=result.get("reviews") or [],
         error=result.get("error"),
         run_id=result.get("run_id"),
