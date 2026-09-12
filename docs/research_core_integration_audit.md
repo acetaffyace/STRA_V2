@@ -1,0 +1,168 @@
+# Stage 2P.1 — Research Core integration audit
+
+Status: audit only. This document and the machine-readable registry in
+`apps/api/senti_next/metric_ownership.py` do not change the production
+`/analyze` route, sampling, taxonomy, LLM prompts, or numerical methodology.
+
+## Scope and current pipeline
+
+The current production path is approximately:
+
+`Steam raw review dictionaries → storage / run result → build_reviews_dataframe → prepare_insights → metric_provenance / five_questions / web_contract → frontend projections`
+
+Version review runs additionally pass stored reviews and labels through
+`version_analysis.calculate_version_metrics`. Stage 2A–2E are deterministic
+research diagnostics available as separate modules:
+
+`raw population → Stage 2A population_validity → Stage 2B rate_inference → Stage 2C standardization → Stage 2D window_robustness → Stage 2E activity_diagnostics`
+
+The current implementation still has a broad compatibility payload. In
+particular, `analysis.summarize_sentiment` and the fields `share_positive`,
+`share_negative`, and `sentiment_counts` are calculated from Steam's
+`voted_up` flag. That flag is an observed recommendation outcome, not a
+linguistic sentiment label. The compatibility names are therefore retained
+but explicitly marked as aliases in the registry.
+
+## Future target and ownership rule
+
+The target pipeline is:
+
+`Steam raw → Research Core → optional Semantic Layer → presentation`
+
+Research Core owns population scope, descriptive composition, recommendation
+outcomes and uncertainty, review activity, and sensitivity diagnostics. The
+Semantic Layer owns topic/issue/request/aspect/evidence outputs from a future
+semantic sample. Presentation fields are projections only. If a Research Core
+metric exists, a legacy quantitative field must not overwrite it; semantic
+outputs must not be used as population denominators.
+
+The registry is intentionally machine-readable and deterministic. Every record
+contains `metric_id`, `current_source`, `future_owner`, `status`,
+`canonical_name`, `semantic_definition`, and `notes`; formulas, inputs, and
+validation status are included for heuristic records.
+
+## Ownership decisions
+
+| Area | Canonical owner | Current/legacy treatment |
+| --- | --- | --- |
+| Steam `voted_up` and recommendation rate | Research Core Stage 2B | `share_positive`, `share_negative`, `summarize_sentiment`, and `sentiment_counts` are legacy compatibility aliases only |
+| `valid_n`, `recommended_n`, `not_recommended_n`, Wilson interval, difference, Newcombe interval, interval-zero flag | Research Core Stage 2B | Canonical uncertainty fields; no silent fallback to a legacy point estimate |
+| Language, playtime, purchase, free-copy, early-access, Deck, missingness | Research Core Stage 2A | Descriptive composition of the acquired population |
+| Review count, reviews/day, activity bins, spikes, near-duplicate expression | Research Core Stage 2E (with population count in 2A) | Never remove or rebalance population rows |
+| Composition standardization | Research Core Stage 2C | Descriptive sensitivity against a shared observed composition |
+| Matched-window robustness | Research Core Stage 2D | Comparison-only; unavailable in a snapshot |
+| Topics, issues, requests, aspects, evidence | Semantic Layer | Future subset of the Research Core population; evidence retains provenance |
+| Theme, chart trends, dashboard projections | Presentation only | Cannot define or replace a Research Core metric |
+
+### Canonical playtime cohorts
+
+Stage 2A is the sole canonical definition:
+
+`0–2h`, `2–10h`, `10–30h`, `30–100h`, `100h+`.
+
+The older `<2h`, `2–20h`, `20h+`, and `30h+` buckets occur in legacy
+`analysis.py` and `version_analysis.py`. They are not deleted in this audit;
+they are marked `LEGACY_COMPAT` and must not be merged with canonical cohorts.
+
+## Legacy heuristic audit
+
+The following functions remain callable for compatibility but are not accepted
+as research findings:
+
+| Metric | Current formula / inputs | Evidence status | Future status |
+| --- | --- | --- | --- |
+| `refund_risk_index` | Negative reviews with `playtime_forever < 120` divided by all negative reviews; `voted_up`, playtime | No refund-linked ground truth | Deprecated candidate |
+| `core_fan_disappointment` | Negative reviews with `playtime_forever > 3000` divided by all negative reviews; `voted_up`, playtime | No validated “core fan” construct | Deprecated candidate |
+| `market_quality_signal` | Currently returns an empty compatibility frame | No operational signal | Deprecated candidate |
+| `reviewer_influence_sentiment` | Top 10% `author_num_reviews`, minimum threshold 10; recommendation fields | Reviewer count is not influence | Deprecated candidate |
+| `veteran_benchmarking` | Top 10% `author_num_games_owned`, minimum threshold 100; recommendation fields | Games owned is not a validated veteran construct | Deprecated candidate |
+| `quality_weighted_insights` | Heuristic author/review weights applied to `voted_up` | No empirical weighting validation | Deprecated candidate |
+| `cross_segment_analysis` | Segment rate minus overall rate across legacy dimensions | No multiplicity or causal validation | Deprecated candidate |
+| Version `priority_score` | `100*(.30*reach+.30*severity+.20*deterioration+.20*actionability)*multiplier` | Proxy only; no outcome validation | Future semantic review |
+| Version `actionability` | Fixed taxonomy lookup by subcategory | No product-outcome validation | Future semantic review |
+| Version `confidence` | Sample-size labels (`low`, `medium`, `high`) and multiplier | Not a confidence interval | Future semantic review |
+
+The registry records formula, inputs, and the absence of empirical validation so
+future work can review or replace these functions without silently promoting
+them to Research Core.
+
+## `prepare_insights()` field map
+
+Every top-level field is represented in the registry. The short ownership map
+is:
+
+| Field | Owner | Notes |
+| --- | --- | --- |
+| `metrics`, `recommendation`, `metric_provenance` | Research Core projection | Stage 2B takes precedence for quantitative values |
+| `playtime`, `segments`, `player_segments`, `helpful` | Research Core | Descriptive composition/metadata; canonical cohorts from Stage 2A |
+| `llm`, `category_breakdown`, `category_recommendation_rates`, `version_insights`, `subcategory_insights`, `five_questions` | Semantic Layer | Denominators and coverage must be explicit; evidence remains semantic |
+| `sentiment_counts` | Legacy compatibility | Rename/display as recommendation counts in future migration |
+| `trend`, `category_trend`, `theme` | Presentation only | Charts and visual theme cannot define research metrics |
+| `audience`, `risk`, `quality_weighted`, `cross_segment` | Deprecated candidates | Existing heuristic outputs are not deleted in Stage 2P.1 |
+
+`recommended_share_over_time(..., fill_missing=True)` currently fills empty
+periods with rate zero. That can manufacture an observed-looking value from no
+reviews, so it is recorded as a deprecated candidate. This audit does not alter
+that behavior or the frontend.
+
+## Coercion and provenance risks
+
+The current DataFrame construction in `analysis.build_reviews_dataframe` uses
+`or 0` for missing playtime and defaults several booleans to `False`. These
+coercions can turn “unknown” into a substantive value and must be addressed by
+the future Research Core adapter while preserving raw Steam dictionaries. The
+same audit applies to:
+
+* treating `voted_up` as sentiment;
+* filling empty activity periods with recommendation rate zero;
+* using legacy, incompatible playtime buckets;
+* treating semantic sample counts as population counts;
+* allowing legacy `metrics` fields to overwrite Stage 2B values.
+
+Missing population information must remain unknown, not zero. Raw metadata
+should be retained before normalization so missingness can be measured.
+
+## Version-analysis overlap
+
+`version_analysis.py` currently combines deterministic period assignment,
+recommendation summaries, legacy playtime/purchase segments, daily review
+volume, and semantic topic/issue/request/evidence cards. Period assignment,
+recommendation outcomes, review activity, and future composition fields map to
+Research Core Stage 2A–2E. Topic, issue, request, aspect sentiment, emerging
+topic candidates, and evidence remain Semantic Layer outputs. Priority,
+actionability, and confidence are explicitly heuristic/proxy fields pending
+future review; they are not statistical confidence or product priority facts.
+
+## Future report contract (preview only)
+
+The registry exports `RESEARCH_REPORT_CONTRACT` for later orchestrator work.
+
+* **Snapshot mode** must contain population, recommendation, activity, and
+  limitations. It must not fabricate a “change” or comparison without a second
+  compatible population.
+* **Comparison mode** additionally contains comparability,
+  standardization, and window robustness, and requires compatible contracts and
+  complete provenance for both populations.
+
+The future orchestrator should be named along the lines of
+`build_snapshot_research_report(...)` and
+`build_comparison_research_report(...)` (or one explicit mode-based function).
+It should call existing Stage 1–2E modules rather than reimplementing metrics.
+
+## Migration order
+
+1. **Stage 2P.1 (this audit):** ownership registry, provenance map, and
+   compatibility tests.
+2. **Stage 2P.2:** Research Core snapshot/comparison orchestrator using existing
+   Stage 1–2E outputs.
+3. **Stage 2P.3:** integrate `/analyze` without changing sampling or semantic
+   behavior.
+4. **Stage 2P.4:** persist and expose the report contract through the API.
+5. **Stage 2P.5:** migrate frontend consumers while retaining compatibility
+   aliases.
+6. **Stage 3A:** select a future semantic sample from the Research Core
+   population for expensive LLM coding.
+
+No Stage 2A–2E thresholds, Steam crawling, taxonomy, LLM prompts, statistics,
+version algorithms, database schema, or frontend behavior are changed by this
+audit.
