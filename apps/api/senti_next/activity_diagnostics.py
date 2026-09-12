@@ -333,11 +333,17 @@ def _near_copy_clusters(
 
     candidate_pairs: set[tuple[str, str]] = set()
     max_bucket = int(config["max_lsh_bucket_size"])
+    oversized_bucket_count = 0
+    oversized_bucket_members: set[str] = set()
+    max_observed_bucket_size = 0
     for members in buckets.values():
         members = sorted(set(members))
+        max_observed_bucket_size = max(max_observed_bucket_size, len(members))
         if len(members) > max_bucket:
             # Huge common-shingle buckets are not useful candidates and would
             # recreate an all-pairs comparison.  This is an auditable guard.
+            oversized_bucket_count += 1
+            oversized_bucket_members.update(members)
             continue
         for left_index, left in enumerate(members):
             for right in members[left_index + 1 :]:
@@ -365,6 +371,10 @@ def _near_copy_clusters(
         "candidate_reduction_ratio": (
             float(1.0 - len(candidate_pairs) / possible_pairs) if possible_pairs else 1.0
         ),
+        "oversized_bucket_count": oversized_bucket_count,
+        "oversized_bucket_member_count": len(oversized_bucket_members),
+        "max_observed_bucket_size": max_observed_bucket_size,
+        "candidate_generation_complete": oversized_bucket_count == 0,
     }
     return result, diagnostics
 
@@ -626,6 +636,9 @@ def analyze_review_activity(
             "duplicate_text_is_not_automatically_spam": True,
             "spike_is_not_automatically_review_bombing": True,
             "no_llm_or_live_steam_requests": True,
+            "near_copy_detection_may_be_underestimated_due_to_oversized_lsh_buckets": (
+                not candidate_diagnostics["candidate_generation_complete"]
+            ),
         },
     }
 

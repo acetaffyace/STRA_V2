@@ -25,9 +25,9 @@ if str(API_ROOT) not in sys.path:
     sys.path.insert(0, str(API_ROOT))
 
 from senti_next.activity_diagnostics import analyze_review_activity, normalize_review_text  # noqa: E402
+from senti_next.acquisition_provenance import derive_acquisition_coverage  # noqa: E402
 from senti_next.population_validity import compare_populations  # noqa: E402
 from senti_next.rate_inference import compare_recommendation_rates  # noqa: E402
-from senti_next.routes.analysis import _derive_acquisition_coverage  # noqa: E402
 from senti_next.sampling import SamplingContract  # noqa: E402
 from senti_next.standardization import standardize_populations  # noqa: E402
 from senti_next.steam_api import fetch_reviews_multi_language  # noqa: E402
@@ -45,6 +45,17 @@ def _json_write(path: Path, value: Any) -> None:
     with path.open("w", encoding="utf-8") as handle:
         json.dump(value, handle, ensure_ascii=False, indent=2, sort_keys=True, allow_nan=False)
         handle.write("\n")
+
+
+def _semantic_modules_loaded() -> list[str]:
+    """Return optional semantic/provider modules present in this process."""
+    return sorted(
+        name
+        for name in sys.modules
+        if name == "senti_next.llm"
+        or name.startswith("senti_next.providers")
+        or name.startswith("senti_next.routes")
+    )
 
 
 def _timestamp(row: Mapping[str, Any]) -> int | None:
@@ -159,6 +170,7 @@ def run(output_dir: Path) -> dict[str, Any]:
         include_offtopic_activity=True,
         max_reviews=0,
     )
+    semantic_modules_at_start = _semantic_modules_loaded()
     stats_events: list[dict[str, Any]] = []
     acquisition_error: str | None = None
     reviews: list[dict[str, Any]] = []
@@ -181,7 +193,7 @@ def run(output_dir: Path) -> dict[str, Any]:
     }
     if acquisition_error:
         fetch_stats.setdefault("error", acquisition_error)
-    coverage = _derive_acquisition_coverage(contract, fetch_stats)
+    coverage = derive_acquisition_coverage(contract, fetch_stats)
     acquisition_stats = {
         **fetch_stats,
         **coverage,
@@ -208,7 +220,7 @@ def run(output_dir: Path) -> dict[str, Any]:
     complete = fetch_stats.get("collection_complete") is True and coverage.get("coverage_status") == "complete"
     acceptance: dict[str, Any] = {
         "A_live_steam_acquisition_succeeded": bool(not acquisition_error and complete),
-        "B_no_llm_invoked": True,
+        "B_no_llm_invoked": not semantic_modules_at_start,
         "C_stage1_provenance_captured": bool(stats_events and "language_stats" in fetch_stats),
         "D_stage2a_executed": False,
         "E_stage2b_executed": False,
@@ -224,6 +236,10 @@ def run(output_dir: Path) -> dict[str, Any]:
             "failure": "complete bounded acquisition was not established",
             "acquisition_error": acquisition_error,
             "acceptance": acceptance,
+            "deterministic_execution": {
+                "llm_provider_calls": 0 if not semantic_modules_at_start else None,
+                "semantic_modules_loaded": semantic_modules_at_start,
+            },
             "raw_integrity": raw_integrity,
         }
         _json_write(output_dir / "e2e_summary.json", summary)
@@ -374,6 +390,10 @@ def run(output_dir: Path) -> dict[str, Any]:
         "population_integrity": raw_integrity,
         "denominator_integrity": denominator_integrity,
         "acceptance": acceptance,
+        "deterministic_execution": {
+            "llm_provider_calls": 0 if not semantic_modules_at_start else None,
+            "semantic_modules_loaded": semantic_modules_at_start,
+        },
         "limitations": {
             "descriptive_only": True,
             "no_causal_interpretation": True,

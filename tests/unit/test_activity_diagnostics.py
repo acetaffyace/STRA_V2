@@ -227,6 +227,23 @@ def test_method_and_threshold_provenance_is_present():
     assert methodology["similarity_method"]
     assert methodology["thresholds"]["minimum_normalized_characters"] == 20
     assert "candidate_pairs_examined" in methodology["candidate_diagnostics"]
+    assert methodology["candidate_diagnostics"]["candidate_generation_complete"] is True
+
+
+def test_oversized_lsh_bucket_exposes_incomplete_candidate_generation():
+    rows = [
+        row("1", "the same long templated expression for bucket diagnostics", author="a"),
+        row("2", "the same long templated expression for bucket diagnostics!", author="b"),
+    ]
+    result = report(rows, config={"max_lsh_bucket_size": 1})
+    diagnostics = result["methodology"]["candidate_diagnostics"]
+    assert diagnostics["oversized_bucket_count"] > 0
+    assert diagnostics["oversized_bucket_member_count"] == 2
+    assert diagnostics["max_observed_bucket_size"] == 2
+    assert diagnostics["candidate_generation_complete"] is False
+    assert result["limitations"]["near_copy_detection_may_be_underestimated_due_to_oversized_lsh_buckets"] is True
+    assert result["population"]["raw_review_count"] == 2
+    assert result["population"]["recommended_n"] == 2
 
 
 def test_report_is_json_serializable_and_empty_population_is_valid():

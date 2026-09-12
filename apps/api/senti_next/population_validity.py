@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone
 from math import isfinite
+import re
 from typing import Any, Iterable, Mapping, Optional
 
 
@@ -92,38 +93,112 @@ def _review_value(review: Mapping[str, Any], key: str) -> Any:
     return review.get(key)
 
 
-def _parse_date(value: Any) -> Optional[date]:
+_DATE_ONLY_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+def _parse_temporal_bound(value: Any) -> Optional[dict[str, Any]]:
+    """Parse a bound without discarding timestamp precision.
+
+    The returned ``kind`` is ``timestamp`` for elapsed-time semantics and
+    ``calendar_date`` for legacy date-only metadata.  Naive datetimes are
+    interpreted as UTC, matching the rest of the provenance model.
+    """
     if isinstance(value, datetime):
-        return value.astimezone(timezone.utc).date() if value.tzinfo else value.date()
+        current = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+        return {"kind": "timestamp", "seconds": float(current.astimezone(timezone.utc).timestamp())}
     if isinstance(value, date):
-        return value
+        current = datetime(value.year, value.month, value.day, tzinfo=timezone.utc)
+        return {"kind": "calendar_date", "seconds": float(current.timestamp())}
     number = _as_number(value)
-    if number is not None and number > 0:
-        try:
-            return datetime.fromtimestamp(number, tz=timezone.utc).date()
-        except (OverflowError, OSError, ValueError):
-            return None
+    if number is not None:
+        return {"kind": "timestamp", "seconds": number}
     if isinstance(value, str):
-        text = value.strip().replace("Z", "+00:00")
-        try:
-            return datetime.fromisoformat(text).date()
-        except ValueError:
+        text = value.strip()
+        if _DATE_ONLY_RE.fullmatch(text):
             try:
-                return date.fromisoformat(text[:10])
+                current = date.fromisoformat(text)
             except ValueError:
                 return None
+            return {
+                "kind": "calendar_date",
+                "seconds": float(datetime(current.year, current.month, current.day, tzinfo=timezone.utc).timestamp()),
+            }
+        try:
+            normalized = text[:-1] + "+00:00" if text.endswith("Z") else text
+            current = datetime.fromisoformat(normalized)
+        except ValueError:
+            return None
+        if current.tzinfo is None:
+            current = current.replace(tzinfo=timezone.utc)
+        return {"kind": "timestamp", "seconds": float(current.astimezone(timezone.utc).timestamp())}
     return None
+
+
+def _format_temporal_bound(bound: Optional[Mapping[str, Any]]) -> Optional[str]:
+    if not bound:
+        return None
+    seconds = float(bound["seconds"])
+    if bound.get("kind") == "calendar_date":
+        return datetime.fromtimestamp(seconds, tz=timezone.utc).date().isoformat()
+    return datetime.fromtimestamp(seconds, tz=timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 def _metadata_value(metadata: Mapping[str, Any], key: str) -> Any:
     value = metadata.get(key)
     if value is not None:
         return value
-    for container_key in ("active_filters", "population_provenance"):
+    for container_key in ("active_filters", "population_provenance", "acquisition_coverage"):
         container = metadata.get(container_key)
         if isinstance(container, Mapping) and container.get(key) is not None:
             return container.get(key)
     return None
+
+
+def _temporal_pair(metadata: Mapping[str, Any], start_key: str, end_key: str) -> tuple[Any, Any]:
+    return _metadata_value(metadata, start_key), _metadata_value(metadata, end_key)
+
+
+def _window_duration(metadata: Mapping[str, Any]) -> tuple[Optional[float], Optional[dict[str, Any]], Optional[dict[str, Any]]]:
+    """Return explicit or safely inferred duration and its parsed bounds.
+
+    Preference order is explicit ``window_days``, exact timestamp bounds with
+    known semantics, then legacy inclusive calendar-date bounds.  Observed
+    review timestamps are never used as an exposure-duration fallback.
+    """
+    candidates: list[tuple[str, Any, Any]] = [
+        ("coverage", *_temporal_pair(metadata, "coverage_start_time", "coverage_end_time")),
+        ("window", *_temporal_pair(metadata, "window_start", "window_end")),
+    ]
+    contract = metadata.get("sampling_contract")
+    if isinstance(contract, Mapping):
+        candidates.append(("contract", contract.get("start_time"), contract.get("end_time")))
+
+    explicit_days = _as_number(_metadata_value(metadata, "window_days"))
+    if explicit_days is not None and explicit_days > 0:
+        for _, start_value, end_value in candidates:
+            start = _parse_temporal_bound(start_value) if start_value is not None else None
+            end = _parse_temporal_bound(end_value) if end_value is not None else None
+            if start is not None and end is not None and end["seconds"] >= start["seconds"]:
+                return float(explicit_days), start, end
+        return float(explicit_days), None, None
+
+    for source, start_value, end_value in candidates:
+        if start_value is None or end_value is None:
+            continue
+        start = _parse_temporal_bound(start_value)
+        end = _parse_temporal_bound(end_value)
+        if start is None or end is None or end["seconds"] < start["seconds"]:
+            continue
+        end_inclusive = _metadata_value(metadata, "coverage_end_inclusive") if source == "coverage" else _metadata_value(metadata, "window_end_inclusive") if source == "window" else True
+        if source == "window" and start["kind"] == "calendar_date" and end["kind"] == "calendar_date" and end_inclusive is not False:
+            # Date-only window_start/window_end is the explicitly retained
+            # legacy inclusive-calendar-date representation.
+            return float((end["seconds"] - start["seconds"]) / 86400.0 + 1.0), start, end
+        if start["kind"] == "timestamp" and end["kind"] == "timestamp" and isinstance(end_inclusive, bool):
+            # Timestamp endpoints have zero measure; inclusive versus
+            # exclusive changes event selection, not elapsed exposure time.
+            return float((end["seconds"] - start["seconds"]) / 86400.0), start, end
+    return None, None, None
 
 
 def _requested_languages(metadata: Mapping[str, Any], population: list[Mapping[str, Any]]) -> list[str]:
@@ -141,23 +216,7 @@ def _acquisition_summary(population: list[Mapping[str, Any]], metadata: Optional
     if metadata is not None and not isinstance(metadata, Mapping) and hasattr(metadata, "model_dump"):
         metadata = metadata.model_dump(mode="json")
     metadata = metadata if isinstance(metadata, Mapping) else {}
-    start = _parse_date(_metadata_value(metadata, "window_start"))
-    end = _parse_date(_metadata_value(metadata, "window_end"))
-    contract = metadata.get("sampling_contract")
-    if isinstance(contract, Mapping):
-        start = start or _parse_date(contract.get("start_time"))
-        end = end or _parse_date(contract.get("end_time"))
-    if start is None or end is None:
-        timestamps = [_parse_date(_review_value(row, "timestamp_created")) for row in population]
-        timestamps = [value for value in timestamps if value is not None]
-        if timestamps:
-            start = start or min(timestamps)
-            end = end or max(timestamps)
-
-    explicit_days = _as_number(_metadata_value(metadata, "window_days"))
-    window_days = explicit_days if explicit_days is not None and explicit_days > 0 else None
-    if window_days is None and start is not None and end is not None and end >= start:
-        window_days = float((end - start).days + 1)
+    window_days, start_bound, end_bound = _window_duration(metadata)
 
     contract_complete = _metadata_value(metadata, "collection_complete")
     if contract_complete is None:
@@ -200,8 +259,8 @@ def _acquisition_summary(population: list[Mapping[str, Any]], metadata: Optional
 
     return {
         "population_count": len(population),
-        "window_start": start.isoformat() if start else None,
-        "window_end": end.isoformat() if end else None,
+        "window_start": _format_temporal_bound(start_bound),
+        "window_end": _format_temporal_bound(end_bound),
         "coverage_start_time": _metadata_value(metadata, "coverage_start_time"),
         "coverage_end_time": _metadata_value(metadata, "coverage_end_time"),
         "coverage_status": _metadata_value(metadata, "coverage_status"),

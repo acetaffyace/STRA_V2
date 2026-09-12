@@ -219,6 +219,118 @@ def test_missing_playtime_in_both_populations_is_unknown_not_zero_distance() -> 
     assert playtime["level"] == "unknown"
 
 
+def timestamp_metadata(start: int, end: int, **extra: object) -> dict:
+    return {
+        "coverage_start_time": start,
+        "coverage_end_time": end,
+        "coverage_end_inclusive": False,
+        "coverage_status": "complete",
+        "collection_complete": True,
+        "truncated_by_max_reviews": False,
+        "stop_reason": "end_of_results",
+        **extra,
+    }
+
+
+def test_half_open_timestamp_interval_is_exactly_fourteen_days() -> None:
+    start = 1_754_956_800
+    end = start + 14 * 86_400
+    report = compare_populations(
+        [review("a"), review("b")],
+        [review("c"), review("d")],
+        reference_metadata=timestamp_metadata(start, end),
+        comparison_metadata=timestamp_metadata(start, end),
+    )
+    activity = report["review_activity"]
+    assert activity["reference"]["window_days"] == 14.0
+    assert activity["comparison"]["window_days"] == 14.0
+
+
+def test_half_open_reviews_per_day_uses_fourteen_not_fifteen_days() -> None:
+    start = 1_754_956_800
+    end = start + 14 * 86_400
+    reference = [review(f"r-{index}") for index in range(331)]
+    comparison = [review(f"c-{index}") for index in range(421)]
+    report = compare_populations(
+        reference,
+        comparison,
+        reference_metadata=timestamp_metadata(start, end),
+        comparison_metadata=timestamp_metadata(start, end),
+    )
+    activity = report["review_activity"]
+    assert activity["reference"]["reviews_per_day"] == 331 / 14
+    assert activity["comparison"]["reviews_per_day"] == 421 / 14
+    assert activity["reviews_per_day_ratio"] == (421 / 14) / (331 / 14)
+
+
+def test_half_open_twelve_hour_timestamp_interval_is_half_day() -> None:
+    start = 1_754_956_800
+    end = start + 12 * 3_600
+    report = compare_populations(
+        [review("a")],
+        [review("b")],
+        reference_metadata=timestamp_metadata(start, end),
+        comparison_metadata=timestamp_metadata(start, end),
+    )
+    assert report["review_activity"]["reference"]["window_days"] == 0.5
+
+
+def test_explicit_legacy_inclusive_calendar_dates_remain_two_days() -> None:
+    report = compare_populations(
+        [review("a"), review("b")],
+        [review("c"), review("d")],
+        reference_metadata=metadata(start="2025-01-01", end="2025-01-02"),
+        comparison_metadata=metadata(start="2025-01-01", end="2025-01-02"),
+    )
+    assert report["review_activity"]["reference"]["window_days"] == 2.0
+
+
+def test_explicit_window_days_overrides_temporal_bounds() -> None:
+    start = 1_754_956_800
+    end = start + 14 * 86_400
+    report = compare_populations(
+        [review("a"), review("b")],
+        [review("c"), review("d")],
+        reference_metadata=timestamp_metadata(start, end, window_days=7),
+        comparison_metadata=timestamp_metadata(start, end, window_days=7),
+    )
+    assert report["review_activity"]["reference"]["window_days"] == 7.0
+    assert report["review_activity"]["reference"]["reviews_per_day"] == 2 / 7
+
+
+def test_unknown_timestamp_boundary_semantics_do_not_fabricate_duration() -> None:
+    start = "2026-08-15T12:00:00Z"
+    end = "2026-08-16T00:00:00Z"
+    report = compare_populations(
+        [review("a")],
+        [review("b")],
+        reference_metadata={"window_start": start, "window_end": end, "collection_complete": True},
+        comparison_metadata={"window_start": start, "window_end": end, "collection_complete": True},
+    )
+    assert report["review_activity"]["reference"]["window_days"] is None
+    assert report["review_activity"]["reference"]["reviews_per_day"] is None
+
+
+def test_exposure_fix_does_not_change_composition_comparability() -> None:
+    start = 1_754_956_800
+    end = start + 14 * 86_400
+    reference = [review("a", language="english"), review("b", language="schinese")]
+    comparison = [review("c", language="english"), review("d", language="schinese")]
+    timestamp_report = compare_populations(
+        reference,
+        comparison,
+        reference_metadata=timestamp_metadata(start, end),
+        comparison_metadata=timestamp_metadata(start, end),
+    )
+    legacy_report = compare_populations(
+        reference,
+        comparison,
+        reference_metadata=metadata(start="2025-01-01", end="2025-01-14"),
+        comparison_metadata=metadata(start="2025-01-01", end="2025-01-14"),
+    )
+    assert timestamp_report["composition_comparability"] == legacy_report["composition_comparability"]
+
+
 def test_missing_playtime_in_one_population_is_unknown() -> None:
     report = compare_populations(
         [review("a", playtime_minutes=None)],

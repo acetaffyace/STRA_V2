@@ -30,9 +30,9 @@ from .analysis import (
 )
 from .insights import prepare_insights
 from . import storage
-from . import llm
 from . import ingest
 from .sampling import ReviewQuery, SamplingContract
+from .acquisition_provenance import derive_acquisition_coverage
 from .population_validity import build_population_comparability_report, compare_populations
 from .rate_inference import (
     build_rate_inference_report,
@@ -86,6 +86,22 @@ from .steam_api import (
     search_applications,
 )
 
+
+def __getattr__(name: str):
+    """Load the optional semantic/LLM layer only when explicitly requested.
+
+    Deterministic Research Core imports therefore do not import provider code
+    merely because they use the ``senti_next`` package namespace.  Existing
+    ``from senti_next import llm`` callers retain their compatibility path.
+    """
+    if name == "llm":
+        from importlib import import_module
+
+        module = import_module(".llm", __name__)
+        globals()[name] = module
+        return module
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 __all__ = [
     "AUTHOR_METADATA_FIELDS",
     "REVIEW_METADATA_FIELDS",
@@ -93,6 +109,7 @@ __all__ = [
     "SteamAPIError",
     "SamplingContract",
     "ReviewQuery",
+    "derive_acquisition_coverage",
     "compare_populations",
     "build_population_comparability_report",
     "calculate_recommendation_rate",
