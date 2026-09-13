@@ -60,6 +60,7 @@ def test_persist_load_and_cache_reuse(isolated_db) -> None:
     cached = load_embedding_cache(contract=contract)
     assert len(cached) == 2
     assert find_complete_index(research_run_id="run-a", population_fingerprint="population-a", contract=contract) == index_id
+    assert find_complete_index(research_run_id="run-a", population_fingerprint="different-population", contract=contract) is None
     persist_semantic_index(app_id=123, index_id=index_id, result=result)
     assert load_semantic_index(index_id)["run"]["status"] == "completed"
 
