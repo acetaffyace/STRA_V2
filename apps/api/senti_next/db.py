@@ -12,7 +12,7 @@ from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.pool import NullPool, StaticPool
 
-from . import label_schema, result_schema, semantic_discovery_schema, semantic_index_schema
+from . import label_schema, result_schema, semantic_discovery_materialization_schema, semantic_discovery_schema, semantic_index_schema
 
 logger = logging.getLogger(__name__)
 
@@ -727,6 +727,34 @@ def init_db() -> None:
                 semantic_discovery_schema.migrate_semantic_discovery,
             )],
             backup_path=discovery_backup,
+            restore_on_error=True,
+        )
+
+    # Stage 3B.1 keeps the v15 discovery structure history intact and adds an
+    # independent context-materialization cache.  The migration is additive
+    # and safe to run repeatedly on both fresh and existing databases.
+    if database in (None, ":memory:"):
+        with get_connection() as conn:
+            raw = conn.connection.driver_connection
+            if migrations.current_version(raw) < semantic_discovery_materialization_schema.SEMANTIC_DISCOVERY_MATERIALIZATION_MIGRATION_VERSION:
+                semantic_discovery_materialization_schema.migrate_semantic_discovery_materializations(raw)
+                migrations.record_version(
+                    raw,
+                    semantic_discovery_materialization_schema.SEMANTIC_DISCOVERY_MATERIALIZATION_MIGRATION_VERSION,
+                    semantic_discovery_materialization_schema.DESCRIPTION,
+                )
+                raw.commit()
+    else:
+        materialization_path = Path(database).expanduser().resolve()
+        materialization_backup = materialization_path.with_name(materialization_path.name + ".semantic_discovery_v2.bak")
+        migrations.apply_ordered_migrations(
+            materialization_path,
+            [(
+                semantic_discovery_materialization_schema.SEMANTIC_DISCOVERY_MATERIALIZATION_MIGRATION_VERSION,
+                semantic_discovery_materialization_schema.DESCRIPTION,
+                semantic_discovery_materialization_schema.migrate_semantic_discovery_materializations,
+            )],
+            backup_path=materialization_backup,
             restore_on_error=True,
         )
 

@@ -20,7 +20,7 @@ read-only taxonomy coverage audit
 
 `SemanticDiscoveryContract` is `semantic-discovery-contract-v1`:
 
-- algorithm abstraction: `hdbscan-open-set-v1`;
+- algorithm abstraction: `hdbscan-open-set-v2` (the algorithm version is part of structure identity);
 - cosine metric over normalized Stage 3A vectors;
 - `neighbor_k` defaults to 5;
 - `rare_region_max_size` defaults to 10;
@@ -39,9 +39,11 @@ N > 2000      max(15, ceil(N * .005))
 This is a discovery heuristic, not a statistical truth or target topic count.
 The report records requested and effective values, `min_samples`, metric,
 population size, algorithm version and the full contract fingerprint.
-Sensitivity runs use only 0.75×, 1× and 1.25× effective cluster sizes.  Region
-stability is the best review-ID Jaccard overlap across that small grid:
-`stable` ≥ .80, `moderate` ≥ .50, otherwise `unstable`.
+The baseline is run once. Sensitivity uses only distinct 0.75× and 1.25×
+perturbations; the baseline is never scored as a self-match. Region stability
+is the mean best review-ID Jaccard overlap across those perturbations and is
+also exposed in `stability_by_parameter`. If no valid perturbation exists the
+fixed status is `not_estimable` and the score is null.
 
 ## Region semantics
 
@@ -72,7 +74,7 @@ read-only context and never changes membership.
 
 - `well_covered`;
 - `mixed_existing_labels`;
-- `mostly_other_general` / `potential_gap`;
+- `potential_gap`;
 - `insufficient_taxonomy_coverage`;
 - `unlabeled`.
 
@@ -84,7 +86,7 @@ No discovery region is a prevalence or player-importance claim.
 
 ## Persistence and CLI
 
-Migration 15 adds independent tables:
+Migration 15 adds independent structure/history tables:
 
 - `semantic_discovery_runs` — exact semantic-index/run/fingerprint provenance;
 - `semantic_discovery_regions` — region primitives and JSON detail;
@@ -94,6 +96,37 @@ Migration 15 adds independent tables:
 The migration is additive and idempotent.  A mismatched population or semantic
 index fingerprint is rejected.  Re-running the same index and contract reuses
 the completed discovery result.
+
+Migration 16 adds `semantic_discovery_materializations`.  Stage 3B.1 splits
+identity into two layers:
+
+- **Structure identity** depends only on the immutable Stage 3A index/fingerprint,
+  `SemanticDiscoveryContract`, `semantic-discovery-structure-v1`, and
+  `hdbscan-open-set-v2`. It owns vectors, neighbors, HDBSCAN labels,
+  components, representatives, and stability.
+- **Context materialization** depends on a separate
+  `semantic-discovery-context-v1` fingerprint containing only review metadata
+  (`review_id`, language, voted_up, timestamp, semantic text hash), normalized
+  taxonomy labels, and sorted Stage 2E key/intersection IDs. Changing context
+  creates a new materialization without rerunning HDBSCAN; identical context
+  reuses the materialization.
+
+The completed-cache path checks lightweight index metadata and structure/context
+identity before loading vector BLOBs.  Vectors are therefore not loaded for a
+completed structure/materialization cache hit.  `include_unit_level_audit=false`
+does not run unit-neighborhood work and returns the stable disabled schema:
+`{status: "disabled", unit_n: N, rare_neighborhood_candidate_n: null, units: []}`.
+All neighbor and threshold-component diagnostics use exact blockwise cosine
+operations rather than an in-memory NxN similarity matrix.  The opt-in
+`tooling/benchmark_semantic_discovery.py` reports runtime, HDBSCAN calls,
+cumulative HDBSCAN time, RSS where available, and accounting status for
+deterministic 1k/5k/12k fixtures; benchmark numbers are diagnostics, not CI
+SLAs.
+
+One local Windows diagnostic measured roughly 1.5s / 189MB RSS for 1,000
+reviews, 3.8s / 226MB for 5,000 reviews with 10,000 semantic units, and
+20.3s / 246MB for 12,000 reviews. Every indexed review was accounted for.
+These are engineering observations, not acceptance thresholds.
 
 Run discovery with:
 
@@ -117,7 +150,10 @@ Stage 3B does not name topics, repair taxonomy, train a classifier, build a
 semantic sample, add UMAP visualization, or integrate `/analyze`.  Those belong
 to later explicit stages, especially Stage 3C taxonomy validation/evolution.
 
-If a discovery backend fails, migration 15 records a `failed` discovery run with
-the exact index/contract identity and sanitized error text; no completed report
-or region rows are created.  Research Core and the immutable Stage 3A index are
-unchanged.
+If a discovery backend fails, migration 15 records a `failed` structure run
+with the exact index/contract identity and redacted, bounded error text; no
+completed report or region rows are created.  A context-materialization failure
+leaves the completed structure intact and records a failed materialization.
+Research Core, Stage 2E, taxonomy rows, and the immutable Stage 3A index are
+unchanged.  The report contract is now `semantic-discovery-report-v2`; prior
+v1 rows remain historical and are not silently rewritten.

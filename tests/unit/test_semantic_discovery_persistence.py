@@ -111,3 +111,49 @@ def test_failed_discovery_is_recorded_without_a_completed_report(isolated_db) ->
     assert row["status"] == "failed"
     assert "synthetic discovery failure" in row["error"]
     assert row["report_json"] is None
+
+
+def test_context_changes_materialize_without_rerunning_structure(isolated_db, monkeypatch) -> None:
+    index_id = _stored_index()
+    first = build_semantic_discovery_for_index(index_id, contract=SemanticDiscoveryContract(min_cluster_size=3), backend=StaticBackend())
+    changed = {
+        "a": {"language": "schinese", "voted_up": True, "timestamp_created": 1, "semantic_text_hash": "changed-a"},
+    }
+    # A backend that would fail proves the completed structure was reused.
+    from apps.api.senti_next import semantic_discovery_storage
+    monkeypatch.setattr(semantic_discovery_storage, "load_semantic_index_unit_records", lambda _index: (_ for _ in ()).throw(AssertionError("vector load on structure cache hit")))
+    second = build_semantic_discovery_for_index(
+        index_id,
+        contract=SemanticDiscoveryContract(min_cluster_size=3),
+        review_metadata=changed,
+        backend=FailingBackend(),
+    )
+    assert second["structure_fingerprint"] == first["structure_fingerprint"]
+    assert second["materialization_id"] != first["materialization_id"]
+    assert second["regions"] != first["regions"]
+    with db.get_connection() as conn:
+        count = conn.execute(text("SELECT COUNT(*) FROM semantic_discovery_materializations WHERE structure_fingerprint = :fp"), {"fp": first["structure_fingerprint"]}).scalar()
+    assert count == 2
+
+
+def test_context_failure_keeps_completed_structure_and_records_failed_materialization(isolated_db, monkeypatch) -> None:
+    index_id = _stored_index()
+    first = build_semantic_discovery_for_index(index_id, contract=SemanticDiscoveryContract(min_cluster_size=3), backend=StaticBackend())
+    from apps.api.senti_next import semantic_discovery_storage
+
+    def fail(*args, **kwargs):
+        raise RuntimeError("taxonomy context failure")
+
+    monkeypatch.setattr(semantic_discovery_storage, "materialize_discovery_context", fail)
+    with pytest.raises(RuntimeError, match="taxonomy context failure"):
+        build_semantic_discovery_for_index(
+            index_id,
+            contract=SemanticDiscoveryContract(min_cluster_size=3),
+            review_metadata={"a": {"language": "ja"}},
+            backend=FailingBackend(),
+        )
+    with db.get_connection() as conn:
+        structure = conn.execute(text("SELECT status FROM semantic_discovery_runs WHERE structure_fingerprint=:fp"), {"fp": first["structure_fingerprint"]}).scalar()
+        failed = conn.execute(text("SELECT status FROM semantic_discovery_materializations WHERE status='failed'")).scalar()
+    assert structure == "completed"
+    assert failed == "failed"

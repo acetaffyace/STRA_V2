@@ -11,9 +11,16 @@ from sqlalchemy import text
 from . import db
 from .semantic_discovery import (
     DISCOVERY_ALGORITHM_VERSION,
+    SEMANTIC_DISCOVERY_CONTEXT_SCHEMA_VERSION,
+    SEMANTIC_DISCOVERY_STRUCTURE_SCHEMA_VERSION,
     SemanticDiscoveryContract,
     SemanticUnitRecord,
+    build_context_fingerprint,
+    build_materialization_id,
+    build_structure_run_id,
     build_semantic_discovery,
+    materialize_discovery_context,
+    _structure_only_report,
 )
 from .semantic_index_storage import load_semantic_index
 
@@ -54,8 +61,92 @@ def load_semantic_index_unit_records(index_id: str) -> tuple[list[SemanticUnitRe
     return units, dict(run)
 
 
+def load_semantic_index_run_metadata(index_id: str) -> dict[str, Any]:
+    """Load only index identity/count metadata before any vector BLOBs."""
+    with db.get_connection() as conn:
+        row = conn.execute(
+            text(
+                "SELECT index_id, research_run_id, population_fingerprint, index_fingerprint, "
+                "population_n, indexed_review_n, semantic_unit_n, status FROM semantic_index_runs "
+                "WHERE index_id = :index_id"
+            ),
+            {"index_id": index_id},
+        ).mappings().first()
+    if not row:
+        raise ValueError(f"semantic index not found: {index_id}")
+    if row["status"] != "completed":
+        raise ValueError("semantic index is not complete")
+    return dict(row)
+
+
+def _load_index_context_metadata(index_id: str) -> dict[str, dict[str, Any]]:
+    with db.get_connection() as conn:
+        rows = conn.execute(
+            text("SELECT review_id, review_text_hash FROM semantic_index_members WHERE index_id = :index_id"),
+            {"index_id": index_id},
+        ).mappings().all()
+    return {str(row["review_id"]): {"review_id": str(row["review_id"]), "semantic_text_hash": row.get("review_text_hash")} for row in rows}
+
+
+def _structure_cache_row(structure_run_id: str) -> dict[str, Any] | None:
+    with db.get_connection() as conn:
+        row = conn.execute(
+            text("SELECT status, structure_fingerprint, structure_json FROM semantic_discovery_runs WHERE structure_run_id = :run_id"),
+            {"run_id": structure_run_id},
+        ).mappings().first()
+    return dict(row) if row else None
+
+
+def _materialization_row(materialization_id: str) -> dict[str, Any] | None:
+    with db.get_connection() as conn:
+        row = conn.execute(
+            text("SELECT status, report_json FROM semantic_discovery_materializations WHERE materialization_id = :materialization_id"),
+            {"materialization_id": materialization_id},
+        ).mappings().first()
+    return dict(row) if row else None
+
+
+def _persist_materialization_only(report: Mapping[str, Any]) -> None:
+    """Write a context view while leaving the immutable structure row untouched."""
+    report_json = json.dumps(dict(report), ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False)
+    with db.get_connection() as conn:
+        conn.execute(
+            text(
+                "INSERT INTO semantic_discovery_materializations "
+                "(materialization_id, structure_run_id, structure_fingerprint, context_schema_version, context_fingerprint, "
+                "semantic_index_id, research_run_id, population_fingerprint, semantic_index_fingerprint, report_json, status, completed_at) "
+                "VALUES (:materialization_id, :structure_run_id, :structure_fingerprint, :context_schema_version, :context_fingerprint, "
+                ":semantic_index_id, :research_run_id, :population_fingerprint, :semantic_index_fingerprint, :report_json, 'completed', datetime('now')) "
+                "ON CONFLICT(materialization_id) DO UPDATE SET report_json=excluded.report_json, status='completed', completed_at=datetime('now'), error=NULL"
+            ),
+            {
+                "materialization_id": report["materialization_id"], "structure_run_id": report["structure_run_id"],
+                "structure_fingerprint": report["structure_fingerprint"], "context_schema_version": report.get("context_schema_version", SEMANTIC_DISCOVERY_CONTEXT_SCHEMA_VERSION),
+                "context_fingerprint": report["context_fingerprint"], "semantic_index_id": report["semantic_index_id"],
+                "research_run_id": report["research_run_id"], "population_fingerprint": report["population_fingerprint"],
+                "semantic_index_fingerprint": report["semantic_index_fingerprint"], "report_json": report_json,
+            },
+        )
+
+
+def _sanitize_discovery_error(error: BaseException | str) -> str:
+    """Bound and redact credential-like material from persisted diagnostics."""
+    import re
+
+    value = str(error)
+    patterns = (
+        (r"(?i)(authorization\s*:\s*bearer\s+)[^\s,;]+", r"\1[REDACTED]"),
+        (r"(?i)((?:api[_-]?key|token|password|secret)\s*[=:]\s*)[^\s,;]+", r"\1[REDACTED]"),
+        (r"(?i)(https?://)([^/@\s]+):([^/@\s]+)@", r"\1[REDACTED]@"),
+    )
+    for pattern, replacement in patterns:
+        value = re.sub(pattern, replacement, value)
+    return value[:2000]
+
+
 def _discovery_run_id(semantic_index_id: str, contract: SemanticDiscoveryContract) -> str:
-    return hashlib.sha256(f"{semantic_index_id}:{contract.fingerprint}".encode()).hexdigest()
+    # Kept as a compatibility name; Stage 3B.1 makes this a structure ID.
+    return build_structure_run_id(semantic_index_id, "unknown", contract)
 
 
 def persist_semantic_discovery(report: Mapping[str, Any], *, discovery_run_id: str | None = None) -> str:
@@ -80,12 +171,35 @@ def persist_semantic_discovery(report: Mapping[str, Any], *, discovery_run_id: s
     # The persisted report includes effective values; use its contract identity
     # while keeping requested/effective parameters in the JSON report itself.
     contract.validate()
-    run_id = discovery_run_id or _discovery_run_id(index_id, contract)
+    run_id = discovery_run_id or str(report.get("structure_run_id") or _discovery_run_id(index_id, contract))
     report_json = json.dumps(dict(report), ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False)
     with db.get_connection() as conn:
         existing = conn.execute(text("SELECT status, discovery_fingerprint FROM semantic_discovery_runs WHERE discovery_run_id = :run_id"), {"run_id": run_id}).mappings().first()
         if existing and existing["status"] == "completed" and existing["discovery_fingerprint"] == report.get("discovery_fingerprint"):
-            return run_id
+            materialization_exists = conn.execute(
+                text("SELECT status FROM semantic_discovery_materializations WHERE materialization_id = :materialization_id"),
+                {"materialization_id": report.get("materialization_id")},
+            ).scalar() if report.get("materialization_id") else None
+            if materialization_exists == "completed":
+                return run_id
+            if report.get("materialization_id"):
+                conn.execute(
+                    text(
+                        "INSERT INTO semantic_discovery_materializations "
+                        "(materialization_id, structure_run_id, structure_fingerprint, context_schema_version, context_fingerprint, "
+                        "semantic_index_id, research_run_id, population_fingerprint, semantic_index_fingerprint, report_json, status, completed_at) "
+                        "VALUES (:materialization_id, :structure_run_id, :structure_fingerprint, :context_schema_version, :context_fingerprint, "
+                        ":semantic_index_id, :research_run_id, :population_fingerprint, :semantic_index_fingerprint, :report_json, 'completed', datetime('now')) "
+                        "ON CONFLICT(materialization_id) DO UPDATE SET report_json=excluded.report_json, status='completed', completed_at=datetime('now'), error=NULL"
+                    ),
+                    {
+                        "materialization_id": report["materialization_id"], "structure_run_id": report["structure_run_id"],
+                        "structure_fingerprint": report["structure_fingerprint"], "context_schema_version": report.get("context_schema_version", SEMANTIC_DISCOVERY_CONTEXT_SCHEMA_VERSION),
+                        "context_fingerprint": report["context_fingerprint"], "semantic_index_id": index_id, "research_run_id": report["research_run_id"],
+                        "population_fingerprint": report["population_fingerprint"], "semantic_index_fingerprint": report["semantic_index_fingerprint"], "report_json": report_json,
+                    },
+                )
+                return run_id
         if existing:
             conn.execute(text("DELETE FROM semantic_discovery_runs WHERE discovery_run_id = :run_id"), {"run_id": run_id})
         conn.execute(
@@ -177,6 +291,46 @@ def persist_semantic_discovery(report: Mapping[str, Any], *, discovery_run_id: s
                         "audit_json": json.dumps(audit, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False),
                     },
                 )
+        # Migration 16 stores the context materialization independently.  The
+        # v15 row remains as the backward-compatible discovery history record.
+        if report.get("structure_run_id") and report.get("structure_fingerprint"):
+            structure_report = _structure_only_report(report)
+            conn.execute(
+                text(
+                    "UPDATE semantic_discovery_runs SET structure_run_id = :structure_run_id, "
+                    "structure_fingerprint = :structure_fingerprint, structure_schema_version = :schema, "
+                    "structure_json = :structure_json WHERE discovery_run_id = :run_id"
+                ),
+                {
+                    "structure_run_id": report["structure_run_id"],
+                    "structure_fingerprint": report["structure_fingerprint"],
+                    "schema": SEMANTIC_DISCOVERY_STRUCTURE_SCHEMA_VERSION,
+                    "structure_json": json.dumps(structure_report, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False),
+                    "run_id": run_id,
+                },
+            )
+            conn.execute(
+                text(
+                    "INSERT INTO semantic_discovery_materializations "
+                    "(materialization_id, structure_run_id, structure_fingerprint, context_schema_version, context_fingerprint, "
+                    "semantic_index_id, research_run_id, population_fingerprint, semantic_index_fingerprint, report_json, status, completed_at) "
+                    "VALUES (:materialization_id, :structure_run_id, :structure_fingerprint, :context_schema_version, :context_fingerprint, "
+                    ":semantic_index_id, :research_run_id, :population_fingerprint, :semantic_index_fingerprint, :report_json, 'completed', datetime('now')) "
+                    "ON CONFLICT(materialization_id) DO UPDATE SET report_json=excluded.report_json, status='completed', completed_at=datetime('now'), error=NULL"
+                ),
+                {
+                    "materialization_id": report["materialization_id"],
+                    "structure_run_id": report["structure_run_id"],
+                    "structure_fingerprint": report["structure_fingerprint"],
+                    "context_schema_version": report.get("context_schema_version", SEMANTIC_DISCOVERY_CONTEXT_SCHEMA_VERSION),
+                    "context_fingerprint": report["context_fingerprint"],
+                    "semantic_index_id": index_id,
+                    "research_run_id": report["research_run_id"],
+                    "population_fingerprint": report["population_fingerprint"],
+                    "semantic_index_fingerprint": report["semantic_index_fingerprint"],
+                    "report_json": report_json,
+                },
+            )
     return run_id
 
 
@@ -212,7 +366,7 @@ def _persist_failed_discovery(
                 "population_n": int(index_run["population_n"]),
                 "indexed_review_n": int(index_run["indexed_review_n"]),
                 "semantic_unit_n": int(index_run["semantic_unit_n"]),
-                "error": error[:2000],
+                "error": _sanitize_discovery_error(error),
             },
         )
 
@@ -220,6 +374,15 @@ def _persist_failed_discovery(
 def load_semantic_discovery(discovery_run_id: str) -> Optional[dict[str, Any]]:
     with db.get_connection() as conn:
         row = conn.execute(text("SELECT report_json FROM semantic_discovery_runs WHERE discovery_run_id = :run_id"), {"run_id": discovery_run_id}).scalar()
+    return json.loads(row) if row else None
+
+
+def load_semantic_discovery_materialization(materialization_id: str) -> Optional[dict[str, Any]]:
+    with db.get_connection() as conn:
+        row = conn.execute(
+            text("SELECT report_json FROM semantic_discovery_materializations WHERE materialization_id = :materialization_id"),
+            {"materialization_id": materialization_id},
+        ).scalar()
     return json.loads(row) if row else None
 
 
@@ -236,26 +399,54 @@ def build_semantic_discovery_for_index(
 ) -> dict[str, Any]:
     active_contract = contract or SemanticDiscoveryContract()
     active_contract.validate()
-    run_id = _discovery_run_id(semantic_index_id, active_contract)
-    units, index_run = load_semantic_index_unit_records(semantic_index_id)
+    # Resolve cheap identity/provenance first.  A completed structure or
+    # context materialization must be reusable without loading vector BLOBs.
+    index_run = load_semantic_index_run_metadata(semantic_index_id)
     if expected_population_fingerprint and expected_population_fingerprint != index_run["population_fingerprint"]:
         raise ValueError("requested population fingerprint does not match semantic index")
     if expected_semantic_index_fingerprint and expected_semantic_index_fingerprint != index_run["index_fingerprint"]:
         raise ValueError("requested semantic index fingerprint does not match semantic index")
-    with db.get_connection() as conn:
-        existing = conn.execute(
-            text("SELECT status, report_json FROM semantic_discovery_runs WHERE discovery_run_id = :run_id"),
-            {"run_id": run_id},
-        ).mappings().first()
-    if existing and existing["status"] == "completed" and existing["report_json"]:
-        return json.loads(existing["report_json"])
-    index = load_semantic_index(semantic_index_id)
-    metadata = dict(review_metadata or {})
-    if index:
-        for member in index["members"]:
-            metadata.setdefault(member["review_id"], {"semantic_text_hash": member.get("review_text_hash")})
+    structure_run_id = build_structure_run_id(semantic_index_id, str(index_run["index_fingerprint"]), active_contract)
+    fallback_metadata = _load_index_context_metadata(semantic_index_id)
+    metadata = dict(fallback_metadata)
+    metadata.update(dict(review_metadata or {}))
+    structure_row = _structure_cache_row(structure_run_id)
+    if structure_row and structure_row.get("status") == "completed" and structure_row.get("structure_json"):
+        structure = json.loads(structure_row["structure_json"])
+        indexed_ids = sorted({review_id for region in json.loads(structure_row["structure_json"]).get("regions", []) for review_id in region.get("review_ids", [])})
+        context_fp = build_context_fingerprint(metadata, taxonomy_labels, stage2e, indexed_ids)
+        materialization_id = build_materialization_id(str(structure_row["structure_fingerprint"]), context_fp)
+        cached = _materialization_row(materialization_id)
+        if cached and cached.get("status") == "completed" and cached.get("report_json"):
+            return json.loads(cached["report_json"])
+        try:
+            report = materialize_discovery_context(structure, review_metadata=metadata, taxonomy_labels=taxonomy_labels, stage2e=stage2e)
+            report["materialization_id"] = materialization_id
+            _persist_materialization_only(report)
+        except Exception as exc:
+            with db.get_connection() as conn:
+                conn.execute(
+                    text(
+                        "INSERT INTO semantic_discovery_materializations "
+                        "(materialization_id, structure_run_id, structure_fingerprint, context_schema_version, context_fingerprint, "
+                        "semantic_index_id, research_run_id, population_fingerprint, semantic_index_fingerprint, status, error) "
+                        "VALUES (:materialization_id, :structure_run_id, :structure_fingerprint, :context_schema_version, :context_fingerprint, "
+                        ":semantic_index_id, :research_run_id, :population_fingerprint, :semantic_index_fingerprint, 'failed', :error) "
+                        "ON CONFLICT(materialization_id) DO UPDATE SET status='failed', error=excluded.error"
+                    ),
+                    {
+                        "materialization_id": materialization_id, "structure_run_id": structure_run_id,
+                        "structure_fingerprint": structure_row["structure_fingerprint"], "context_schema_version": SEMANTIC_DISCOVERY_CONTEXT_SCHEMA_VERSION,
+                        "context_fingerprint": context_fp, "semantic_index_id": semantic_index_id, "research_run_id": index_run["research_run_id"],
+                        "population_fingerprint": index_run["population_fingerprint"], "semantic_index_fingerprint": index_run["index_fingerprint"],
+                        "error": _sanitize_discovery_error(exc),
+                    },
+                )
+            raise
+        return report
+    units, index_run = load_semantic_index_unit_records(semantic_index_id)
     try:
-        return build_semantic_discovery(
+        report = build_semantic_discovery(
             units,
             semantic_index_id=semantic_index_id,
             research_run_id=str(index_run["research_run_id"]),
@@ -268,11 +459,16 @@ def build_semantic_discovery_for_index(
             backend=backend,
             population_n_override=int(index_run["population_n"]),
         )
+        # The first successful build materializes both the context view and a
+        # context-free structure cache.  Future taxonomy/Stage2E changes use
+        # the latter and skip HDBSCAN/vector loading entirely.
+        persist_semantic_discovery(report, discovery_run_id=str(report["structure_run_id"]))
+        return report
     except Exception as exc:
         _persist_failed_discovery(
             index_run=index_run,
             contract=active_contract,
             error=str(exc),
-            discovery_run_id=run_id,
+            discovery_run_id=structure_run_id,
         )
         raise
