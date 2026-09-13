@@ -162,6 +162,15 @@ def test_stale_plan_is_rejected(isolated_db):
         apply_change_set(plan["change_set_id"])
 
 
+def test_requested_revision_uses_published_history_not_unpublished_drafts(isolated_db):
+    _candidate("candidate-draft-a")
+    first = plan_add_topic(candidate_id="candidate-draft-a", base_version="sentinext-taxonomy-v1", canonical_key="other/draft_a", display_name="Draft A", description="Draft A", operator="analyst")
+    apply_change_set(first["change_set_id"])
+    _candidate("candidate-draft-b")
+    second = plan_add_topic(candidate_id="candidate-draft-b", base_version="sentinext-taxonomy-v1", canonical_key="other/draft_b", display_name="Draft B", description="Draft B", operator="analyst")
+    assert second["requested_version"] == "sentinext-taxonomy-v2"
+
+
 def test_published_rows_are_immutable_at_database_boundary(isolated_db):
     _candidate("candidate-immutable")
     _, _, published = _promote("candidate-immutable", canonical_key="other/immutable_topic")

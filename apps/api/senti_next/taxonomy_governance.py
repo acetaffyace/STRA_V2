@@ -105,7 +105,9 @@ def list_eligible_candidates() -> list[dict[str, Any]]:
 
 def _next_taxonomy_version(conn) -> str:
     numbers = []
-    for value in conn.execute(text("SELECT taxonomy_version FROM taxonomy_snapshots")).scalars().all():
+    # Revision numbering follows published taxonomy history.  Drafts are
+    # provisional and must not make the public version jump unexpectedly.
+    for value in conn.execute(text("SELECT taxonomy_version FROM taxonomy_snapshots WHERE status='published'")).scalars().all():
         match = _VERSION_RE.fullmatch(str(value))
         if match:
             numbers.append(int(match.group(1)))
