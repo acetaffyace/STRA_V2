@@ -37,7 +37,8 @@ jobs:
             # Surface the tail through check annotations as well.  Public
             # viewers can inspect these even when raw Actions logs require
             # authentication; keep the output limited to the final 80 lines.
-            $diagnostic = (Get-Content -Path $log -Tail 200) -join "`n"
+            $diagnostic = ((Get-Content -Path $log -Tail 200) -join "`n")
+            $diagnostic = $diagnostic -replace '%', '%25' -replace "`r", '%0D' -replace "`n", '%0A'
             Write-Output "::error file=desktop-build.log::$diagnostic"
             exit $code
           }
