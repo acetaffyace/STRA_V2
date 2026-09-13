@@ -234,19 +234,26 @@ def build_semantic_discovery_for_index(
     stage2e: Mapping[str, Any] | None = None,
     backend=None,
 ) -> dict[str, Any]:
+    active_contract = contract or SemanticDiscoveryContract()
+    active_contract.validate()
+    run_id = _discovery_run_id(semantic_index_id, active_contract)
     units, index_run = load_semantic_index_unit_records(semantic_index_id)
     if expected_population_fingerprint and expected_population_fingerprint != index_run["population_fingerprint"]:
         raise ValueError("requested population fingerprint does not match semantic index")
     if expected_semantic_index_fingerprint and expected_semantic_index_fingerprint != index_run["index_fingerprint"]:
         raise ValueError("requested semantic index fingerprint does not match semantic index")
+    with db.get_connection() as conn:
+        existing = conn.execute(
+            text("SELECT status, report_json FROM semantic_discovery_runs WHERE discovery_run_id = :run_id"),
+            {"run_id": run_id},
+        ).mappings().first()
+    if existing and existing["status"] == "completed" and existing["report_json"]:
+        return json.loads(existing["report_json"])
     index = load_semantic_index(semantic_index_id)
     metadata = dict(review_metadata or {})
     if index:
         for member in index["members"]:
             metadata.setdefault(member["review_id"], {"semantic_text_hash": member.get("review_text_hash")})
-    active_contract = contract or SemanticDiscoveryContract()
-    active_contract.validate()
-    run_id = _discovery_run_id(semantic_index_id, active_contract)
     try:
         return build_semantic_discovery(
             units,

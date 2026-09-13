@@ -82,6 +82,7 @@ def test_discovery_persists_exact_index_identity_and_is_idempotent(isolated_db) 
     run_id = persist_semantic_discovery(report)
     assert load_semantic_discovery(run_id) == report
     assert persist_semantic_discovery(report) == run_id
+    assert build_semantic_discovery_for_index(index_id, contract=SemanticDiscoveryContract(min_cluster_size=3), backend=FailingBackend()) == report
     with db.get_connection() as conn:
         member_count = conn.execute(text("SELECT COUNT(*) FROM semantic_discovery_members WHERE discovery_run_id = :run_id"), {"run_id": run_id}).scalar()
         assert member_count >= report["indexed_review_n"]
