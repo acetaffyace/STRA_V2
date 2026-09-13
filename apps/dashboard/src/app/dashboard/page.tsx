@@ -36,6 +36,7 @@ import {
   fetchProvenanceStrip,
   buildDashboardRunUrl,
   DashboardReadiness,
+  DashboardPresentation,
   SteamGameDetailsResponse,
 } from "@/lib/api";
 import { CurrentPlayersWidget, NewsWithSummary } from "@/components/SteamLiveContext";
@@ -74,6 +75,7 @@ import { REVIEW_COUNT_OPTIONS } from "@/lib/analysisDefaults";
 import { formatTaxonomyLabelZh, MAIN_CATEGORY_LABELS_ZH } from "@/lib/taxonomyLabels";
 import { getMetricObservation, metricSecondaryLabel, metricValue } from "@/lib/metricProvenance";
 import { ResearchOverview } from "@/components/research/ResearchOverview";
+import { CanonicalDashboard } from "@/components/research/CanonicalDashboard";
 
 ChartJS.register(
   BarController,
@@ -470,6 +472,7 @@ function DashboardContent() {
   const [selectedGame, setSelectedGame] = useState<SearchResult | null>(null);
 
   const [analysis, setAnalysis] = useState<AnalyzeResponse | null>(null);
+  const [dashboardPresentation, setDashboardPresentation] = useState<DashboardPresentation | null>(null);
   const [dashboardReadiness, setDashboardReadiness] = useState<DashboardReadiness | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [updateSuccess, setUpdateSuccess] = useState<string | null>(null);
@@ -526,6 +529,7 @@ function DashboardContent() {
         if (cancelled) return;
         readiness = payload.readiness;
         setDashboardReadiness(payload.readiness);
+        setDashboardPresentation(payload.presentation ?? null);
         const result = payload;
         const researchReady = result.readiness.research_ready === true;
         const semanticReady = result.readiness.semantic_ready === true;
@@ -1039,7 +1043,11 @@ function DashboardContent() {
           </div>
         )}
 
-        {analysis?.research_report && !isAnalyzing && (
+        {dashboardPresentation && selectedGame && !isAnalyzing && (
+          <CanonicalDashboard presentation={dashboardPresentation} appName={selectedGame.name} appId={selectedGame.appid} />
+        )}
+
+        {!dashboardPresentation && analysis?.research_report && !isAnalyzing && (
           <ResearchOverview
             report={analysis.research_report}
             semanticStatus={analysis.semantic_status}
@@ -1049,7 +1057,7 @@ function DashboardContent() {
           />
         )}
 
-        {analysis && analysis.insights && (!dashboardReadiness || dashboardReadiness.semantic_ready || (!dashboardReadiness.research_ready && dashboardReadiness.state === "ANALYSIS_READY")) && (
+        {!dashboardPresentation && analysis && analysis.insights && (!dashboardReadiness || dashboardReadiness.semantic_ready || (!dashboardReadiness.research_ready && dashboardReadiness.state === "ANALYSIS_READY")) && (
           <>
             {!analysis.research_report && (!dashboardReadiness || dashboardReadiness.semantic_ready) && (
               <div className="mx-auto max-w-6xl px-4 pb-4">

@@ -386,6 +386,20 @@ def load_semantic_discovery_materialization(materialization_id: str) -> Optional
     return json.loads(row) if row else None
 
 
+def load_latest_semantic_discovery_materialization_for_run(research_run_id: str) -> Optional[dict[str, Any]]:
+    """Load the newest completed discovery sidecar for one immutable run."""
+    with db.get_connection() as conn:
+        row = conn.execute(
+            text(
+                "SELECT report_json FROM semantic_discovery_materializations "
+                "WHERE research_run_id = :research_run_id AND status = 'completed' "
+                "ORDER BY completed_at DESC, materialization_id DESC LIMIT 1"
+            ),
+            {"research_run_id": str(research_run_id)},
+        ).scalar()
+    return json.loads(row) if row else None
+
+
 def build_semantic_discovery_for_index(
     semantic_index_id: str,
     *,

@@ -9,6 +9,8 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 
 from . import storage
+from .dashboard_presentation import build_dashboard_presentation
+from .semantic_discovery_storage import load_latest_semantic_discovery_materialization_for_run
 
 
 def build_dashboard_payload(app_id: int, requested_run_id: Optional[str] = None) -> Dict[str, Any]:
@@ -85,6 +87,14 @@ def build_dashboard_payload(app_id: int, requested_run_id: Optional[str] = None)
     coverage_rate = (classified_count / population) if population else 0.0
     five_questions = (insights or {}).get("five_questions")
     design = storage.get_analysis_design(run_id) if run_id else None
+    discovery = None
+    if run_id:
+        try:
+            discovery = load_latest_semantic_discovery_materialization_for_run(run_id)
+        except Exception:
+            # Presentation remains useful when the optional discovery sidecar
+            # is absent or belongs to an older database schema.
+            discovery = None
 
     report_schema = research_report.get("schema_version") if isinstance(research_report, dict) else None
     research_ready = bool(
@@ -156,4 +166,11 @@ def build_dashboard_payload(app_id: int, requested_run_id: Optional[str] = None)
         "semantic_status": semantic_status,
         "reviews": (effective_result or {}).get("reviews") or [],
         "error": (effective_result or {}).get("error"),
+        "run": run,
+        "presentation": build_dashboard_presentation(
+            app_id=app_id,
+            run=run,
+            result={**(effective_result or {}), "run_id": run_id, "status": status},
+            discovery=discovery,
+        ),
     }

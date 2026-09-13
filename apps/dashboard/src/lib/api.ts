@@ -813,12 +813,137 @@ export interface DashboardPayload {
   semantic_status?: SemanticStatus | null;
   reviews: AnalyzeResponse["reviews"];
   error?: string | null;
+  run?: DashboardRun | null;
+  presentation?: DashboardPresentation | null;
+}
+
+export interface DashboardRun {
+  run_id?: string | null;
+  app_id: number;
+  status: string;
+  created_at?: string | null;
+  completed_at?: string | null;
+  stale: boolean;
+  stale_reason?: string | null;
+}
+
+export interface DashboardMetricRow {
+  taxonomy_key: string;
+  n: number;
+  share?: number | null;
+  denominator: string;
+  validation?: Record<string, unknown> | string | null;
+}
+
+export interface DashboardMetricGroup {
+  items: DashboardMetricRow[];
+  total_count: number;
+}
+
+export interface DashboardPresentation {
+  schema_version: "dashboard-presentation-v1" | string;
+  run: DashboardRun;
+  readiness: { research_ready: boolean; semantic_ready: boolean; status: string };
+  research_snapshot: {
+    population_n: number;
+    valid_n: number;
+    recommended_n: number;
+    not_recommended_n: number;
+    recommendation_rate?: number | null;
+    confidence_interval?: Record<string, unknown> | null;
+    collection_scope: Record<string, unknown>;
+    acquisition_coverage?: string | null;
+    collection_complete?: boolean | null;
+    truncated_by_max_reviews?: boolean | null;
+    stop_reason?: string | null;
+    language_distribution: Record<string, number>;
+    stage2e_activity: Record<string, unknown>;
+  };
+  semantic: {
+    available: boolean;
+    status: string;
+    reason?: string | null;
+    claim_status?: string | null;
+    measurement_status?: string | null;
+    validation_status?: string | null;
+    classification_coverage?: number | null;
+    coverage_status?: string | null;
+    classified_n?: number | null;
+    population_n?: number | null;
+    denominator?: Record<string, unknown> | null;
+    taxonomy_version?: string | null;
+    provider?: string | null;
+    model?: string | null;
+    prompt_version?: string | null;
+    schema_version?: string | null;
+    limitations: string[];
+  };
+  player_voice: {
+    actionable_topics: DashboardMetricGroup;
+    issues: DashboardMetricGroup;
+    requests: DashboardMetricGroup;
+    context_topics: DashboardMetricGroup;
+    primary_topics: DashboardMetricRow[];
+  };
+  discovery: {
+    available: boolean;
+    status: string;
+    reason?: string | null;
+    dense_region_n?: number;
+    rare_region_n?: number;
+    outlier_review_n?: number;
+    clustered_review_share?: number | null;
+    unclustered_review_share?: number | null;
+    stability_distribution?: Record<string, number>;
+    taxonomy_audit?: Record<string, number>;
+    regions?: Array<Record<string, unknown>>;
+    interpretation?: Record<string, unknown>;
+  };
+  evidence: {
+    run_id?: string | null;
+    endpoint: string;
+    verified_evidence_available: boolean;
+    source_reviews_are_frozen: boolean;
+  };
+  provenance: Record<string, string | null | undefined>;
+  limitations: string[];
+  legacy: { available: boolean };
+}
+
+export interface AnalysisEvidenceResponse {
+  run_id?: string | null;
+  app_id: number;
+  taxonomy_key: string;
+  matched_review_count: number;
+  verified_evidence_count: number;
+  page_count: number;
+  page_size: number;
+  offset: number;
+  items: Array<{
+    review_id: string;
+    review: string;
+    voted_up?: boolean | null;
+    evidence: Array<Record<string, unknown>>;
+  }>;
 }
 
 export async function fetchDashboardPayload(appId: number, runId?: string | null): Promise<DashboardPayload> {
   const query = runId ? `?run=${encodeURIComponent(runId)}` : "";
   const response = await apiFetch(apiUrl(`/analysis/${appId}/dashboard${query}`), { cache: "no-store" });
   return handleResponse<DashboardPayload>(response);
+}
+
+export async function fetchAnalysisEvidence(
+  appId: number,
+  taxonomyKey: string,
+  runId?: string | null,
+  limit = 5,
+  offset = 0,
+): Promise<AnalysisEvidenceResponse> {
+  const params = new URLSearchParams({ taxonomy_key: taxonomyKey, limit: String(limit), offset: String(offset) });
+  if (runId) params.set("run", runId);
+  const response = await apiFetch(apiUrl(`/analysis/${appId}/evidence?${params.toString()}`), { cache: "no-store" });
+  return handleResponse<AnalysisEvidenceResponse>(response);
 }
 
 export interface AnalysisHistoryItem {

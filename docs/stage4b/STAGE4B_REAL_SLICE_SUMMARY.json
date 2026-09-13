@@ -356,5 +356,26 @@
     "frontend": "success",
     "overall": "success",
     "url": "https://github.com/acetaffyace/STRA_V2/actions/runs/34766673591"
+  },
+  "stage4c": {
+    "status": "PASS_WITH_LIMITATION",
+    "schema_version": "dashboard-presentation-v1",
+    "dashboard_api": "GET /analysis/{app_id}/dashboard",
+    "run_id": "b92ba25b9f9b4230945d8eb6f92126ff",
+    "app_id": 553850,
+    "population_n": 80,
+    "recommended_n": 70,
+    "not_recommended_n": 10,
+    "recommendation_rate": 0.875,
+    "claim_status": "PROVISIONAL",
+    "classified_n": 80,
+    "classification_coverage": 1.0,
+    "other_meme_n": 23,
+    "other_general_n": 15,
+    "discovery": {"dense_region_n": 2, "rare_region_n": 0, "outlier_review_n": 48, "interpretation_status": "BLOCKED_PROVIDER_TIMEOUT"},
+    "evidence": {"verified_evidence_count": 0, "source_review_fallback": true},
+    "visual_qa": {"loops_completed": 3, "visual_p0": 0, "visual_p1": 0, "primary_browser_bridge": "unavailable", "viewport_override": "unavailable"},
+    "migration": 24,
+    "deferred": "Stage 4D — Version / Compare / Agent / Reports convergence"
   }
 }

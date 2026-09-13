@@ -27,6 +27,7 @@ from ..classification_materialization import (
     bind_materialization_to_analysis_run,
     bind_measurement_to_analysis_run,
     create_classification_materialization,
+    get_materialization_for_run,
     load_materialized_review_labels,
 )
 from ..semantic_measurement_runtime import ResolvedMeasurementContext, resolve_measurement_context
@@ -131,6 +132,8 @@ class DashboardPayloadResponse(BaseModel):
     semantic_status: Optional[dict] = None
     reviews: List[dict] = Field(default_factory=list)
     error: Optional[str] = None
+    run: Optional[dict] = None
+    presentation: Optional[dict] = None
 
 
 class EvidenceResponse(BaseModel):
@@ -1370,6 +1373,7 @@ def analyze_estimate(request: AnalyzeRequest) -> AnalyzeEstimateResponse:
 def get_analysis_evidence(
     app_id: int,
     taxonomy_key: str,
+    run: Optional[str] = None,
     date_filter: str = "all",
     sentiment: str = "all",
     language: str = "all",
@@ -1382,22 +1386,52 @@ def get_analysis_evidence(
     verified quotes shown on the page.  Both are evaluated under the same
     taxonomy/filter scope.
     """
-    result = storage.load_analysis_result(app_id)
+    result = storage.get_analysis_run_result(run) if run else storage.load_analysis_result(app_id)
     if not result:
         raise HTTPException(status_code=404, detail="No analysis result available for this app.")
     limit = max(1, min(int(limit), 100))
     offset = max(0, int(offset))
-    all_matches = storage.get_reviews_by_subcategory(
-        app_id, taxonomy_key, date_filter=date_filter, limit=100000, offset=0,
-        sentiment=sentiment, language=language,
-    )
+    if run:
+        run_row = storage.get_analysis_run(run)
+        if not run_row or int(run_row.get("target_app_id")) != int(app_id):
+            raise HTTPException(status_code=404, detail="The requested analysis run is not available for this app.")
+        from ..research_population_snapshot import get_analysis_run_population
+        population = get_analysis_run_population(run)
+        materialization = get_materialization_for_run(run)
+        if population is None:
+            raise HTTPException(status_code=409, detail="research_population_snapshot_unavailable")
+        if materialization is None:
+            raise HTTPException(status_code=409, detail="classification_materialization_unavailable")
+        frozen_items = {str(item.get("review_id")): item for item in materialization.get("items") or []}
+        all_matches = []
+        for review in population.get("reviews") or []:
+            review_id = str(review.get("review_id") or review.get("recommendationid") or "")
+            item = frozen_items.get(review_id) or {}
+            payload = item.get("payload") or {}
+            labels = list(payload.get("subcategories") or [])
+            issue_labels = list(payload.get("issue_subcategories") or payload.get("issues") or [])
+            request_labels = list(payload.get("request_subcategories") or payload.get("requests") or [])
+            if taxonomy_key not in labels and taxonomy_key not in issue_labels and taxonomy_key not in request_labels:
+                continue
+            if language != "all" and str(review.get("language") or "") != language:
+                continue
+            if sentiment == "positive" and review.get("voted_up") is not True:
+                continue
+            if sentiment == "negative" and review.get("voted_up") is not False:
+                continue
+            all_matches.append({**review, "_frozen_label_payload": payload})
+    else:
+        all_matches = storage.get_reviews_by_subcategory(
+            app_id, taxonomy_key, date_filter=date_filter, limit=100000, offset=0,
+            sentiment=sentiment, language=language,
+        )
     page = all_matches[offset:offset + limit]
     items: list[dict[str, Any]] = []
-    label_rows = storage.load_review_labels(app_id)
+    label_rows = storage.load_review_labels(app_id) if not run else {}
     for review in page:
         text_value = str(review.get("review") or "")
         review_id = str(review.get("review_id") or review.get("recommendationid") or "")
-        label_payload = (label_rows.get(review_id) or {}).get("payload") or {}
+        label_payload = review.get("_frozen_label_payload") or (label_rows.get(review_id) or {}).get("payload") or {}
         quotes = (
             (review.get("llm_subcategory_evidence") or {}).get(taxonomy_key)
             or (label_payload.get("evidence") or {}).get(taxonomy_key)
@@ -1417,7 +1451,7 @@ def get_analysis_evidence(
         })
     verified_count = sum(len(item["evidence"]) for item in items)
     return EvidenceResponse(
-        run_id=result.get("run_id"), app_id=app_id, taxonomy_key=taxonomy_key,
+        run_id=run or result.get("run_id"), app_id=app_id, taxonomy_key=taxonomy_key,
         matched_review_count=len(all_matches), verified_evidence_count=verified_count,
         page_count=(len(all_matches) + limit - 1) // limit if all_matches else 0,
         page_size=limit, offset=offset, items=items,
