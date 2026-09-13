@@ -88,6 +88,26 @@ def test_review_text_projection_drift_is_detected_and_repaired():
     assert verify_fts_integrity()["ok"] is True
 
 
+def test_file_backed_startup_repairs_projection_and_posting_drift(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'fts-repair.db'}")
+    db.close_engine()
+    db._engine = None
+    db.init_db()
+    storage.upsert_reviews(1, [review("startup-r1", "new unique startup token")])
+    with db.get_connection() as conn:
+        conn.exec_driver_sql("UPDATE reviews SET review_text='old projection' WHERE review_id='startup-r1'")
+        conn.exec_driver_sql("INSERT INTO reviews_fts(reviews_fts) VALUES ('delete-all')")
+        assert conn.exec_driver_sql("SELECT COUNT(*) FROM reviews WHERE review_id='startup-r1'").fetchone()[0] == 1
+    db.close_engine()
+    db._engine = None
+    db.init_db()
+    assert verify_fts_integrity()["ok"] is True
+    assert verify_fts_integrity()["projection_drift"] == []
+    assert storage.search_review_ids(1, "unique") == ["startup-r1"]
+    with db.get_connection() as conn:
+        assert conn.exec_driver_sql("SELECT review_id FROM reviews WHERE review_id='startup-r1'").fetchone()[0] == "startup-r1"
+
+
 def test_legacy_duplicate_state_is_repaired():
     conn = sqlite3.connect(":memory:")
     conn.executescript(

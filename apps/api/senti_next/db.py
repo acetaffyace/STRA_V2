@@ -12,7 +12,7 @@ from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.pool import NullPool, StaticPool
 
-from . import classification_materialization_schema, classifier_taxonomy_schema, classifier_validation_execution_schema, label_schema, result_schema, semantic_discovery_materialization_schema, semantic_discovery_schema, semantic_index_schema, semantic_measurement_result_schema, semantic_measurement_schema, semantic_region_interpretation_schema, taxonomy_governance_schema
+from . import classification_materialization_schema, classifier_taxonomy_schema, classifier_validation_execution_schema, label_schema, result_schema, research_population_snapshot_schema, semantic_discovery_materialization_schema, semantic_discovery_schema, semantic_index_schema, semantic_measurement_result_schema, semantic_measurement_schema, semantic_region_interpretation_schema, taxonomy_governance_schema
 from . import migrations, runtime_state
 
 logger = logging.getLogger(__name__)
@@ -439,7 +439,7 @@ def init_db() -> None:
                 result = fts.verify_fts_integrity(raw)
                 if not result["ok"]:
                     logger.warning("FTS integrity drift detected during migration; rebuilding index: %s", result)
-                    fts.rebuild_fts(raw)
+                    fts.repair_fts_integrity(raw)
                     result = fts.verify_fts_integrity(raw)
                 if not result["ok"]:
                     raise RuntimeError(f"FTS integrity verification failed after rebuild: {result}")
@@ -454,7 +454,7 @@ def init_db() -> None:
             result = fts.verify_fts_integrity(raw_conn)
             if not result["ok"]:
                 logger.warning("FTS integrity drift detected during migration; rebuilding index: %s", result)
-                fts.rebuild_fts(raw_conn)
+                fts.repair_fts_integrity(raw_conn)
                 result = fts.verify_fts_integrity(raw_conn)
             if not result["ok"]:
                 raise RuntimeError(f"FTS integrity verification failed after rebuild: {result}")
@@ -470,7 +470,7 @@ def init_db() -> None:
             if not result["ok"]:
                 logger.warning("FTS integrity drift detected after migrations; rebuilding index: %s", result)
                 raw = conn.connection.driver_connection
-                fts.rebuild_fts(raw)
+                fts.repair_fts_integrity(raw)
                 result = fts.verify_fts_integrity(raw)
             if not result["ok"]:
                 raise RuntimeError(f"FTS integrity verification failed after rebuild: {result}")
@@ -928,6 +928,29 @@ def init_db() -> None:
             result_path,
             [(semantic_measurement_result_schema.SEMANTIC_MEASUREMENT_RESULT_MIGRATION_VERSION, semantic_measurement_result_schema.DESCRIPTION, semantic_measurement_result_schema.migrate_semantic_measurement_result)],
             backup_path=result_backup,
+            restore_on_error=True,
+        )
+
+    # Stage 4B-R1 freezes the exact Steam Research Population independently of
+    # optional semantic/provider execution. This migration is additive and
+    # intentionally does not backfill unverifiable historical runs.
+    if database in (None, ":memory:"):
+        with get_connection() as conn:
+            raw = conn.connection.driver_connection
+            if migrations.current_version(raw) < research_population_snapshot_schema.RESEARCH_POPULATION_SNAPSHOT_MIGRATION_VERSION:
+                research_population_snapshot_schema.migrate_research_population_snapshots(raw)
+                migrations.record_version(raw, research_population_snapshot_schema.RESEARCH_POPULATION_SNAPSHOT_MIGRATION_VERSION, research_population_snapshot_schema.DESCRIPTION)
+                raw.commit()
+            else:
+                research_population_snapshot_schema.migrate_research_population_snapshots(raw)
+                raw.commit()
+    else:
+        population_path = Path(database).expanduser().resolve()
+        population_backup = population_path.with_name(population_path.name + ".research_population_snapshot_v1.bak")
+        migrations.apply_ordered_migrations(
+            population_path,
+            [(research_population_snapshot_schema.RESEARCH_POPULATION_SNAPSHOT_MIGRATION_VERSION, research_population_snapshot_schema.DESCRIPTION, research_population_snapshot_schema.migrate_research_population_snapshots)],
+            backup_path=population_backup,
             restore_on_error=True,
         )
 

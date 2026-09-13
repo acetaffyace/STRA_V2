@@ -408,29 +408,30 @@ def build_semantic_index_for_run(
 ) -> SemanticIndexBuildResult:
     """Build and persist an index for one immutable Research run.
 
-    This helper is deliberately not wired into ``/analyze``.  It requires the
-    run's persisted population fingerprint and uses the immutable run payload
-    when a caller does not explicitly provide the same raw population.
+    This helper is deliberately not wired into ``/analyze``. It always uses
+    the run's independent immutable Research Population snapshot; mutable app
+    reviews and presentation/sample payloads are never an exact-run fallback.
     """
     from . import semantic_index_storage as storage
 
     from . import storage as result_storage
+    from .research_population_snapshot import get_analysis_run_population
 
     stored = result_storage.get_analysis_run_result(research_run_id)
     if not stored:
         raise ValueError(f"Research run not found: {research_run_id}")
-    metadata = stored.get("metadata") or {}
-    provenance = metadata.get("population_provenance") if isinstance(metadata, Mapping) else None
-    population_fingerprint = (
-        metadata.get("population_fingerprint")
-        if isinstance(metadata, Mapping)
-        else None
-    ) or (provenance.get("population_fingerprint") if isinstance(provenance, Mapping) else None)
-    if not population_fingerprint:
-        raise ValueError("Research run does not expose a population_fingerprint")
-    source = list(reviews) if reviews is not None else list(stored.get("reviews") or [])
-    if not source and int(metadata.get("analysis_population_count") or 0) > 0:
-        raise ValueError("immutable Research population is not stored for this run")
+    snapshot = get_analysis_run_population(research_run_id)
+    if snapshot is None:
+        raise ValueError("research_population_snapshot_unavailable")
+    population_fingerprint = str(snapshot["population_fingerprint"])
+    source = list(snapshot["reviews"])
+    if reviews is not None:
+        supplied = list(reviews)
+        from .research_population_snapshot import compute_population_fingerprint
+        if compute_population_fingerprint(supplied) != population_fingerprint or len(supplied) != int(snapshot["population_n"]):
+            raise ValueError("research_population_snapshot_mismatch")
+    if int(snapshot["population_n"]) != len(source):
+        raise ValueError("research_population_snapshot_incomplete")
     active_backend = backend
     if active_backend is None:
         from .embedding_backend import LocalONNXEmbeddingBackend, default_model_cache_dir
@@ -439,7 +440,7 @@ def build_semantic_index_for_run(
     active_contract = contract or SemanticIndexContract.from_backend(active_backend)
     active_contract.validate()
     cache = storage.load_embedding_cache(contract=active_contract)
-    index_id = storage._index_id(research_run_id, str(population_fingerprint), active_contract)
+    index_id = storage._index_id(research_run_id, population_fingerprint, active_contract)
     try:
         result = build_semantic_index(
             source,
@@ -450,7 +451,7 @@ def build_semantic_index_for_run(
             embedding_cache=cache,
         )
     except SemanticIndexBuildError as exc:
-        storage.persist_failed_index(app_id=int(metadata.get("app_id") or stored.get("app_id") or 0), index_id=index_id, result=exc.partial_result, error=str(exc))
+        storage.persist_failed_index(app_id=int(snapshot["app_id"]), index_id=index_id, result=exc.partial_result, error=str(exc))
         raise
-    storage.persist_semantic_index(app_id=int(metadata.get("app_id") or stored.get("app_id") or 0), index_id=index_id, result=result)
+    storage.persist_semantic_index(app_id=int(snapshot["app_id"]), index_id=index_id, result=result)
     return result

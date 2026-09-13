@@ -30,6 +30,7 @@ from ..classification_materialization import (
     load_materialized_review_labels,
 )
 from ..semantic_measurement_runtime import ResolvedMeasurementContext, resolve_measurement_context
+from ..research_population_snapshot import freeze_analysis_run_population, get_analysis_run_population_metadata
 from ..topic_measurement import build_semantic_measurement_result
 from ..unified_research_result import build_unified_research_result
 from .. import (
@@ -390,11 +391,32 @@ def _run_analysis_job(
     context_hash: Optional[str] = None
     runtime = dict(semantic_runtime or _resolve_semantic_runtime())
 
+    # Freeze the exact raw population independently of optional semantic work.
+    # This defensive path also covers internal callers that invoke the job
+    # seam directly; the HTTP endpoint freezes before scheduling the job.
+    try:
+        population_snapshot = get_analysis_run_population_metadata(run_id)
+        if population_snapshot is None:
+            population_snapshot = freeze_analysis_run_population(
+                run_id=run_id, app_id=app_id, reviews=all_reviews
+            )
+    except Exception as exc:
+        logger.exception("Failed to freeze Research Population for %s", run_id)
+        try:
+            storage.transition_general_analysis_run(run_id, "failed", phase="research_core", error=str(exc))
+            storage.clear_progress(app_id)
+        except Exception:
+            logger.exception("Failed to persist population snapshot failure for %s", run_id)
+        return
+
     # Keep the exact raw population scope separate from the sampled review
-    # payload.  This is deliberately minimal immutable provenance for
-    # deterministic temporal projections; it does not alter classification
-    # or any analytical denominator.
+    # payload while adding the immutable snapshot identity.
     population_provenance = _build_population_provenance(all_reviews, metadata)
+    population_provenance.update({
+        "population_fingerprint": population_snapshot["population_fingerprint"],
+        "population_snapshot_status": "frozen",
+        "population_count": population_snapshot["population_n"],
+    })
     metadata_payload = metadata.dict()
     metadata_payload["population_provenance"] = population_provenance
 
@@ -1180,6 +1202,23 @@ def analyze(
             "deduplication_policy": "transport review-id duplicates only; duplicate text retained",
         },
     )
+
+    # The final sampled/truncated population is now fixed. Freeze it before
+    # methodology persistence or background Research Core/semantic work.
+    try:
+        population_snapshot = freeze_analysis_run_population(
+            run_id=run_id, app_id=request.app_id, reviews=all_reviews
+        )
+        metadata.population_provenance = {
+            **_build_population_provenance(all_reviews, metadata),
+            "population_fingerprint": population_snapshot["population_fingerprint"],
+            "population_snapshot_status": "frozen",
+            "population_count": population_snapshot["population_n"],
+        }
+    except Exception as exc:
+        logger.exception("Failed to freeze Research Population for %s", run_id)
+        storage.transition_general_analysis_run(run_id, "failed", phase="research_core", error=str(exc))
+        raise HTTPException(status_code=500, detail="Research Population could not be frozen.") from exc
 
     # Persist the intended methodology before the provider is invoked.  A
     # current-snapshot run has no defensible before/after claim, but its

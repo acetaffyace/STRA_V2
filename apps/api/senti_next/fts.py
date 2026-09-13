@@ -48,42 +48,90 @@ def migrate_legacy_fts(conn: Any) -> None:
 
 
 def _create_triggers(conn: Any) -> None:
-    conn.execute("DROP TRIGGER IF EXISTS reviews_fts_ai")
-    conn.execute("DROP TRIGGER IF EXISTS reviews_fts_au")
-    conn.execute("DROP TRIGGER IF EXISTS reviews_fts_ad")
-    conn.execute(
+    _execute(conn, "DROP TRIGGER IF EXISTS reviews_fts_ai")
+    _execute(conn, "DROP TRIGGER IF EXISTS reviews_fts_au")
+    _execute(conn, "DROP TRIGGER IF EXISTS reviews_fts_ad")
+    _execute(
+        conn,
         """CREATE TRIGGER reviews_fts_ai AFTER INSERT ON reviews BEGIN
             INSERT INTO reviews_fts(rowid, review_text)
             VALUES (new.id, new.review_text);
-        END"""
+        END""",
     )
-    conn.execute(
+    _execute(
+        conn,
         """CREATE TRIGGER reviews_fts_au AFTER UPDATE OF review_text ON reviews BEGIN
             INSERT INTO reviews_fts(reviews_fts, rowid, review_text)
             VALUES ('delete', old.id, old.review_text);
             INSERT INTO reviews_fts(rowid, review_text)
             VALUES (new.id, new.review_text);
-        END"""
+        END""",
     )
-    conn.execute(
+    _execute(
+        conn,
         """CREATE TRIGGER reviews_fts_ad AFTER DELETE ON reviews BEGIN
             INSERT INTO reviews_fts(reviews_fts, rowid, review_text)
             VALUES ('delete', old.id, old.review_text);
-        END"""
+        END""",
     )
 
 
+def _drop_triggers(conn: Any) -> None:
+    for name in ("reviews_fts_ai", "reviews_fts_au", "reviews_fts_ad"):
+        _execute(conn, f"DROP TRIGGER IF EXISTS {name}")
+
+
+def _recreate_external_fts(conn: Any) -> None:
+    """Recreate only the derived FTS object after unrecoverable drift."""
+    _execute(conn, "DROP TABLE IF EXISTS reviews_fts")
+    _execute(conn,
+        """CREATE VIRTUAL TABLE reviews_fts USING fts5(
+            review_text,
+            content='reviews',
+            content_rowid='id',
+            tokenize='unicode61'
+        )"""
+    )
+
+
+def repair_review_text_projection(conn: Any) -> int:
+    """Restore the searchable projection from ``reviews.data.review``."""
+    result = _execute(
+        conn,
+        "UPDATE reviews SET review_text = COALESCE(json_extract(data, '$.review'), '')",
+    )
+    return int(result.rowcount or 0)
+
+
 def rebuild_fts(conn: Any | None = None) -> None:
-    """Explicitly rebuild FTS from canonical review rows."""
+    """Repair the canonical projection, then rebuild FTS5 postings."""
     if conn is None:
         from . import db
         with db.get_connection() as owned:
             rebuild_fts(owned)
         return
-    _execute(conn, "INSERT INTO reviews_fts(reviews_fts) VALUES ('delete-all')")
-    _execute(conn,
-        "INSERT INTO reviews_fts(rowid, review_text) SELECT id, review_text FROM reviews"
-    )
+    _drop_triggers(conn)
+    try:
+        repair_review_text_projection(conn)
+        try:
+            _execute(conn, "INSERT INTO reviews_fts(reviews_fts) VALUES ('rebuild')")
+        except Exception:
+            # A damaged FTS5 segment can reject even the canonical rebuild
+            # command. Recreate only the derived index, never review rows.
+            _recreate_external_fts(conn)
+            _execute(conn, "INSERT INTO reviews_fts(reviews_fts) VALUES ('rebuild')")
+    finally:
+        _create_triggers(conn)
+
+
+def repair_fts_integrity(conn: Any | None = None) -> dict[str, Any]:
+    """Repair projection and postings, then return the verified result."""
+    if conn is None:
+        from . import db
+        with db.get_connection() as owned:
+            return repair_fts_integrity(owned)
+    rebuild_fts(conn)
+    return verify_fts_integrity(conn)
 
 
 def verify_fts_integrity(conn: Any | None = None) -> dict[str, Any]:

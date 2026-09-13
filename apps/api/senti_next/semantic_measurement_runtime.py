@@ -97,6 +97,45 @@ def _runtime_identity(contract: ClassifierTaxonomyContract) -> dict[str, Any]:
     return classifier_identity(contract)
 
 
+def _is_rotatable_baseline(bundle: dict[str, Any], contract: ClassifierTaxonomyContract) -> bool:
+    limitations = set(bundle.get("limitations") or ())
+    baseline = baseline_classifier_taxonomy()
+    return (
+        str(bundle.get("measurement_status")) == "PROVISIONAL"
+        and not bundle.get("validation_run_id")
+        and str(bundle.get("taxonomy_snapshot_id")) == baseline.snapshot_id
+        and str(bundle.get("taxonomy_version")) == baseline.taxonomy_version
+        and str(bundle.get("taxonomy_fingerprint")) == baseline.taxonomy_fingerprint
+        and "not_formally_validated" in limitations
+        and contract.snapshot_id == baseline.snapshot_id
+        and contract.taxonomy_version == baseline.taxonomy_version
+        and contract.taxonomy_fingerprint == baseline.taxonomy_fingerprint
+    )
+
+
+def _rotate_provisional_baseline_if_needed(
+    bundle: dict[str, Any], contract: ClassifierTaxonomyContract, runtime: dict[str, Any]
+) -> dict[str, Any]:
+    if not _is_rotatable_baseline(bundle, contract):
+        return bundle
+    identity_fields = (
+        "classifier_provider",
+        "classifier_model_id",
+        "classifier_prompt_version",
+        "classifier_schema_version",
+    )
+    if all(str(bundle.get(field) or "") == str(runtime.get(field) or "") for field in identity_fields):
+        return bundle
+    rotated = bootstrap_baseline_measurement_bundle()
+    if str(rotated.get("bundle_id")) != str(bundle.get("bundle_id")):
+        rotated = activate_measurement_bundle(
+            rotated["bundle_id"],
+            operator="system",
+            reason="provisional_runtime_identity_rotation",
+        )
+    return rotated
+
+
 def resolve_measurement_context() -> ResolvedMeasurementContext:
     """Resolve and validate the exact active bundle for Production Analyze."""
     bundles = list_measurement_bundles()
@@ -115,6 +154,10 @@ def resolve_measurement_context() -> ResolvedMeasurementContext:
         return _unavailable("taxonomy_contract_mismatch", bundle=bundle)
 
     runtime = _runtime_identity(contract)
+    try:
+        bundle = _rotate_provisional_baseline_if_needed(bundle, contract, runtime)
+    except Exception:
+        return _unavailable("measurement_runtime_identity_rotation_failed", bundle=bundle)
     for field in (
         "classifier_provider",
         "classifier_model_id",

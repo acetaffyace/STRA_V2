@@ -15,6 +15,7 @@ from sqlalchemy import text
 
 from . import db, llm
 from .classifier_taxonomy import ClassifierTaxonomyContract
+from .research_population_snapshot import compute_population_fingerprint, get_analysis_run_population_metadata
 
 _ITEM_STATUSES = {"classified", "fallback", "missing"}
 
@@ -55,11 +56,8 @@ def _bundle_identity(bundle: Mapping[str, Any]) -> dict[str, str]:
 
 
 def population_fingerprint(all_reviews: Sequence[Mapping[str, Any]]) -> str:
-    canonical = sorted(
-        ({"review_id": _review_id(review), "review_hash": _review_hash(review)} for review in all_reviews),
-        key=lambda item: item["review_id"],
-    )
-    return _sha(canonical)
+    """Compatibility wrapper for the shared immutable population contract."""
+    return compute_population_fingerprint(all_reviews)
 
 
 def _parse_payload(value: Any) -> dict[str, Any]:
@@ -214,6 +212,23 @@ def create_classification_materialization(
 
     items.sort(key=lambda item: item["review_id"])
     population_fp = population_fingerprint(all_reviews)
+    population_snapshot = get_analysis_run_population_metadata(run_id)
+    if population_snapshot is not None and (
+        population_snapshot["population_fingerprint"] != population_fp
+        or int(population_snapshot["population_n"]) != len(all_reviews)
+    ):
+        raise ValueError("classification_population_snapshot_mismatch")
+    if population_snapshot is None:
+        # Existing unit seams use synthetic materialization IDs without a
+        # persisted analysis_runs row. Real analysis runs must always have the
+        # independent immutable snapshot created by /analyze.
+        with db.get_connection() as conn:
+            analysis_run_exists = conn.execute(
+                text("SELECT 1 FROM analysis_runs WHERE run_id=:run_id AND run_type='general_analysis'"),
+                {"run_id": run_id},
+            ).first() is not None
+        if analysis_run_exists:
+            raise ValueError("research_population_snapshot_unavailable")
     materialization_content = {
         "run_id": run_id,
         "measurement_bundle_id": bundle["bundle_id"],
