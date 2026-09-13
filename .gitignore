@@ -38,6 +38,7 @@ tooling/scripts/llm_validation/validation_report.json
 __pycache__/
 *.pyc
 *.py[cod]
+apps/api/senti_next/build_info.json
 .venv/
 .venv*/
 apps/api/.venv/

@@ -163,10 +163,7 @@ jobs:
         working-directory: apps/dashboard
         run: npm run build:desktop
 
-      # Build PyInstaller sidecar
-      - name: Install Python dependencies
-        run: pip install -r apps/desktop/pyinstaller/requirements-desktop.txt
-
+      # build.py creates and installs a clean, canonical desktop venv.
       - name: Build sidecar binary
         run: python apps/desktop/pyinstaller/build.py --target-triple ${{ matrix.target }}
 

@@ -1,0 +1,3 @@
+# Optional server/reporting dependency. The desktop sidecar intentionally
+# excludes it to keep the packaged runtime focused and portable.
+weasyprint==67.0

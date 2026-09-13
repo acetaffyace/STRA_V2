@@ -1,0 +1,33 @@
+name: Desktop Runtime Smoke
+
+on:
+  push:
+    branches:
+      - main
+      - "refactor/**"
+      - "hardening/**"
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  desktop-runtime-smoke:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Build frozen desktop sidecar
+        run: python apps/desktop/pyinstaller/build.py --target-triple x86_64-pc-windows-msvc
+
+      - name: Run frozen executable self-test
+        run: apps/desktop/pyinstaller/dist/sentinext-backend.exe --self-test
+
+      - name: Start frozen sidecar and verify runtime
+        run: python tooling/smoke_desktop_sidecar.py --exe apps/desktop/pyinstaller/dist/sentinext-backend.exe

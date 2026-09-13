@@ -1,15 +1,4 @@
-# Desktop-only dependencies - kept minimal for a small PyInstaller binary.
-# Excluded: weasyprint, psycopg2-binary, redis, rq, rq-scheduler, sentry-sdk, alembic, pytest
-fastapi==0.117.1
-uvicorn[standard]==0.36.0
-sqlalchemy==2.0.46
-pandas==2.2.3
-openai>=1.40.0
-google-genai==1.61.0
-xai-sdk==1.6.1
-python-dotenv==1.1.1
-platformdirs==4.3.6
-reportlab==4.4.6
-jinja2>=3.1.6
-requests==2.32.3
+# The desktop build consumes the same validated runtime dependency source as
+# the API. Keep only the packaging tool local to this requirements file.
+-r ../../api/requirements-core.txt
 pyinstaller>=6.0

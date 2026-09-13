@@ -13,7 +13,37 @@ from typing import Callable, Iterable
 
 logger = logging.getLogger(__name__)
 
-CURRENT_SCHEMA_VERSION = 7
+# One registry is the runtime schema identity.  Individual migration modules
+# retain their historical constants, but diagnostics must never use a stale
+# hand-written version number.
+MIGRATION_REGISTRY: tuple[tuple[int, str], ...] = (
+    (1, "legacy schema bootstrap"),
+    (2, "canonical external-content review FTS"),
+    (3, "generalized analysis_runs schema"),
+    (4, "general analysis lifecycle columns"),
+    (5, "immutable general analysis run results"),
+    (6, "review label provenance and cache identity"),
+    (7, "immutable chat evidence metadata"),
+    (8, "durable LLM physical-call cost ledger"),
+    (10, "adaptive analysis design snapshots"),
+    (11, "Steam review enrichment canonical fields and raw-payload backfill"),
+    (12, "Web MVP UX population counters and authoritative ETA"),
+    (13, "first-class Research Core result persistence"),
+    (14, "full-population semantic index and reusable embedding cache"),
+    (15, "open-set semantic discovery and taxonomy audit results"),
+    (16, "semantic discovery structure/context identity and materializations"),
+)
+
+
+def validate_migration_registry() -> None:
+    versions = [version for version, _ in MIGRATION_REGISTRY]
+    if len(versions) != len(set(versions)) or versions != sorted(versions):
+        raise RuntimeError("schema migration registry contains duplicate or unordered versions")
+
+
+def latest_known_schema_version() -> int:
+    validate_migration_registry()
+    return MIGRATION_REGISTRY[-1][0]
 
 
 def ensure_version_table(conn: sqlite3.Connection) -> None:
@@ -32,6 +62,26 @@ def current_version(conn: sqlite3.Connection) -> int:
     ensure_version_table(conn)
     row = conn.execute("SELECT COALESCE(MAX(version), 0) FROM schema_migrations").fetchone()
     return int(row[0] or 0)
+
+
+def applied_schema_version(conn: sqlite3.Connection) -> int:
+    """Return the highest version recorded in the database ledger."""
+    return current_version(conn)
+
+
+def schema_status(conn: sqlite3.Connection) -> dict[str, int | str]:
+    """Compare the database ledger with the code's migration registry."""
+    latest = latest_known_schema_version()
+    applied = applied_schema_version(conn)
+    if applied == 0:
+        state = "uninitialized"
+    elif applied < latest:
+        state = "behind"
+    elif applied > latest:
+        state = "ahead"
+    else:
+        state = "current"
+    return {"latest_known": latest, "applied": applied, "status": state}
 
 
 def record_version(conn: sqlite3.Connection, version: int, description: str) -> None:

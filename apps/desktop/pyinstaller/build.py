@@ -17,6 +17,7 @@ PyInstaller runs in --onefile mode, producing a single self-contained executable
 from __future__ import annotations
 
 import argparse
+import json
 import platform
 import shutil
 import subprocess
@@ -70,6 +71,35 @@ def ensure_venv(script_dir: Path) -> Path:
     return venv_python
 
 
+def resolve_git_sha(repo_root: Path) -> str:
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=str(repo_root),
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=True,
+        )
+        return result.stdout.strip() or "unknown"
+    except Exception:
+        return "unknown"
+
+
+def write_build_info(repo_root: Path) -> Path:
+    """Generate ephemeral identity metadata consumed by the frozen bundle."""
+    if str(repo_root) not in sys.path:
+        sys.path.insert(0, str(repo_root))
+    from apps.api.senti_next.version import APP_VERSION
+
+    info_path = repo_root / "apps" / "api" / "senti_next" / "build_info.json"
+    info_path.write_text(
+        json.dumps({"app_version": APP_VERSION, "git_sha": resolve_git_sha(repo_root)}, sort_keys=True),
+        encoding="utf-8",
+    )
+    return info_path
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Build SentiNext sidecar")
     parser.add_argument("--target-triple", default=None, help="Override target triple")
@@ -99,6 +129,7 @@ def main() -> None:
     print(f"Spec file: {spec_file}")
 
     # Run PyInstaller
+    build_info_path = write_build_info(repo_root)
     cmd = [
         python, "-m", "PyInstaller",
         "--distpath", str(dist_dir),
@@ -107,7 +138,12 @@ def main() -> None:
         str(spec_file),
     ]
     print(f"Running: {' '.join(cmd)}")
-    subprocess.run(cmd, check=True, cwd=str(repo_root))
+    try:
+        subprocess.run(cmd, check=True, cwd=str(repo_root))
+    finally:
+        # The generated file is bundled into the executable but must never be
+        # left as a source-tree artifact or committed to Git.
+        build_info_path.unlink(missing_ok=True)
 
     # --onefile output is a single executable at dist/sentinext-backend[.exe]
     is_windows = "windows" in target_triple

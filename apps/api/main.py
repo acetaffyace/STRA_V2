@@ -18,6 +18,7 @@ from fastapi.responses import JSONResponse
 
 from .senti_next import logging_config
 from .senti_next import db as db_module
+from .senti_next.version import APP_VERSION
 from .senti_next.routes import all_routers
 
 logger = logging.getLogger(__name__)
@@ -68,8 +69,12 @@ def _log_file_path() -> Path:
     raw = os.getenv("SENTINEXT_LOG_FILE")
     if raw:
         return Path(raw).expanduser()
-    from platformdirs import user_data_dir
-    data_dir = Path(user_data_dir("SentiNext", "SentiNext"))
+    explicit_dir = os.getenv("SENTINEXT_DATA_DIR", "").strip()
+    if explicit_dir:
+        data_dir = Path(explicit_dir).expanduser()
+    else:
+        from platformdirs import user_data_dir
+        data_dir = Path(user_data_dir("SentiNext", "SentiNext"))
     return data_dir / "logs" / "backend.log"
 
 
@@ -115,6 +120,8 @@ async def lifespan(application: FastAPI):
     # bind the port immediately and respond to /health while still loading.
     import threading
 
+    db_module.mark_starting()
+
     def _background_init():
         try:
             db_module.init_db()
@@ -127,10 +134,12 @@ async def lifespan(application: FastAPI):
                     storage.resolve_starred_game_names()
             except Exception:
                 logger.warning("Failed to sync analysis results to starred games", exc_info=True)
+            db_module.mark_ready()
         except Exception:
             logger.exception("Background startup init failed")
-        finally:
-            db_module.startup_complete.set()
+            # Keep the HTTP diagnostic bounded and path/secret-free; the full
+            # traceback remains in the server log for operators.
+            db_module.mark_failed("startup_initialization_failed")
 
     init_thread = threading.Thread(target=_background_init, daemon=True)
     init_thread.start()
@@ -145,7 +154,7 @@ async def lifespan(application: FastAPI):
 
 app = FastAPI(
     title="SENTINEXT API",
-    version="0.1.0",
+    version=APP_VERSION,
     lifespan=lifespan,
 )
 app.add_middleware(
@@ -174,16 +183,23 @@ async def _global_exception_handler(request: Request, exc: Exception):
 # Startup gate — return 503 for non-health endpoints while DB init runs
 # ---------------------------------------------------------------------------
 
-_STARTUP_EXEMPT = {"/health", "/docs", "/openapi.json"}
+_STARTUP_EXEMPT = {"/health", "/runtime-info", "/docs", "/openapi.json"}
 
 
 @app.middleware("http")
 async def startup_gate_middleware(request: Request, call_next):
-    if not db_module.startup_complete.is_set() and request.url.path not in _STARTUP_EXEMPT:
-        return JSONResponse(
-            status_code=503,
-            content={"detail": "Server is starting up, please wait..."},
-        )
+    if request.url.path not in _STARTUP_EXEMPT:
+        startup = db_module.startup_status()
+        if startup["status"] == "starting":
+            return JSONResponse(
+                status_code=503,
+                content={"detail": "server_starting", "status": "starting"},
+            )
+        if startup["status"] == "failed":
+            return JSONResponse(
+                status_code=503,
+                content={"detail": "startup_failed", "status": "startup_failed"},
+            )
     return await call_next(request)
 
 

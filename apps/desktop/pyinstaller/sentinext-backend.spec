@@ -12,15 +12,20 @@ spec_dir = os.path.dirname(os.path.abspath(SPEC))
 repo_root = os.path.abspath(os.path.join(spec_dir, '..', '..', '..'))
 api_dir = os.path.join(repo_root, 'apps', 'api')
 desktop_dir = os.path.join(repo_root, 'apps', 'desktop')
+build_info_path = os.path.join(api_dir, 'senti_next', 'build_info.json')
+
+datas = [
+    # Include Jinja2 templates for reports
+    (os.path.join(api_dir, 'senti_next', 'templates'), 'senti_next/templates'),
+]
+if os.path.isfile(build_info_path):
+    datas.append((build_info_path, 'apps/api/senti_next'))
 
 a = Analysis(
     [os.path.join(spec_dir, 'desktop_main.py')],
     pathex=[repo_root, api_dir],
     binaries=[],
-    datas=[
-        # Include Jinja2 templates for reports
-        (os.path.join(api_dir, 'senti_next', 'templates'), 'senti_next/templates'),
-    ],
+    datas=datas,
     hiddenimports=[
         # uvicorn internals
         'uvicorn',
@@ -52,10 +57,8 @@ a = Analysis(
         'apps.api.senti_next.analysis',
         'apps.api.senti_next.ingest',
         'apps.api.senti_next.intent',
-        'apps.api.senti_next.jobs',
         'apps.api.senti_next.models',
         'apps.api.senti_next.circuit_breaker',
-        'apps.api.senti_next.redis_client',
         'apps.api.senti_next.logging_config',
         'apps.api.senti_next.routes',
         'apps.api.senti_next.routes.analysis',
@@ -65,7 +68,27 @@ a = Analysis(
         'apps.api.senti_next.routes.settings',
         'apps.api.senti_next.routes.misc',
         'apps.api.senti_next.routes._shared',
-        'apps.api.senti_next.routes._guards',
+        # Research Core and Stage 3 runtime availability smoke
+        'apps.api.senti_next.population_validity',
+        'apps.api.senti_next.rate_inference',
+        'apps.api.senti_next.standardization',
+        'apps.api.senti_next.window_robustness',
+        'apps.api.senti_next.activity_diagnostics',
+        'apps.api.senti_next.research_core',
+        'apps.api.senti_next.embedding_backend',
+        'apps.api.senti_next.semantic_index',
+        'apps.api.senti_next.semantic_index_storage',
+        'apps.api.senti_next.semantic_index_schema',
+        'apps.api.senti_next.semantic_discovery',
+        'apps.api.senti_next.semantic_discovery_storage',
+        'apps.api.senti_next.semantic_discovery_schema',
+        'apps.api.senti_next.semantic_discovery_materialization_schema',
+        'statsmodels',
+        'sklearn',
+        'hdbscan',
+        'onnxruntime',
+        'tokenizers',
+        'huggingface_hub',
         'apps.api.senti_next.providers',
         'apps.api.senti_next.providers.base',
         'apps.api.senti_next.providers.gemini',

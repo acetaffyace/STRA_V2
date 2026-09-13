@@ -13,6 +13,7 @@ from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.pool import NullPool, StaticPool
 
 from . import label_schema, result_schema, semantic_discovery_materialization_schema, semantic_discovery_schema, semantic_index_schema
+from . import migrations, runtime_state
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,11 @@ _engine: Optional[Engine] = None
 
 def _default_sqlite_path() -> str:
     """Return the default SQLite database path using platformdirs."""
+    explicit_dir = os.getenv("SENTINEXT_DATA_DIR", "").strip()
+    if explicit_dir:
+        data_dir = Path(explicit_dir).expanduser()
+        data_dir.mkdir(parents=True, exist_ok=True)
+        return str(data_dir / "sentinext.db")
     try:
         from platformdirs import user_data_dir
         data_dir = Path(user_data_dir("SentiNext", "SentiNext"))
@@ -115,6 +121,7 @@ def get_connection() -> Generator:
 
 def init_db() -> None:
     """Initialize the SQLite database schema."""
+    migrations.validate_migration_registry()
     with get_connection() as conn:
         # P0.0A migration foundation. The existing DDL remains the bootstrap
         # schema for compatibility; future destructive changes must be added
@@ -415,7 +422,7 @@ def init_db() -> None:
         """))
         logger.info("SQLite schema initialized at migration version 1")
 
-    from . import adaptive_schema, cost_ledger, fts, migrations, run_schema, steam_enrichment_migration
+    from . import adaptive_schema, cost_ledger, fts, run_schema, steam_enrichment_migration
     from pathlib import Path
     database = make_url(get_database_url()).database
 
@@ -773,6 +780,39 @@ def check_db_health() -> bool:
         return True
     except Exception:
         return False
+
+
+def schema_status() -> dict[str, int | str]:
+    """Return authoritative schema ledger status for diagnostics."""
+    try:
+        with get_connection() as conn:
+            raw = conn.connection.driver_connection
+            return migrations.schema_status(raw)
+    except Exception:
+        return {
+            "latest_known": migrations.latest_known_schema_version(),
+            "applied": 0,
+            "status": "error",
+        }
+
+
+def startup_status() -> dict[str, str | None]:
+    return runtime_state.snapshot(legacy_event_set=startup_complete.is_set())
+
+
+def mark_starting() -> None:
+    startup_complete.clear()
+    runtime_state.mark_starting()
+
+
+def mark_ready() -> None:
+    runtime_state.mark_ready()
+    startup_complete.set()
+
+
+def mark_failed(reason: str) -> None:
+    startup_complete.clear()
+    runtime_state.mark_failed(reason)
 
 
 def close_engine() -> None:

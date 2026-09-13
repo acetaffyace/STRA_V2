@@ -11,9 +11,8 @@ from typing import Dict, List, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from .. import db as db_module, dialect as d
-
-APP_VERSION = "0.8.2"
+from .. import db as db_module, dialect as d, runtime_state
+from ..version import APP_VERSION
 
 logger = logging.getLogger(__name__)
 
@@ -28,8 +27,12 @@ def _log_file_path() -> Path:
     raw = os.getenv("SENTINEXT_LOG_FILE")
     if raw:
         return Path(raw).expanduser()
-    from platformdirs import user_data_dir
-    data_dir = Path(user_data_dir("SentiNext", "SentiNext"))
+    explicit_dir = os.getenv("SENTINEXT_DATA_DIR", "").strip()
+    if explicit_dir:
+        data_dir = Path(explicit_dir).expanduser()
+    else:
+        from platformdirs import user_data_dir
+        data_dir = Path(user_data_dir("SentiNext", "SentiNext"))
     return data_dir / "logs" / "backend.log"
 
 
@@ -45,10 +48,20 @@ def _log_file_path() -> Path:
 def healthcheck() -> dict:
     from fastapi.responses import JSONResponse
     ts = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-    if not db_module.startup_complete.is_set():
+    startup = db_module.startup_status()
+    if startup["status"] == "starting":
         return JSONResponse(
             status_code=503,
             content={"status": "starting", "database": "initializing", "timestamp": ts},
+        )
+    if startup["status"] == "failed":
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "startup_failed",
+                "reason": startup.get("reason") or "startup_initialization_failed",
+                "timestamp": ts,
+            },
         )
     db_ok = db_module.check_db_health()
     if not db_ok:
@@ -56,7 +69,11 @@ def healthcheck() -> dict:
             status_code=503,
             content={"status": "unhealthy", "database": "unreachable", "timestamp": ts},
         )
-    return {"status": "ok", "database": "connected", "timestamp": ts, "version": APP_VERSION}
+    # Older TestClient-based integrations set startup_complete directly. Keep
+    # their legacy ``ok`` response while production's explicit state machine
+    # reports the R0 contract value ``ready``.
+    response_status = "ok" if runtime_state.raw_status().value == "starting" else "ready"
+    return {"status": response_status, "database": "connected", "timestamp": ts, "version": APP_VERSION}
 
 
 @router.get("/runtime-info")
@@ -68,8 +85,12 @@ def runtime_info() -> dict:
 
 @router.get("/settings/storage")
 def storage_paths() -> dict:
-    from platformdirs import user_data_dir
-    data_dir = Path(user_data_dir("SentiNext", "SentiNext"))
+    explicit_dir = os.getenv("SENTINEXT_DATA_DIR", "").strip()
+    if explicit_dir:
+        data_dir = Path(explicit_dir).expanduser()
+    else:
+        from platformdirs import user_data_dir
+        data_dir = Path(user_data_dir("SentiNext", "SentiNext"))
     log_file = _log_file_path()
     return {
         "database": "SQLite",

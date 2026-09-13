@@ -64,13 +64,28 @@ def database_instance_id() -> str:
 
 
 def runtime_info() -> dict[str, Any]:
+    from .version import build_identity
+    from . import db, migrations
+
+    identity = build_identity(runtime_profile=profile())
+    startup = db.startup_status()
+    schema = db.schema_status() if startup["status"] == "ready" else {
+        "latest_known": migrations.latest_known_schema_version(),
+        "applied": 0,
+        "status": "uninitialized",
+    }
     return {
+        **identity,
         "runtime_profile": profile(),
         "backend_port": backend_port(),
-        "git_commit": git_value(["rev-parse", "HEAD"]),
+        "git_commit": identity["git_sha"],
         "git_branch": git_value(["branch", "--show-current"]),
         "api_contract_version": API_CONTRACT_VERSION,
-        "schema_migration_version": 12,
+        "schema": schema,
+        # Legacy field retained for existing clients; schema.latest_known is
+        # the authoritative runtime value.
+        "schema_migration_version": schema["applied"],
+        "startup": startup,
         "database_instance_id": database_instance_id(),
         "classifier_variant": classifier_variant(),
         "classifier_prompt_version": classifier_prompt_version(),

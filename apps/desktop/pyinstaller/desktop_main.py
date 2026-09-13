@@ -6,8 +6,11 @@ Sets up SQLite database in the platform data directory and starts uvicorn.
 from __future__ import annotations
 
 import argparse
+import json
+import logging
 import os
 import sys
+import tempfile
 from pathlib import Path
 
 
@@ -25,12 +28,17 @@ def _setup_env(port: int) -> None:
     os.environ.setdefault("SENTINEXT_LLM_BATCH_SIZE", "100")
     os.environ.setdefault("SENTINEXT_MAX_PARALLEL_BATCHES", "10")
 
-    # Use platformdirs for the data directory
-    try:
-        from platformdirs import user_data_dir
-        data_dir = Path(user_data_dir("SentiNext", "SentiNext"))
-    except ImportError:
-        data_dir = Path.home() / ".sentinext" / "data"
+    # Explicit CI/runtime-smoke directories override the legacy default.  If
+    # unset, preserve the existing SentiNext platformdirs location exactly.
+    explicit_dir = os.getenv("SENTINEXT_DATA_DIR", "").strip()
+    if explicit_dir:
+        data_dir = Path(explicit_dir).expanduser()
+    else:
+        try:
+            from platformdirs import user_data_dir
+            data_dir = Path(user_data_dir("SentiNext", "SentiNext"))
+        except ImportError:
+            data_dir = Path.home() / ".sentinext" / "data"
 
     data_dir.mkdir(parents=True, exist_ok=True)
 
@@ -49,10 +57,81 @@ def _setup_env(port: int) -> None:
     os.environ["SENTINEXT_LOG_FILE"] = str(log_dir / "backend.log")
 
 
+def _run_self_test() -> int:
+    """Run deterministic checks inside the frozen executable itself."""
+    with tempfile.TemporaryDirectory(prefix="sentinext-runtime-self-test-") as temp_dir:
+        os.environ["SENTINEXT_DATA_DIR"] = temp_dir
+        _setup_env(0)
+        os.environ["DATABASE_URL"] = f"sqlite:///{Path(temp_dir) / 'self-test.db'}"
+        try:
+            # Import the same production modules the sidecar serves.  These
+            # imports deliberately do not download models or call providers.
+            import apps.api.main  # noqa: F401
+            from apps.api.senti_next import db, migrations
+            from apps.api.senti_next.research_core import build_snapshot_research_report
+            import apps.api.senti_next.rate_inference  # noqa: F401
+            import apps.api.senti_next.embedding_backend  # noqa: F401
+            import apps.api.senti_next.semantic_index  # noqa: F401
+            import apps.api.senti_next.semantic_index_storage  # noqa: F401
+            import apps.api.senti_next.semantic_discovery  # noqa: F401
+            import apps.api.senti_next.semantic_discovery_storage  # noqa: F401
+
+            db.close_engine()
+            db.init_db()
+            report = build_snapshot_research_report(
+                [
+                    {
+                        "recommendationid": "runtime-self-test-1",
+                        "review": "Runtime smoke review",
+                        "voted_up": True,
+                        "timestamp_created": 1700000000,
+                    }
+                ],
+                metadata={"collection_complete": True},
+            )
+            if report.get("schema_version") != "research-report-v1":
+                raise RuntimeError("research_core_schema_invalid")
+            if report["population"]["review_count"] != 1 or "recommendation" not in report:
+                raise RuntimeError("research_core_population_smoke_failed")
+            with db.get_connection() as conn:
+                schema = migrations.schema_status(conn.connection.driver_connection)
+            if schema["status"] != "current" or schema["applied"] != schema["latest_known"]:
+                raise RuntimeError(f"schema_not_current:{schema}")
+            print(json.dumps({
+                "self_test": "passed",
+                "research_core": "passed",
+                "stage3_imports": "passed",
+                "schema": schema,
+            }, sort_keys=True))
+            return 0
+        except Exception as exc:
+            print(json.dumps({"self_test": "failed", "error": str(exc)[:200]}, sort_keys=True), file=sys.stderr)
+            return 1
+        finally:
+            try:
+                from apps.api.senti_next import db
+                db.close_engine()
+            except Exception:
+                pass
+            # apps.api.main installs a rotating file handler at import time;
+            # close it before TemporaryDirectory cleanup on Windows.
+            root_logger = logging.getLogger()
+            for handler in list(root_logger.handlers):
+                try:
+                    handler.flush()
+                    handler.close()
+                finally:
+                    root_logger.removeHandler(handler)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="SentiNext Desktop Backend")
     parser.add_argument("--port", type=int, default=8000, help="Port to listen on")
+    parser.add_argument("--self-test", action="store_true", help="Run packaged runtime smoke and exit")
     args = parser.parse_args()
+
+    if args.self_test:
+        raise SystemExit(_run_self_test())
 
     _setup_env(args.port)
 
