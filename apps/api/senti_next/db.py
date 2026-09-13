@@ -12,7 +12,7 @@ from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.pool import NullPool, StaticPool
 
-from . import classifier_taxonomy_schema, label_schema, result_schema, semantic_discovery_materialization_schema, semantic_discovery_schema, semantic_index_schema, semantic_measurement_schema, semantic_region_interpretation_schema, taxonomy_governance_schema
+from . import classifier_taxonomy_schema, classifier_validation_execution_schema, label_schema, result_schema, semantic_discovery_materialization_schema, semantic_discovery_schema, semantic_index_schema, semantic_measurement_schema, semantic_region_interpretation_schema, taxonomy_governance_schema
 from . import migrations, runtime_state
 
 logger = logging.getLogger(__name__)
@@ -858,6 +858,28 @@ def init_db() -> None:
             measurement_path,
             [(semantic_measurement_schema.SEMANTIC_MEASUREMENT_MIGRATION_VERSION, semantic_measurement_schema.DESCRIPTION, semantic_measurement_schema.migrate_semantic_measurement)],
             backup_path=measurement_backup,
+            restore_on_error=True,
+        )
+
+    # Stage 4A.1-R1 records actual classifier execution identity separately
+    # from requested/provisional classifier identity fields.
+    if database in (None, ":memory:"):
+        with get_connection() as conn:
+            raw = conn.connection.driver_connection
+            if migrations.current_version(raw) < classifier_validation_execution_schema.CLASSIFIER_VALIDATION_EXECUTION_MIGRATION_VERSION:
+                classifier_validation_execution_schema.migrate_classifier_validation_execution(raw)
+                migrations.record_version(raw, classifier_validation_execution_schema.CLASSIFIER_VALIDATION_EXECUTION_MIGRATION_VERSION, classifier_validation_execution_schema.DESCRIPTION)
+                raw.commit()
+            else:
+                classifier_validation_execution_schema.migrate_classifier_validation_execution(raw)
+                raw.commit()
+    else:
+        execution_path = Path(database).expanduser().resolve()
+        execution_backup = execution_path.with_name(execution_path.name + ".classifier_validation_execution_v1.bak")
+        migrations.apply_ordered_migrations(
+            execution_path,
+            [(classifier_validation_execution_schema.CLASSIFIER_VALIDATION_EXECUTION_MIGRATION_VERSION, classifier_validation_execution_schema.DESCRIPTION, classifier_validation_execution_schema.migrate_classifier_validation_execution)],
+            backup_path=execution_backup,
             restore_on_error=True,
         )
 

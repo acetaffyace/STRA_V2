@@ -34,16 +34,29 @@ def _labels(item: Mapping[str, Any], key: str, *, fallback: str | None = None) -
     return []
 
 
-def _score_multilabel(gold: Sequence[set[str]], predicted: Sequence[set[str]], topics: Sequence[str]) -> dict[str, Any]:
+def _score_multilabel(
+    gold: Sequence[set[str]],
+    predicted: Sequence[set[str]],
+    topics: Sequence[str],
+    *,
+    sufficient_support: int = 5,
+    limited_support: int = 1,
+) -> dict[str, Any]:
     per_topic: dict[str, dict[str, Any]] = {}
     total_tp = total_fp = total_fn = 0
     zero_gold_support_fp_n = 0
     macro_rows = []
+    topic_support_status: dict[str, str] = {}
     for topic in topics:
         tp = sum(topic in g and topic in p for g, p in zip(gold, predicted))
         fp = sum(topic not in g and topic in p for g, p in zip(gold, predicted))
         fn = sum(topic in g and topic not in p for g, p in zip(gold, predicted))
         support = sum(topic in g for g in gold)
+        topic_support_status[topic] = (
+            "sufficient" if support >= sufficient_support
+            else "limited" if support >= limited_support
+            else "insufficient"
+        )
         # Micro aggregation covers every active topic, including topics with
         # no positive gold examples.  Their false positives still matter for
         # precision even though they cannot contribute to macro recall/F1.
@@ -86,6 +99,15 @@ def _score_multilabel(gold: Sequence[set[str]], predicted: Sequence[set[str]], t
         "macro_topic_n": len(macro_rows),
         "exact_match_rate": exact_match,
         "per_topic": per_topic,
+        "taxonomy_topic_n": len(topics),
+        "gold_covered_topic_n": sum(status != "insufficient" for status in topic_support_status.values()),
+        "gold_topic_coverage_rate": (
+            sum(status != "insufficient" for status in topic_support_status.values()) / len(topics)
+            if topics else 0.0
+        ),
+        "zero_gold_support_topic_n": sum(status == "insufficient" for status in topic_support_status.values()),
+        "zero_gold_support_topics": sorted(topic for topic, status in topic_support_status.items() if status == "insufficient"),
+        "topic_support_status": topic_support_status,
         "small_gold_support_warning": any(row["gold_support"] < 5 for row in per_topic.values()),
         "zero_gold_support_fp_n": zero_gold_support_fp_n,
         "zero_gold_support_prediction_warning": zero_gold_support_fp_n > 0,
@@ -103,6 +125,8 @@ def evaluate_classifier_fixture(
     predictions: Sequence[Mapping[str, Any]] | Mapping[str, Any],
     *,
     taxonomy_contract: ClassifierTaxonomyContract | None = None,
+    topic_support_sufficient: int = 5,
+    topic_support_limited: int = 1,
 ) -> dict[str, Any]:
     """Evaluate topic/issue/request agreement without calling a provider."""
     contract = taxonomy_contract or baseline_classifier_taxonomy()
@@ -166,7 +190,13 @@ def evaluate_classifier_fixture(
             predicted_ordered.append(valid)
             predicted_labels.append(set(valid))
 
-    topic_metrics = _score_multilabel(gold_labels, predicted_labels, contract.active_topic_keys)
+    topic_metrics = _score_multilabel(
+        gold_labels,
+        predicted_labels,
+        contract.active_topic_keys,
+        sufficient_support=topic_support_sufficient,
+        limited_support=topic_support_limited,
+    )
     issue_available = any("gold_issue_labels" in item for item in gold)
     request_available = any("gold_request_labels" in item for item in gold)
 
@@ -185,7 +215,13 @@ def evaluate_classifier_fixture(
             [] if any(label not in allowed for label in labels) else labels
             for labels in p
         ]
-        result = _score_multilabel([set(row) for row in g], [set(row) for row in p_clean], contract.active_topic_keys)
+        result = _score_multilabel(
+            [set(row) for row in g],
+            [set(row) for row in p_clean],
+            contract.active_topic_keys,
+            sufficient_support=topic_support_sufficient,
+            limited_support=topic_support_limited,
+        )
         result["invalid_prediction_n"] = invalid
         return result
 
@@ -208,6 +244,12 @@ def evaluate_classifier_fixture(
         "unexpected_prediction_ids": unexpected_prediction_ids[:50],
         "invalid_prediction_n": invalid_prediction_n,
         "evaluation_coverage": evaluation_coverage,
+        "taxonomy_topic_n": topic_metrics["taxonomy_topic_n"],
+        "gold_covered_topic_n": topic_metrics["gold_covered_topic_n"],
+        "gold_topic_coverage_rate": topic_metrics["gold_topic_coverage_rate"],
+        "zero_gold_support_topic_n": topic_metrics["zero_gold_support_topic_n"],
+        "zero_gold_support_topics": topic_metrics["zero_gold_support_topics"],
+        "topic_support_status": topic_metrics["topic_support_status"],
         "topic_metrics": {
             **topic_metrics,
             "primary_accuracy": _primary_accuracy(gold_primary, predicted_ordered),

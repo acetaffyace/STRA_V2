@@ -1,15 +1,15 @@
 """Runtime orchestration for real classifier validation.
 
-The provider-free scorer remains in :mod:`classifier_validation`.  This
-module binds a gold dataset and an explicit taxonomy contract to the same
-production classifier entry point used by analysis, then records execution
-provenance and applies the versioned admission gate.
+The provider-free scorer remains in :mod:`classifier_validation`. This module
+binds a gold dataset and taxonomy contract to the production classifier,
+captures actual execution identity, and applies the versioned gate.
 """
 from __future__ import annotations
 
 import copy
 import hashlib
 import json
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Callable, Mapping, Sequence
 
@@ -18,8 +18,26 @@ from .classifier_validation import evaluate_classifier_fixture
 from .classifier_validation_policy import ClassifierValidationPolicy, evaluate_validation_gate
 
 VALIDATION_DATASET_SCHEMA_VERSION = "classifier-validation-dataset-v1"
-CLASSIFIER_VALIDATION_RUN_SCHEMA_VERSION = "classifier-validation-run-v1"
+CLASSIFIER_VALIDATION_RUN_SCHEMA_VERSION = "classifier-validation-run-v2"
 _SCORER_ONLY_LIMITATIONS = {"synthetic_or_offline_validation_only", "not_real_model_validation"}
+
+
+@dataclass(frozen=True)
+class ClassifierExecutionResult:
+    """Internal result of one classifier execution, including actual identity."""
+
+    predictions: Any
+    execution_mode: str
+    actual_model_id: str
+    actual_provider: str | None = None
+    prompt_version: str | None = None
+    schema_version: str | None = None
+
+    def validate(self) -> None:
+        if self.execution_mode not in {"production_classifier", "injected_classifier"}:
+            raise ValueError("classifier_execution_mode_invalid")
+        if not str(self.actual_model_id).strip():
+            raise ValueError("classifier_execution_actual_model_id_missing")
 
 
 def _sha(value: Any) -> str:
@@ -46,7 +64,7 @@ def _labels(item: Mapping[str, Any], key: str) -> list[str]:
 
 
 def normalized_validation_items(gold_items: Sequence[Mapping[str, Any]] | Mapping[str, Any]) -> list[dict[str, Any]]:
-    """Return the stable benchmark identity projection, without file/time/object identity."""
+    """Return the stable benchmark identity projection."""
     rows = [dict(gold_items)] if isinstance(gold_items, Mapping) else [dict(row) for row in gold_items]
     normalized = []
     for row in rows:
@@ -84,12 +102,31 @@ def validation_dataset_identity(
     }
 
 
-def production_classifier(items: Sequence[Mapping[str, Any]], *, taxonomy_contract: ClassifierTaxonomyContract) -> Mapping[str, Any]:
-    """Invoke the production batch classifier with the exact supplied contract."""
-    from .llm import classify_reviews
+def _execute_production_classifier(
+    items: Sequence[Mapping[str, Any]],
+    *,
+    taxonomy_contract: ClassifierTaxonomyContract,
+) -> ClassifierExecutionResult:
+    """Run the real production path and preserve its returned model identity."""
+    from .llm import CLASSIFICATION_SCHEMA_VERSION, active_classifier_prompt_version, classify_reviews
+    from .providers import get_active_config
 
-    predictions, _model_used = classify_reviews(list(items), taxonomy_contract=taxonomy_contract)
-    return predictions
+    predictions, model_used = classify_reviews(list(items), taxonomy_contract=taxonomy_contract)
+    result = ClassifierExecutionResult(
+        predictions=predictions,
+        execution_mode="production_classifier",
+        actual_model_id=str(model_used or ""),
+        actual_provider=str(get_active_config().get("provider") or "") or None,
+        prompt_version=active_classifier_prompt_version(),
+        schema_version=CLASSIFICATION_SCHEMA_VERSION,
+    )
+    result.validate()
+    return result
+
+
+def production_classifier(items: Sequence[Mapping[str, Any]], *, taxonomy_contract: ClassifierTaxonomyContract) -> ClassifierExecutionResult:
+    """Compatibility wrapper returning the explicit production execution result."""
+    return _execute_production_classifier(items, taxonomy_contract=taxonomy_contract)
 
 
 def classifier_identity(
@@ -100,7 +137,7 @@ def classifier_identity(
     prompt_version: str | None = None,
     schema_version: str | None = None,
 ) -> dict[str, Any]:
-    """Resolve identity from existing classifier/provider sources."""
+    """Resolve current requested identity for provisional bundle bootstrap."""
     from .llm import CLASSIFICATION_SCHEMA_VERSION, active_classifier_prompt_version
     from .providers import get_active_config
 
@@ -119,36 +156,93 @@ def classifier_identity(
     }
 
 
+def _execution_identity(contract: ClassifierTaxonomyContract, execution: ClassifierExecutionResult) -> dict[str, Any]:
+    from .llm import CLASSIFICATION_SCHEMA_VERSION, active_classifier_prompt_version
+
+    execution.validate()
+    prompt_version = execution.prompt_version or active_classifier_prompt_version()
+    schema_version = execution.schema_version or CLASSIFICATION_SCHEMA_VERSION
+    payload = {
+        "execution_mode": execution.execution_mode,
+        "actual_provider": execution.actual_provider,
+        "actual_model_id": execution.actual_model_id,
+        "prompt_version": prompt_version,
+        "schema_version": schema_version,
+        "taxonomy_snapshot_id": contract.snapshot_id,
+        "taxonomy_version": contract.taxonomy_version,
+        "taxonomy_fingerprint": contract.taxonomy_fingerprint,
+        "classifier_taxonomy_contract_fingerprint": contract.fingerprint,
+    }
+    return {
+        "classifier_provider": execution.actual_provider or ("injected" if execution.execution_mode == "injected_classifier" else "unconfigured"),
+        "classifier_model_id": execution.actual_model_id,
+        "classifier_prompt_version": prompt_version,
+        "classifier_schema_version": schema_version,
+        "taxonomy_snapshot_id": contract.snapshot_id,
+        "taxonomy_version": contract.taxonomy_version,
+        "taxonomy_fingerprint": contract.taxonomy_fingerprint,
+        "classifier_taxonomy_contract_fingerprint": contract.fingerprint,
+        "execution_mode": execution.execution_mode,
+        "actual_model_id": execution.actual_model_id,
+        "actual_provider": execution.actual_provider,
+        "execution_identity_fingerprint": _sha(payload),
+    }
+
+
 def run_classifier_validation(
     gold_items: Sequence[Mapping[str, Any]] | Mapping[str, Any],
     *,
     taxonomy_contract: ClassifierTaxonomyContract | None = None,
-    classifier: Callable[..., Mapping[str, Any]] | None = None,
+    classifier: Callable[..., Any] | None = None,
     validation_dataset_id: str | None = None,
     language_scope: str | None = None,
     provider: str | None = None,
     model_id: str | None = None,
     prompt_version: str | None = None,
     schema_version: str | None = None,
+    injected_classifier_identity: Mapping[str, Any] | None = None,
     policy: ClassifierValidationPolicy | None = None,
 ) -> dict[str, Any]:
-    """Run the production-compatible classifier and return an immutable run record."""
+    """Run validation; only the no-callback path can yield production provenance."""
     contract = taxonomy_contract or baseline_classifier_taxonomy()
     contract.validate()
-    dataset = validation_dataset_identity(
-        gold_items, validation_dataset_id=validation_dataset_id, language_scope=language_scope,
+    items = [dict(gold_items)] if isinstance(gold_items, Mapping) else [dict(item) for item in gold_items]
+    dataset = validation_dataset_identity(items, validation_dataset_id=validation_dataset_id, language_scope=language_scope)
+    policy = policy or ClassifierValidationPolicy()
+
+    if classifier is None:
+        if any(value is not None for value in (provider, model_id, prompt_version, schema_version, injected_classifier_identity)):
+            raise ValueError("production_identity_override_not_allowed")
+        execution = _execute_production_classifier(items, taxonomy_contract=contract)
+    else:
+        declared = dict(injected_classifier_identity or {})
+        actual_model_id = declared.get("actual_model_id") or model_id
+        if not actual_model_id:
+            raise ValueError("injected_classifier_identity_required")
+        execution_value = classifier(items, taxonomy_contract=contract)
+        predictions = execution_value.predictions if isinstance(execution_value, ClassifierExecutionResult) else execution_value
+        execution = ClassifierExecutionResult(
+            predictions=predictions,
+            execution_mode="injected_classifier",
+            actual_model_id=str(actual_model_id),
+            actual_provider=str(declared.get("actual_provider") or provider or "injected"),
+            prompt_version=str(declared.get("prompt_version") or prompt_version or "injected-test-prompt"),
+            schema_version=str(declared.get("schema_version") or schema_version or "injected-test-schema"),
+        )
+        execution.validate()
+
+    identity = _execution_identity(contract, execution)
+    scorer_report = evaluate_classifier_fixture(
+        items,
+        execution.predictions,
+        taxonomy_contract=contract,
+        topic_support_sufficient=policy.sufficient_topic_support,
+        topic_support_limited=policy.limited_topic_support,
     )
-    identity = classifier_identity(
-        contract, provider=provider, model_id=model_id, prompt_version=prompt_version, schema_version=schema_version,
-    )
-    execution_mode = "production_classifier" if classifier is None else "injected_classifier"
-    classifier_fn = classifier or production_classifier
-    predictions = classifier_fn(list(gold_items) if not isinstance(gold_items, Mapping) else [dict(gold_items)], taxonomy_contract=contract)
-    scorer_report = evaluate_classifier_fixture(gold_items, predictions, taxonomy_contract=contract)
     gate = evaluate_validation_gate(scorer_report, policy=policy)
     limitations = [value for value in scorer_report.get("limitations", []) if value not in _SCORER_ONLY_LIMITATIONS]
     limitations.extend(gate.get("limitations", []))
-    if execution_mode != "production_classifier":
+    if execution.execution_mode != "production_classifier":
         limitations.append("injected_classifier_execution_for_test_or_simulation")
     limitations = sorted(set(limitations))
     completed_at = _now()
@@ -158,7 +252,7 @@ def run_classifier_validation(
         "identity": identity,
         "scorer_report": scorer_report,
         "gate": gate,
-        "execution_mode": execution_mode,
+        "gate_policy": gate["policy"],
     }
     validation_run_id = "validation_run_" + _sha(run_identity)[:32]
     return {
@@ -170,15 +264,21 @@ def run_classifier_validation(
         "prediction_item_n": scorer_report["prediction_item_n"],
         "matched_prediction_n": scorer_report["matched_prediction_n"],
         "evaluation_coverage": scorer_report["evaluation_coverage"],
+        "taxonomy_topic_n": scorer_report["taxonomy_topic_n"],
+        "gold_covered_topic_n": scorer_report["gold_covered_topic_n"],
+        "gold_topic_coverage_rate": scorer_report["gold_topic_coverage_rate"],
+        "zero_gold_support_topic_n": scorer_report["zero_gold_support_topic_n"],
+        "zero_gold_support_topics": scorer_report["zero_gold_support_topics"],
+        "topic_support_status": scorer_report["topic_support_status"],
         "topic_metrics": copy.deepcopy(scorer_report["topic_metrics"]),
         "issue_metrics": copy.deepcopy(scorer_report.get("issue_metrics")),
         "request_metrics": copy.deepcopy(scorer_report.get("request_metrics")),
         "gate_policy_version": gate["policy_version"],
+        "gate_policy": copy.deepcopy(gate["policy"]),
         "gate_status": gate["status"],
         "gate_reasons": sorted(set(gate["failures"])),
         "gate_limitations": sorted(set(gate["limitations"])),
         "limitations": limitations,
-        "execution_mode": execution_mode,
         "scorer_report": scorer_report,
         "created_at": completed_at,
         "completed_at": completed_at,
@@ -187,6 +287,7 @@ def run_classifier_validation(
 
 __all__ = [
     "CLASSIFIER_VALIDATION_RUN_SCHEMA_VERSION",
+    "ClassifierExecutionResult",
     "VALIDATION_DATASET_SCHEMA_VERSION",
     "classifier_identity",
     "normalized_validation_items",

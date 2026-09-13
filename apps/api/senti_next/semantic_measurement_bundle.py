@@ -44,7 +44,7 @@ def _bundle_from_row(row: Mapping[str, Any]) -> dict[str, Any]:
 
 def _run_from_row(row: Mapping[str, Any]) -> dict[str, Any]:
     result = dict(row)
-    for key in ("topic_metrics_json", "issue_metrics_json", "request_metrics_json", "gate_reasons_json", "limitations_json", "scorer_report_json"):
+    for key in ("topic_metrics_json", "issue_metrics_json", "request_metrics_json", "gate_reasons_json", "limitations_json", "scorer_report_json", "gate_policy_json"):
         output_key = key[:-5]
         value = result.pop(key, None)
         result[output_key] = json.loads(value) if value else None
@@ -55,7 +55,7 @@ def persist_classifier_validation_run(validation_run: Mapping[str, Any]) -> dict
     """Insert an immutable run record; repeated content-addressed writes are read-only."""
     _ensure_db()
     run = dict(validation_run)
-    required = ("validation_run_id", "validation_dataset_id", "validation_dataset_fingerprint", "taxonomy_snapshot_id", "taxonomy_version", "taxonomy_fingerprint", "classifier_provider", "classifier_model_id", "classifier_prompt_version", "classifier_schema_version", "classifier_taxonomy_contract_fingerprint")
+    required = ("validation_run_id", "validation_dataset_id", "validation_dataset_fingerprint", "taxonomy_snapshot_id", "taxonomy_version", "taxonomy_fingerprint", "classifier_provider", "classifier_model_id", "classifier_prompt_version", "classifier_schema_version", "classifier_taxonomy_contract_fingerprint", "execution_mode", "actual_model_id", "execution_identity_fingerprint")
     missing = [key for key in required if not run.get(key)]
     if missing:
         raise ValueError("validation_run_identity_incomplete:" + ",".join(missing))
@@ -70,7 +70,8 @@ def persist_classifier_validation_run(validation_run: Mapping[str, Any]) -> dict
                 classifier_provider, classifier_model_id, classifier_prompt_version, classifier_schema_version,
                 classifier_taxonomy_contract_fingerprint, gold_item_n, prediction_item_n, matched_prediction_n,
                 evaluation_coverage, topic_metrics_json, issue_metrics_json, request_metrics_json,
-                gate_policy_version, gate_status, gate_reasons_json, limitations_json, scorer_report_json,
+                gate_policy_version, gate_policy_json, gate_status, gate_reasons_json, limitations_json, scorer_report_json,
+                execution_mode, actual_model_id, execution_identity_fingerprint, actual_provider,
                 created_at, completed_at
             ) VALUES (
                 :validation_run_id, :validation_dataset_id, :validation_dataset_fingerprint, :language_scope,
@@ -78,7 +79,8 @@ def persist_classifier_validation_run(validation_run: Mapping[str, Any]) -> dict
                 :classifier_provider, :classifier_model_id, :classifier_prompt_version, :classifier_schema_version,
                 :classifier_taxonomy_contract_fingerprint, :gold_item_n, :prediction_item_n, :matched_prediction_n,
                 :evaluation_coverage, :topic_metrics_json, :issue_metrics_json, :request_metrics_json,
-                :gate_policy_version, :gate_status, :gate_reasons_json, :limitations_json, :scorer_report_json,
+                :gate_policy_version, :gate_policy_json, :gate_status, :gate_reasons_json, :limitations_json, :scorer_report_json,
+                :execution_mode, :actual_model_id, :execution_identity_fingerprint, :actual_provider,
                 :created_at, :completed_at
             )
         """), {
@@ -88,7 +90,8 @@ def persist_classifier_validation_run(validation_run: Mapping[str, Any]) -> dict
             "classifier_provider": run["classifier_provider"], "classifier_model_id": run["classifier_model_id"], "classifier_prompt_version": run["classifier_prompt_version"], "classifier_schema_version": run["classifier_schema_version"], "classifier_taxonomy_contract_fingerprint": run["classifier_taxonomy_contract_fingerprint"],
             "gold_item_n": run["gold_item_n"], "prediction_item_n": run["prediction_item_n"], "matched_prediction_n": run["matched_prediction_n"], "evaluation_coverage": run["evaluation_coverage"],
             "topic_metrics_json": _json(run.get("topic_metrics") or {}), "issue_metrics_json": _json(run["issue_metrics"]) if run.get("issue_metrics") is not None else None, "request_metrics_json": _json(run["request_metrics"]) if run.get("request_metrics") is not None else None,
-            "gate_policy_version": run["gate_policy_version"], "gate_status": run["gate_status"], "gate_reasons_json": _json(run.get("gate_reasons") or []), "limitations_json": _json(run.get("limitations") or []), "scorer_report_json": _json(run.get("scorer_report") or {}),
+            "gate_policy_version": run["gate_policy_version"], "gate_policy_json": _json(run.get("gate_policy") or {}), "gate_status": run["gate_status"], "gate_reasons_json": _json(run.get("gate_reasons") or []), "limitations_json": _json(run.get("limitations") or []), "scorer_report_json": _json(run.get("scorer_report") or {}),
+            "execution_mode": run["execution_mode"], "actual_model_id": run["actual_model_id"], "execution_identity_fingerprint": run["execution_identity_fingerprint"], "actual_provider": run.get("actual_provider"),
             "created_at": run.get("created_at") or _now(), "completed_at": run.get("completed_at") or _now(),
         })
         row = conn.execute(text("SELECT * FROM classifier_validation_runs WHERE validation_run_id=:id"), {"id": run["validation_run_id"]}).mappings().one()
@@ -120,7 +123,16 @@ def create_measurement_bundle(
     """Create an immutable bundle; only an actual gate PASS can be VALIDATED."""
     _ensure_db()
     taxonomy_contract.validate()
-    run = dict(validation_run) if validation_run else None
+    run = None
+    if validation_run:
+        validation_run_id = str(validation_run.get("validation_run_id") or "")
+        if not validation_run_id:
+            raise ValueError("validation_run_id_required")
+        # The database record is authoritative. Caller-supplied gate status,
+        # execution mode, and model identity are never trusted for admission.
+        run = get_validation_run(validation_run_id)
+        if run is None:
+            raise ValueError("validation_run_not_found")
     validation_status = str(run.get("gate_status")) if run else "UNAVAILABLE"
     if run:
         for field, expected in (
@@ -130,23 +142,30 @@ def create_measurement_bundle(
         ):
             if str(run.get(field)) != str(expected):
                 raise ValueError("validation_run_taxonomy_identity_mismatch")
+    production_ready = bool(
+        run
+        and run.get("gate_status") == "PASS"
+        and run.get("execution_mode") == "production_classifier"
+        and run.get("actual_model_id")
+        and run.get("execution_identity_fingerprint")
+    )
     if validation_status == "FAIL":
         if measurement_status == VALIDATED:
             raise ValueError("failed_validation_cannot_create_validated_bundle")
         requested_status = PROVISIONAL
     elif measurement_status is None:
-        requested_status = VALIDATED if validation_status == "PASS" else PROVISIONAL
+        requested_status = VALIDATED if production_ready else PROVISIONAL
     else:
         requested_status = measurement_status
     if requested_status not in _STATUSES or requested_status == RETIRED:
         raise ValueError("invalid_measurement_status")
-    if requested_status == VALIDATED and validation_status != "PASS":
-        raise ValueError("validated_bundle_requires_pass_validation")
+    if requested_status == VALIDATED and not production_ready:
+        raise ValueError("validated_bundle_requires_persisted_production_pass")
     resolved_identity = classifier_identity(taxonomy_contract)
     if run:
         resolved_identity.update({
-            "classifier_provider": run["classifier_provider"],
-            "classifier_model_id": run["classifier_model_id"],
+            "classifier_provider": run.get("actual_provider") or run["classifier_provider"],
+            "classifier_model_id": run.get("actual_model_id") or run["classifier_model_id"],
             "classifier_prompt_version": run["classifier_prompt_version"],
             "classifier_schema_version": run["classifier_schema_version"],
         })
@@ -205,8 +224,20 @@ def activate_measurement_bundle(bundle_id: str, *, operator: str, reason: str = 
             raise ValueError("measurement_bundle_not_found")
         if row["measurement_status"] == RETIRED:
             raise ValueError("retired_bundle_cannot_activate")
-        if row["measurement_status"] == VALIDATED and row["validation_status"] != "PASS":
-            raise ValueError("validated_bundle_requires_pass_validation")
+        if row["measurement_status"] == VALIDATED:
+            validation_run_id = row["validation_run_id"]
+            validation_run = conn.execute(
+                text("SELECT * FROM classifier_validation_runs WHERE validation_run_id=:id"),
+                {"id": validation_run_id},
+            ).mappings().first() if validation_run_id else None
+            if (
+                not validation_run
+                or validation_run["gate_status"] != "PASS"
+                or validation_run["execution_mode"] != "production_classifier"
+                or not validation_run["actual_model_id"]
+                or not validation_run["execution_identity_fingerprint"]
+            ):
+                raise ValueError("validated_bundle_production_run_referential_validation_failed")
         conn.execute(text("UPDATE semantic_measurement_bundles SET is_active=0 WHERE is_active=1"))
         conn.execute(text("UPDATE semantic_measurement_bundles SET is_active=1, activated_at=COALESCE(activated_at, datetime('now')) WHERE bundle_id=:id"), {"id": bundle_id})
         event_id = "measurement_activation_" + uuid.uuid4().hex
@@ -232,8 +263,23 @@ def bootstrap_baseline_measurement_bundle() -> dict[str, Any]:
     """Return/create the honest legacy baseline for product integration."""
     _ensure_db()
     contract = baseline_classifier_taxonomy()
+    identity = classifier_identity(contract)
     with db.get_connection() as conn:
-        row = conn.execute(text("SELECT * FROM semantic_measurement_bundles WHERE taxonomy_snapshot_id=:snapshot AND validation_run_id IS NULL ORDER BY created_at ASC, rowid ASC LIMIT 1"), {"snapshot": contract.snapshot_id}).mappings().first()
+        row = conn.execute(text("""
+            SELECT * FROM semantic_measurement_bundles
+            WHERE taxonomy_snapshot_id=:snapshot AND validation_run_id IS NULL
+              AND classifier_provider=:provider
+              AND classifier_model_id=:model_id
+              AND classifier_prompt_version=:prompt_version
+              AND classifier_schema_version=:schema_version
+            ORDER BY created_at ASC, rowid ASC LIMIT 1
+        """), {
+            "snapshot": contract.snapshot_id,
+            "provider": identity["classifier_provider"],
+            "model_id": identity["classifier_model_id"],
+            "prompt_version": identity["classifier_prompt_version"],
+            "schema_version": identity["classifier_schema_version"],
+        }).mappings().first()
         if row:
             return _bundle_from_row(row)
     return create_measurement_bundle(

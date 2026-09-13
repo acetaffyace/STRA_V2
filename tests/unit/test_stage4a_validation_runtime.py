@@ -6,6 +6,7 @@ import pytest
 
 from apps.api.senti_next.classifier_taxonomy import baseline_classifier_taxonomy
 from apps.api.senti_next.classifier_validation_policy import ClassifierValidationPolicy, evaluate_validation_gate
+from apps.api.senti_next import classifier_validation_runtime as runtime
 from apps.api.senti_next.classifier_validation_runtime import run_classifier_validation, validation_dataset_identity
 
 
@@ -34,6 +35,7 @@ def test_runtime_passes_exact_taxonomy_contract_to_production_compatible_path():
     assert run["gate_status"] == "PASS_WITH_LIMITATIONS"
     assert "not_real_model_validation" not in run["limitations"]
     assert run["execution_mode"] == "injected_classifier"
+    assert run["actual_model_id"] == "fake:test-model"
     json.dumps(run, sort_keys=True, allow_nan=False)
 
 
@@ -62,3 +64,19 @@ def test_gate_boundaries_cover_pass_limited_fail_invalid_and_rare_support():
     zero_support_fp = {**base, "topic_metrics": {**base["topic_metrics"], "zero_gold_support_fp_n": 1}}
     assert evaluate_validation_gate(zero_support_fp, policy=policy)["status"] == "FAIL"
 
+
+def test_production_identity_overrides_are_rejected():
+    with pytest.raises(ValueError, match="production_identity_override"):
+        run_classifier_validation(_gold(), model_id="caller-forged-model")
+
+
+def test_execution_identity_fingerprint_changes_with_actual_model():
+    contract = baseline_classifier_taxonomy()
+
+    def first(items, *, taxonomy_contract):
+        return {item["review_id"]: {"subcategories": item["gold_labels"]} for item in items}
+
+    first_run = run_classifier_validation(_gold(), taxonomy_contract=contract, classifier=first, injected_classifier_identity={"actual_model_id": "fake:model-a"})
+    second_run = run_classifier_validation(_gold(), taxonomy_contract=contract, classifier=first, injected_classifier_identity={"actual_model_id": "fake:model-b"})
+    assert first_run["execution_identity_fingerprint"] != second_run["execution_identity_fingerprint"]
+    assert first_run["validation_run_id"] != second_run["validation_run_id"]
