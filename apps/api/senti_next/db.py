@@ -12,7 +12,7 @@ from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.pool import NullPool, StaticPool
 
-from . import label_schema, result_schema, semantic_discovery_materialization_schema, semantic_discovery_schema, semantic_index_schema, semantic_region_interpretation_schema
+from . import label_schema, result_schema, semantic_discovery_materialization_schema, semantic_discovery_schema, semantic_index_schema, semantic_region_interpretation_schema, taxonomy_governance_schema
 from . import migrations, runtime_state
 
 logger = logging.getLogger(__name__)
@@ -784,6 +784,34 @@ def init_db() -> None:
             backup_path=interpretation_backup,
             restore_on_error=True,
         )
+
+    # Stage 3D keeps taxonomy governance independent from the frozen
+    # classifier.  Fresh databases also receive the exact immutable v1
+    # baseline snapshot; later stages may explicitly publish new snapshots.
+    if database in (None, ":memory:"):
+        with get_connection() as conn:
+            raw = conn.connection.driver_connection
+            if migrations.current_version(raw) < taxonomy_governance_schema.TAXONOMY_GOVERNANCE_MIGRATION_VERSION:
+                taxonomy_governance_schema.migrate_taxonomy_governance(raw)
+                migrations.record_version(raw, taxonomy_governance_schema.TAXONOMY_GOVERNANCE_MIGRATION_VERSION, taxonomy_governance_schema.DESCRIPTION)
+                raw.commit()
+            from .taxonomy_registry import ensure_baseline_snapshot
+            ensure_baseline_snapshot(raw)
+            raw.commit()
+    else:
+        taxonomy_path = Path(database).expanduser().resolve()
+        taxonomy_backup = taxonomy_path.with_name(taxonomy_path.name + ".taxonomy_governance_v1.bak")
+        migrations.apply_ordered_migrations(
+            taxonomy_path,
+            [(taxonomy_governance_schema.TAXONOMY_GOVERNANCE_MIGRATION_VERSION, taxonomy_governance_schema.DESCRIPTION, taxonomy_governance_schema.migrate_taxonomy_governance)],
+            backup_path=taxonomy_backup,
+            restore_on_error=True,
+        )
+        with get_connection() as conn:
+            raw = conn.connection.driver_connection
+            from .taxonomy_registry import ensure_baseline_snapshot
+            ensure_baseline_snapshot(raw)
+            raw.commit()
 
     with get_connection() as conn:
         run_schema.recover_interrupted_general_runs(conn)

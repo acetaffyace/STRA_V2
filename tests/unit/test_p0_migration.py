@@ -146,4 +146,5 @@ def test_application_db_initialization_records_stable_bootstrap_version(monkeypa
                 (15, "open-set semantic discovery and taxonomy audit results"),
                     (16, "semantic discovery structure/context identity and materializations"),
                     (17, "semantic region evidence and taxonomy candidate interpretation"),
-                                ]
+                    (18, "versioned taxonomy governance and immutable snapshots"),
+                                    ]
