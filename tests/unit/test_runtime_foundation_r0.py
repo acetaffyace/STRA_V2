@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+import importlib.util
 from pathlib import Path
 import sqlite3
+import sys
 
 import pytest
 
@@ -106,3 +108,25 @@ def test_frozen_self_test_and_runtime_smoke_are_declared() -> None:
     assert "--self-test" in desktop_main
     assert "desktop-runtime-smoke" in workflow
     assert "smoke_desktop_sidecar.py" in workflow
+
+
+def test_build_info_reads_version_without_importing_api_package(monkeypatch) -> None:
+    """The outer host Python need not have desktop analytical dependencies."""
+    build_path = ROOT / "apps/desktop/pyinstaller/build.py"
+    spec = importlib.util.spec_from_file_location("stage_r0_build", build_path)
+    assert spec and spec.loader
+    build = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(build)
+
+    # Simulate the host interpreter before the clean desktop venv exists: the
+    # package initializer and pandas are deliberately unavailable.  runpy on
+    # version.py must still produce build metadata from stdlib-only code.
+    monkeypatch.setitem(sys.modules, "apps.api.senti_next", None)
+    monkeypatch.setitem(sys.modules, "pandas", None)
+    info_path = build.write_build_info(ROOT)
+    try:
+        payload = json.loads(info_path.read_text(encoding="utf-8"))
+        assert payload["app_version"] == APP_VERSION
+        assert payload["git_sha"]
+    finally:
+        info_path.unlink(missing_ok=True)

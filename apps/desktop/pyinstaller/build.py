@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import json
 import platform
+import runpy
 import shutil
 import subprocess
 import sys
@@ -64,7 +65,7 @@ def ensure_venv(script_dir: Path) -> Path:
     # Always sync requirements (fast no-op when already satisfied)
     print("Installing desktop requirements ...")
     subprocess.run(
-        [str(venv_python), "-m", "pip", "install", "--disable-pip-version-check", "--progress-bar", "off", "-r", str(requirements)],
+        [str(venv_python), "-m", "pip", "install", "-q", "-r", str(requirements)],
         check=True,
     )
 
@@ -88,13 +89,18 @@ def resolve_git_sha(repo_root: Path) -> str:
 
 def write_build_info(repo_root: Path) -> Path:
     """Generate ephemeral identity metadata consumed by the frozen bundle."""
-    if str(repo_root) not in sys.path:
-        sys.path.insert(0, str(repo_root))
-    from apps.api.senti_next.version import APP_VERSION
+    # Read the version module as a standalone stdlib-only file.  Importing
+    # ``apps.api.senti_next.version`` executes the package initializer first,
+    # which pulls in the full analytical application (including pandas) on a
+    # host interpreter.  The clean build venv is intentionally the only
+    # environment that should need desktop runtime dependencies.
+    version_path = repo_root / "apps" / "api" / "senti_next" / "version.py"
+    version_namespace = runpy.run_path(str(version_path), run_name="__senti_next_build_version__")
+    app_version = str(version_namespace["APP_VERSION"])
 
     info_path = repo_root / "apps" / "api" / "senti_next" / "build_info.json"
     info_path.write_text(
-        json.dumps({"app_version": APP_VERSION, "git_sha": resolve_git_sha(repo_root)}, sort_keys=True),
+        json.dumps({"app_version": app_version, "git_sha": resolve_git_sha(repo_root)}, sort_keys=True),
         encoding="utf-8",
     )
     return info_path
