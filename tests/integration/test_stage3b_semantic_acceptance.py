@@ -91,4 +91,3 @@ def test_discovery_is_non_interfering_with_research_stage2e_and_taxonomy() -> No
     assert all(np.array_equal(unit.vector, before) for unit, before in zip(units, vectors_before))
     assert build_snapshot_research_report(population, metadata=metadata) == report_before
     assert analyze_review_activity(population) == activity_before
-
