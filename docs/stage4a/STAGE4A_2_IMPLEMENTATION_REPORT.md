@@ -99,9 +99,9 @@ Stage 4A.3 remains deferred. This commit does not add 3F topic metrics, issue/re
 
 ## Remote CI
 
-To be filled after pushing the feature and report commits to `integration/research-pipeline-v1`:
-
-- GitHub Actions run ID: pending
-- Backend: pending
-- Frontend: pending
-- Overall: pending
+- GitHub Actions run ID: `34761671186`
+- Head SHA verified by CI: `fad1e21fb164e4ad6959325dd76e400aa8b495b6`
+- Backend: `success`
+- Frontend: `success`
+- Overall: `success`
+- Run URL: https://github.com/acetaffyace/STRA_V2/actions/runs/34761671186
