@@ -12,7 +12,7 @@ from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.pool import NullPool, StaticPool
 
-from . import label_schema, result_schema
+from . import label_schema, result_schema, semantic_index_schema
 
 logger = logging.getLogger(__name__)
 
@@ -672,6 +672,34 @@ def init_db() -> None:
                 result_schema.migrate_research_result_fields,
             )],
             backup_path=research_result_backup,
+            restore_on_error=True,
+        )
+
+    # Stage 3A stores a derived, population-bound semantic representation and
+    # reusable vectors.  This migration is additive and does not alter any
+    # Research Core result table or run denominator.
+    if database in (None, ":memory:"):
+        with get_connection() as conn:
+            raw = conn.connection.driver_connection
+            if migrations.current_version(raw) < semantic_index_schema.SEMANTIC_INDEX_MIGRATION_VERSION:
+                semantic_index_schema.migrate_semantic_index(raw)
+                migrations.record_version(
+                    raw,
+                    semantic_index_schema.SEMANTIC_INDEX_MIGRATION_VERSION,
+                    semantic_index_schema.DESCRIPTION,
+                )
+                raw.commit()
+    else:
+        semantic_index_path = Path(database).expanduser().resolve()
+        semantic_index_backup = semantic_index_path.with_name(semantic_index_path.name + ".semantic_index_v1.bak")
+        migrations.apply_ordered_migrations(
+            semantic_index_path,
+            [(
+                semantic_index_schema.SEMANTIC_INDEX_MIGRATION_VERSION,
+                semantic_index_schema.DESCRIPTION,
+                semantic_index_schema.migrate_semantic_index,
+            )],
+            backup_path=semantic_index_backup,
             restore_on_error=True,
         )
 
