@@ -2807,6 +2807,7 @@ def estimate_review_labeling(
     app_id: int,
     reviews: Sequence[Mapping[str, Any]],
     *,
+    game_context: Optional[Dict[str, Any]] = None,
     force_refresh: bool = False,
     cache_enabled: bool = True,
     taxonomy_contract: Optional[ClassifierTaxonomyContract] = None,
@@ -2860,7 +2861,7 @@ def estimate_review_labeling(
         review_id = str(review_id_value)
         review_text = (review.get("review") or "").strip()
         identity = classification_identity(
-            review, None, provider=active_name, model_id=current_model_id,
+            review, game_context, provider=active_name, model_id=current_model_id,
             prompt_version=active_prompt_version, taxonomy_contract=taxonomy_contract,
         )
 
@@ -2870,7 +2871,7 @@ def estimate_review_labeling(
         )
         if cached is None:
             reasons["missing_label"] = reasons.get("missing_label", 0) + 1
-        elif not label_cache_eligible(cached, identity):
+        elif not label_cache_eligible(cached, identity, strict_taxonomy_identity=strict_taxonomy_identity):
             reasons["identity_mismatch"] = reasons.get("identity_mismatch", 0) + 1
 
         if not needs_refresh:

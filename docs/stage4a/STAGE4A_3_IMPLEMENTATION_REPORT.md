@@ -84,3 +84,38 @@ npm run build
 ## Deferred
 
 The next integration stage may consume Unified Research Result for Dashboard, Version Review, Compare, Agent, Reports, and presentation projections. Taxonomy-gap convergence and discovery-to-taxonomy mapping remain explicitly deferred.
+
+## Stage 4A.3-R1 Review Hardening
+
+### Historical qualification drift fix
+
+The original 3F builder used the current `semantic_measurement_bundles.measurement_status` for claim and validation qualification. Because bundle retirement changes that lifecycle column to `RETIRED`, an old run could otherwise change meaning after governance action. R1 now accepts only the materialization-frozen status (`PROVISIONAL` or `VALIDATED`) and raises `semantic_measurement_invalid_frozen_measurement_status` for `RETIRED` or unknown frozen values. Claim status, per-topic qualification, limitations, and canonical provenance all use the frozen run-time status. Current bundle status is used only for existence and identity checks, so retirement cannot change the measurement fingerprint.
+
+The validation run is loaded from `materialization.validation_run_id`, then checked against the bundle identity. Frozen `VALIDATED` materializations additionally require an authoritative persisted validation run with `PASS`, `production_classifier`, an actual model, an execution identity fingerprint, and matching taxonomy/classifier identity. Invalid validation provenance raises `semantic_measurement_invalid_validation_provenance`.
+
+### Label estimate identity fix
+
+`estimate_review_labeling` now accepts optional `game_context` and includes it in `classification_identity`, matching `ensure_review_labels`. Its cache eligibility and `identity_mismatch` reason use the same strict taxonomy flag. `/analyze` fetches app details once and reuses that context for the estimate and production classification; `/analyze/estimate` best-effort fetches the same context and returns an explicit unavailable error if it cannot obtain it.
+
+### R1 regression coverage
+
+Added tests for:
+
+- validated topic qualification and unequal issue/request support qualification;
+- explicit unavailable issue/request gold qualification;
+- provisional bundle retirement invariance;
+- invalid frozen status fail-closed behavior;
+- exact game-context estimate identity and strict reason accounting;
+- additive/idempotent Migration 23 structure and old-row retention;
+- file-backed restart persistence for semantic and unified results;
+- immutable semantic fingerprint conflict protection.
+
+Focused command:
+
+```text
+.venv\Scripts\python.exe -m pytest -q --basetemp .pytest-temp-r1b tests/integration/test_stage4a3_topic_measurement.py
+```
+
+Result: 11 passed. The Stage 4A.2, Stage 4A.3, lifecycle, and estimate regression set also passed.
+
+Remote CI result will be appended after the R1 commit is pushed and its GitHub Actions run completes.

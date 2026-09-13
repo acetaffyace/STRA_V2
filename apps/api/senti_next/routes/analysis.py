@@ -1060,6 +1060,9 @@ def analyze(
 
     all_reviews.sort(key=lambda r: (r.get("language", "english"), -(r.get("timestamp_created") or 0)))
 
+    # Fetch once and reuse the exact game context for both the pre-run cache
+    # estimate and the later production classifier identity.
+    game_context = fetch_app_details(request.app_id)
     label_estimate = None
     if semantic_runtime.get("status") == "available" and all_reviews:
         try:
@@ -1069,6 +1072,7 @@ def analyze(
             estimate = llm.estimate_review_labeling(
                 request.app_id,
                 all_reviews,
+                game_context=game_context,
                 taxonomy_contract=estimate_context.taxonomy_contract,
                 strict_taxonomy_identity=True,
             )
@@ -1112,7 +1116,6 @@ def analyze(
             run_id=run_id,
         )
 
-    game_context = fetch_app_details(request.app_id)
     header_image = None
     if game_context:
         header_image = game_context.get("header_image")
@@ -1291,12 +1294,14 @@ def analyze_estimate(request: AnalyzeRequest) -> AnalyzeEstimateResponse:
 
     cached_labels = storage.load_review_labels(request.app_id)
     try:
+        game_context = fetch_app_details(request.app_id)
         estimate_context = resolve_measurement_context()
         if not estimate_context.ready or estimate_context.taxonomy_contract is None:
             raise ValueError(estimate_context.reason or "measurement_context_not_ready")
         estimate = llm.estimate_review_labeling(
             request.app_id,
             all_reviews,
+            game_context=game_context,
             taxonomy_contract=estimate_context.taxonomy_contract,
             strict_taxonomy_identity=True,
         )

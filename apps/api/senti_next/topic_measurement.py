@@ -16,7 +16,7 @@ from typing import Any, Mapping
 
 from .classifier_taxonomy import baseline_classifier_taxonomy, load_classifier_taxonomy
 from .classification_materialization import get_classification_materialization
-from .semantic_measurement_bundle import get_measurement_bundle, get_validation_run
+from .semantic_measurement_bundle import PROVISIONAL, VALIDATED, get_measurement_bundle, get_validation_run
 
 SEMANTIC_MEASUREMENT_RESULT_SCHEMA_VERSION = "semantic-measurement-result-v1"
 
@@ -73,6 +73,7 @@ def _validate_materialization(
     materialization: Mapping[str, Any],
     bundle: Mapping[str, Any],
     validation_run: Mapping[str, Any] | None,
+    frozen_measurement_status: str,
 ) -> tuple[Any, list[Mapping[str, Any]], int, int, int]:
     if str(materialization.get("run_id")) == "":
         raise ValueError("semantic_measurement_materialization_incomplete")
@@ -87,16 +88,29 @@ def _validate_materialization(
             raise ValueError("semantic_measurement_materialization_incomplete")
     if str(materialization.get("validation_run_id") or "") != str(bundle.get("validation_run_id") or ""):
         raise ValueError("semantic_measurement_materialization_incomplete")
-    if bundle.get("validation_run_id") and validation_run is None:
-        raise ValueError("semantic_measurement_materialization_incomplete")
+    if frozen_measurement_status == VALIDATED and validation_run is None:
+        raise ValueError("semantic_measurement_invalid_validation_provenance")
     if validation_run is not None:
         for key in ("taxonomy_snapshot_id", "taxonomy_version", "taxonomy_fingerprint", "classifier_prompt_version", "classifier_schema_version"):
             if str(validation_run.get(key) or "") != str(materialization.get(key) or ""):
+                if frozen_measurement_status == VALIDATED:
+                    raise ValueError("semantic_measurement_invalid_validation_provenance")
                 raise ValueError("semantic_measurement_materialization_incomplete")
         if str(validation_run.get("actual_provider") or validation_run.get("classifier_provider") or "") != str(materialization.get("classifier_provider") or ""):
+            if frozen_measurement_status == VALIDATED:
+                raise ValueError("semantic_measurement_invalid_validation_provenance")
             raise ValueError("semantic_measurement_materialization_incomplete")
         if str(validation_run.get("actual_model_id") or "") != str(materialization.get("classifier_model_id") or ""):
+            if frozen_measurement_status == VALIDATED:
+                raise ValueError("semantic_measurement_invalid_validation_provenance")
             raise ValueError("semantic_measurement_materialization_incomplete")
+        if frozen_measurement_status == VALIDATED and (
+            validation_run.get("gate_status") != "PASS"
+            or validation_run.get("execution_mode") != "production_classifier"
+            or not validation_run.get("actual_model_id")
+            or not validation_run.get("execution_identity_fingerprint")
+        ):
+            raise ValueError("semantic_measurement_invalid_validation_provenance")
 
     try:
         baseline = baseline_classifier_taxonomy()
@@ -161,11 +175,18 @@ def build_semantic_measurement_result(*, run_id: str, materialization_id: str) -
     materialization = get_classification_materialization(materialization_id)
     if materialization is None or str(materialization.get("run_id")) != str(run_id):
         raise ValueError("semantic_measurement_materialization_incomplete")
+    frozen_measurement_status = str(materialization.get("measurement_status") or "")
+    if frozen_measurement_status not in {PROVISIONAL, VALIDATED}:
+        raise ValueError("semantic_measurement_invalid_frozen_measurement_status")
     bundle = get_measurement_bundle(str(materialization.get("measurement_bundle_id") or ""))
     if bundle is None:
         raise ValueError("semantic_measurement_materialization_incomplete")
-    validation_run = get_validation_run(str(bundle["validation_run_id"])) if bundle.get("validation_run_id") else None
-    taxonomy, items, population_n, materialized_n, classified_n = _validate_materialization(materialization, bundle, validation_run)
+    if str(materialization.get("validation_run_id") or "") != str(bundle.get("validation_run_id") or ""):
+        raise ValueError("semantic_measurement_materialization_incomplete")
+    validation_run = get_validation_run(str(materialization["validation_run_id"])) if materialization.get("validation_run_id") else None
+    taxonomy, items, population_n, materialized_n, classified_n = _validate_materialization(
+        materialization, bundle, validation_run, frozen_measurement_status
+    )
 
     topic_n = {key: 0 for key in taxonomy.active_topic_keys}
     primary_n = {key: 0 for key in taxonomy.active_topic_keys}
@@ -199,30 +220,30 @@ def build_semantic_measurement_result(*, run_id: str, materialization_id: str) -
             "issue_share": issue_n[key] / denominator if denominator else 0.0,
             "request_n": request_n[key],
             "request_share": request_n[key] / denominator if denominator else 0.0,
-            "topic_validation": _validation_qualification(validation_run=validation_run, bundle_status=str(bundle.get("measurement_status")), metrics_key="topic_metrics", topic_key=key),
-            "issue_validation": _validation_qualification(validation_run=validation_run, bundle_status=str(bundle.get("measurement_status")), metrics_key="issue_metrics", topic_key=key),
-            "request_validation": _validation_qualification(validation_run=validation_run, bundle_status=str(bundle.get("measurement_status")), metrics_key="request_metrics", topic_key=key),
+            "topic_validation": _validation_qualification(validation_run=validation_run, bundle_status=frozen_measurement_status, metrics_key="topic_metrics", topic_key=key),
+            "issue_validation": _validation_qualification(validation_run=validation_run, bundle_status=frozen_measurement_status, metrics_key="issue_metrics", topic_key=key),
+            "request_validation": _validation_qualification(validation_run=validation_run, bundle_status=frozen_measurement_status, metrics_key="request_metrics", topic_key=key),
         })
 
     coverage = classified_n / population_n if population_n else 0.0
     coverage_status = "NONE" if classified_n == 0 else "FULL" if classified_n == population_n else "PARTIAL"
     limitations = sorted(set(bundle.get("limitations") or []))
-    if str(bundle.get("measurement_status")) == "PROVISIONAL":
+    if frozen_measurement_status == PROVISIONAL:
         limitations.append("provisional_measurement_bundle")
     if coverage_status == "PARTIAL":
         limitations.append("partial_classification_coverage")
     if classified_n == 0:
         limitations.append("no_validated_classifications")
-    if str(bundle.get("measurement_status")) == "VALIDATED" and any(row["issue_validation"]["status"] != "VALIDATED" for row in topic_rows):
+    if frozen_measurement_status == VALIDATED and any(row["issue_validation"]["status"] != "VALIDATED" for row in topic_rows):
         limitations.append("issue_measurement_not_fully_validated")
-    if str(bundle.get("measurement_status")) == "VALIDATED" and any(row["request_validation"]["status"] != "VALIDATED" for row in topic_rows):
+    if frozen_measurement_status == VALIDATED and any(row["request_validation"]["status"] != "VALIDATED" for row in topic_rows):
         limitations.append("request_measurement_not_fully_validated")
     limitations = sorted(set(limitations))
     provenance = {
         "measurement_bundle_id": bundle["bundle_id"],
-        "measurement_status": bundle["measurement_status"],
-        "validation_run_id": bundle.get("validation_run_id"),
-        "validation_status": bundle.get("validation_status"),
+        "measurement_status": frozen_measurement_status,
+        "validation_run_id": materialization.get("validation_run_id"),
+        "validation_status": materialization.get("validation_status"),
         "taxonomy_snapshot_id": materialization["taxonomy_snapshot_id"],
         "taxonomy_version": materialization["taxonomy_version"],
         "taxonomy_fingerprint": materialization["taxonomy_fingerprint"],
@@ -240,7 +261,7 @@ def build_semantic_measurement_result(*, run_id: str, materialization_id: str) -
         "materialization_id": materialization["materialization_id"],
         "classification_materialization_id": materialization["materialization_id"],
         "measurement_bundle_id": bundle["bundle_id"],
-        "claim_status": "VALIDATED" if bundle.get("measurement_status") == "VALIDATED" else "PROVISIONAL",
+        "claim_status": frozen_measurement_status,
         "provenance": provenance,
         "population_n": population_n,
         "materialized_n": materialized_n,
