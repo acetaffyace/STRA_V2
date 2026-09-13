@@ -418,4 +418,4 @@ R2 did not modify taxonomy, Research Core methodology, schema beyond Migration 2
 
 ### R2 remote CI
 
-Finalized documentation commit `6cacc06` was validated by GitHub Actions run `34771690536`: backend `success`, frontend `success`, overall `success`.
+The semantic-slice documentation commit `6cacc06` was validated by GitHub Actions run `34771690536`: backend `success`, frontend `success`, overall `success`. The final report-only commit `a4295ef` was validated by run `34771829572` with backend `success`, frontend `success`, and overall `success`.
