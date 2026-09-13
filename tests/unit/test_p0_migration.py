@@ -143,4 +143,5 @@ def test_application_db_initialization_records_stable_bootstrap_version(monkeypa
                 (12, "Web MVP UX population counters and authoritative ETA"),
                 (13, "first-class Research Core result persistence"),
                 (14, "full-population semantic index and reusable embedding cache"),
+                (15, "open-set semantic discovery and taxonomy audit results"),
                             ]
