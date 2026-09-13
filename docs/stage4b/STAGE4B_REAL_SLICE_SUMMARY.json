@@ -127,6 +127,11 @@
     }
   ],
   "github_actions": {
-    "status": "pending"
+    "run_id": 34766673591,
+    "status": "completed",
+    "backend": "success",
+    "frontend": "success",
+    "overall": "success",
+    "url": "https://github.com/acetaffyace/STRA_V2/actions/runs/34766673591"
   }
 }

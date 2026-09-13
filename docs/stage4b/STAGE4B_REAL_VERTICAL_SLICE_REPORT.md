@@ -175,7 +175,9 @@ No credentials, API keys, raw prompts, raw Steam review text, local database, or
 
 ## Tests and CI
 
-This Stage 4B change adds a redacted HTTP harness, its offline contract test, documentation, and a machine-readable summary; it does not modify application schema or Research Core methodology. Migration latest remains 23. The final remote CI result will be appended after the authorized push and complete GitHub Actions run.
+This Stage 4B change adds a redacted HTTP harness, its offline contract test, documentation, and a machine-readable summary; it does not modify application schema or Research Core methodology. Migration latest remains 23.
+
+Remote GitHub Actions run `34766673591` for the first pushed Stage 4B commit completed successfully: backend `success`, frontend `success`, overall `success`. URL: https://github.com/acetaffyace/STRA_V2/actions/runs/34766673591
 
 ## Recommended next path
 
