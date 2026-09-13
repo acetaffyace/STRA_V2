@@ -118,4 +118,12 @@ Focused command:
 
 Result: 11 passed. The Stage 4A.2, Stage 4A.3, lifecycle, and estimate regression set also passed.
 
-Remote CI result will be appended after the R1 commit is pushed and its GitHub Actions run completes.
+Remote GitHub Actions verification for R1:
+
+```text
+run ID: 34765087923
+commit: 2756384a38de2ebb9b05c9835fc0e973f54084fd
+backend: success
+frontend: success
+overall: success
+```
