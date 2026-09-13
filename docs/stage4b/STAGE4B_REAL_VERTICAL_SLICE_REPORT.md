@@ -287,3 +287,131 @@ The pushed R1 HEAD was validated by GitHub Actions run `34768743389`: backend `s
 ### Recommended next action
 
 Remain on **Path C — Backend Repair**, but the remaining action is operational: configure an approved Production LLM provider/model without committing or exposing credentials, then rerun the same 80-review slice to exercise classification, frozen materialization, 3F, taxonomy audit, and optional 3C. Do not start UI or taxonomy convergence until that semantic branch is available and reviewed.
+
+## Stage 4B-R2 Real Production Semantic Slice
+
+### Scope and runtime safety
+
+R2 used the existing HTTP `/analyze` orchestration for HELLDIVERS 2 (`553850`), with 80 recent English reviews, `persist=true`, and output language `zh`. The run used the user-configured Production DeepSeek runtime. Only the provider name, effective model identifier, prompt version, and runtime availability are recorded here; no key, header, credential file, raw prompt dump, database, model file, or full Steam review text was written to Git.
+
+- baseline: `583c7ffed295b861e2ec4564874988375529c3a6`
+- provider: `deepseek`
+- model: `deepseek-v4-flash`
+- prompt: `steam_review_insights_v16_basic_labels`
+- classifier schema: `review-classification-schema-v1`
+- taxonomy: `sentinext-taxonomy-v1`
+- migration: `24`
+
+### Production run and measurement binding
+
+- run: `b92ba25b9f9b4230945d8eb6f92126ff`
+- population: 80 reviews
+- population fingerprint: `27bc6aeafc7a27ad102c75874785390ced59d23f89011e656f31626363d9ce9f`
+- snapshot status: frozen; exact population was read back from the immutable snapshot
+- measurement bundle: `measurement_bundle_afa0fd5e732d8b6476d3457df3447143`
+- bundle status: `PROVISIONAL`
+- validation run/status: `null` / `UNAVAILABLE`
+- taxonomy snapshot/fingerprint: `snapshot_13190aadeede17d62ea387efc0efb7e3` / `418f27caf82290b258ded444a3f1eec8b7975a0f0989e248965e7279adb71b7d`
+- materialization: `classification_materialization_cabf47ee4e9129b162d71a47e8207bca`
+- materialization fingerprint: `657d6b79d5798ddb3031be6b801a809dfd9268830af8a3bf61eb0131423473c8`
+
+The earlier unconfigured bootstrap bundle remained persisted and inactive; the DeepSeek-specific provisional bundle became active and an identity-rotation activation event was recorded. The old bundle was not retired. This is a real Production classification run, but its measurement qualification remains PROVISIONAL until formal classifier validation passes.
+
+Classification materialization was complete: `population_n=80`, `materialized_n=80`, `validated_llm_n=80`, `fallback_n=0`, `missing_n=0`. The materialization population fingerprint exactly matched the immutable research population fingerprint.
+
+### Research Core and 3F
+
+The authoritative Research Core report remained the canonical quantitative payload. It reported 80 valid observations, 70 recommended, 10 not recommended, recommendation rate `0.875`, Wilson 95% interval `[0.7849719790084033, 0.9306644238399513]`, English distribution `80`, and incomplete acquisition because `max_reviews_reached` / `truncated_by_max_reviews=true`.
+
+The persisted semantic result was:
+
+- semantic fingerprint: `350a102670a0e9bc43adf5b16cf05fc9e60d606d0e48f8824cc1957f74af1695`
+- population/classified/materialized: `80 / 80 / 80`
+- classification coverage: `1.0` (`FULL`)
+- claim status: `PROVISIONAL`
+- unified result fingerprint: `8871964458deadb096e82aee7c1a668ac811a0483524f004c46cecf531ec5fd3`
+
+Canonical denominator audit passed: topic, issue, and request shares use `classified_n=80`; classification coverage uses `population_n=80`. All canonical share/count pairs matched the expected count divided by the canonical denominator. The unified quantitative payload was exactly equal to the persisted Research Core report, and unified semantic was exactly equal to the persisted semantic measurement result.
+
+Top observed classified topic share:
+
+1. `other/meme` — 23 (`28.75%`)
+2. `other/general` — 15 (`18.75%`)
+3. `online_community/multiplayer_experience` — 11 (`13.75%`)
+4. `gameplay/mechanics` — 10 (`12.50%`)
+5. `gameplay/balance` — 7 (`8.75%`)
+6. `technical/bugs` — 6 (`7.50%`)
+7. `gameplay/difficulty` — 4 (`5.00%`)
+8. `developer_updates/patch_quality` — 3 (`3.75%`)
+9. `gameplay/progression` — 3 (`3.75%`)
+10. `monetization_value/value_for_money` — 3 (`3.75%`)
+
+Top observed classified issue share:
+
+`gameplay/balance` 7 (`8.75%`), `technical/bugs` 6 (`7.50%`), `content_design/replayability` 2 (`2.50%`), `developer_updates/patch_quality` 2 (`2.50%`), `gameplay/ai` 2 (`2.50%`), and `gameplay/difficulty` 2 (`2.50%`). The remaining top-ten issue entries each had `n=1` (`1.25%`).
+
+Top observed classified request share: `content_design/customization`, `developer_updates/update_frequency`, `online_community/social_features`, `technical/bugs`, and `technical/compatibility`, each `n=1` (`1.25%`).
+
+`other/general` was 15/80 (`18.75%`) and `other/meme` was 23/80 (`28.75%`). This is a material taxonomy-coverage diagnostic, not a reason to mutate the taxonomy in R2. The classifier payloads had no populated evidence quote objects in this run; the spot-check therefore treated label assignments as evidence-limited rather than inventing quotes.
+
+Evidence spot-check records were restricted to review IDs, labels, verdicts, and short reasons. Fifteen frozen reviews across `gameplay/balance`, `gameplay/mechanics`, `online_community/multiplayer_experience`, `other/general`, and `other/meme` were inspected. The verdicts were mostly `reasonable` or `clearly_correct`; the balance cases were marked `reasonable/questionable` where issue assignments could not be supported by a persisted evidence quote. No raw review text was saved.
+
+### Cache reuse
+
+The immediate same-parameter `/analyze/estimate` reported 80 considered, 65 cached, 15 needing refresh, and 15 LLM reviews. The refresh reasons were 10 `identity_mismatch` and 5 `missing_label`. This is substantial cache reuse, but the identity-mismatch subset is a P2 efficiency/reproducibility diagnostic to monitor; it did not alter the completed Run A canonical result. No optional second `/analyze` was run because the first estimate was sufficient for this slice and showed non-zero identity churn.
+
+### Real 3A and 3B
+
+The fixed LocalONNX runtime was ready and used; no fake embedding backend was used.
+
+- model: `intfloat/multilingual-e5-small`
+- revision: `614241f622f53c4eeff9890bdc4f31cfecc418b3`
+- artifact SHA-256: `ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665`
+- 3A index: `7f568d5678a167e7ccb8236992df5bdcd4b1a873ad6f28c544563008a956da30`
+- index fingerprint: `8310341c7daf0175490f1cef937123bc3fdb07bad7392c144b21b87aa1b7d90a`
+- population/index fingerprint: `27bc6aeafc7a27ad102c75874785390ced59d23f89011e656f31626363d9ce9f`
+- indexed reviews: 80; semantic units: 85; unique embeddings: 84; cache hits/misses: 0/84 in the isolated runtime
+
+Real HDBSCAN 3B used frozen Run A review metadata and the frozen `ClassificationMaterialization.items` label map. No mutable `review_labels` source was used.
+
+- discovery materialization: `8981ae13c2e36802dff360a8cf02e4db9ec55d8059f2ffeeeccd97541419518d`
+- discovery fingerprint: `e3789e2cf69b6e2dace56a03d12f625cf3c421d39d37c1c71bbaf5bb165154e4`
+- dense regions: 2
+- rare regions: 0
+- outlier reviews: 48
+- clustered/unclustered review share: `0.4 / 0.6`
+- stability: 39 stable, 11 moderate
+
+The taxonomy audit found review-level label coverage for all 80 frozen reviews, but region-level audit found 0 `well_covered`, 2 `mixed_existing_labels`, 0 `potential_gap`, and 48 `insufficient_taxonomy_coverage` outlier regions. One 20-review region had `other/general_share=0.7`. This means the current taxonomy is usable for the official 3F output but not yet strongly supported as a coherent explanation for most discovery geometry. Discovery support remains support, never player prevalence.
+
+### 3C bounded interpretation
+
+Evidence dry-run completed for all 50 regions: 2 dense regions were eligible by stability/type, while 48 outliers were deterministically deferred. There were no stable `potential_gap` regions, so the two stable/mid-stability mixed-existing-label regions were selected for the bounded real interpretation attempt.
+
+The real Production 3C call was started with the frozen evidence packages, frozen review metadata, current provider, and `max_llm_calls=3`. The provider request did not return within the bounded operational wait and was stopped without accepting output. No fake interpretation, candidate, taxonomy approval, taxonomy mutation, or 3D promotion was created. 3C is therefore `BLOCKED` for this run by provider-call responsiveness, while the dry-run evidence gate itself passed.
+
+### Product readiness matrix
+
+| Module | Status | Reason |
+|---|---|---|
+| Steam Acquisition | PASS | Real 553850 acquisition through `/analyze` completed. |
+| Research Core | PASS_WITH_LIMITATION | Exact 80-review report persisted; recent feed is max-review truncated. |
+| Research Population Snapshot | PASS | Complete immutable population was persisted and matched all downstream fingerprints. |
+| Measurement Bundle | PASS_WITH_LIMITATION | Runtime identity rotated to a provider-specific provisional bundle; formal validation is still unavailable. |
+| Production LLM | PASS_WITH_LIMITATION | 80/80 real classifications completed; the separate 3C call did not return within the bounded wait. |
+| ClassificationMaterialization | PASS | 80/80 materialized with no fallback or missing items. |
+| 3F | PASS_WITH_LIMITATION | Canonical result and denominators are correct; claim remains PROVISIONAL. |
+| Unified Research Result | PASS_WITH_LIMITATION | Quantitative and semantic payloads exactly match persisted canonical results. |
+| 3A Embedding | PASS | Real fixed-revision ONNX index built from the exact frozen run. |
+| 3B Discovery | PASS_WITH_LIMITATION | Real HDBSCAN completed; many outliers and mixed taxonomy coverage limit interpretation. |
+| Taxonomy Audit | PASS_WITH_LIMITATION | Audit is available, but no region was well-covered and no potential-gap candidate was stable enough. |
+| 3C Interpretation | BLOCKED | Dry-run completed; bounded real provider interpretation did not return. |
+
+### Blockers and recommendation
+
+- P0: none. The canonical semantic pipeline completed without fake provider output.
+- P1: none observed in the completed Run A canonical result.
+- P2: bounded 3C provider call did not return; 10/80 estimate refreshes were identity mismatches; classifier evidence quote objects were empty; Research Core acquisition was max-review truncated.
+- P3: isolated 3A embedding cache was cold; no optional second Analyze was run.
+
+R2 did not modify taxonomy, Research Core methodology, schema beyond Migration 24, or UI architecture. Because the official semantic pipeline is correct and reproducible but formal validation remains provisional and 3C provider responsiveness needs follow-up, the recommended next action is **Backend Repair** focused only on bounded 3C provider-call handling/observability and evidence-output quality. After that review, the product can proceed to **Presentation API + Dashboard convergence**; no UI work was started in R2.

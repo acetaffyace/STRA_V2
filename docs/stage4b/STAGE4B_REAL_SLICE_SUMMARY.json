@@ -94,6 +94,129 @@
       "candidate_ids": []
     }
   },
+  "semantic_run": {
+    "run_id": "b92ba25b9f9b4230945d8eb6f92126ff",
+    "population_n": 80,
+    "population_fingerprint": "27bc6aeafc7a27ad102c75874785390ced59d23f89011e656f31626363d9ce9f",
+    "measurement": {
+      "bundle_id": "measurement_bundle_afa0fd5e732d8b6476d3457df3447143",
+      "status": "PROVISIONAL",
+      "validation_run_id": null,
+      "validation_status": "UNAVAILABLE",
+      "taxonomy_version": "sentinext-taxonomy-v1",
+      "taxonomy_fingerprint": "418f27caf82290b258ded444a3f1eec8b7975a0f0989e248965e7279adb71b7d",
+      "classifier_provider": "deepseek",
+      "classifier_model_id": "deepseek:deepseek-v4-flash",
+      "classifier_prompt_version": "steam_review_insights_v16_basic_labels",
+      "classifier_schema_version": "review-classification-schema-v1"
+    },
+    "classification": {
+      "materialization_id": "classification_materialization_cabf47ee4e9129b162d71a47e8207bca",
+      "materialization_fingerprint": "657d6b79d5798ddb3031be6b801a809dfd9268830af8a3bf61eb0131423473c8",
+      "materialized_n": 80,
+      "validated_llm_n": 80,
+      "fallback_n": 0,
+      "missing_n": 0,
+      "coverage": 1.0
+    },
+    "semantic_measurement": {
+      "fingerprint": "350a102670a0e9bc43adf5b16cf05fc9e60d606d0e48f8824cc1957f74af1695",
+      "claim_status": "PROVISIONAL",
+      "classified_n": 80,
+      "coverage_status": "FULL",
+      "other_general_n": 15,
+      "other_general_share": 0.1875,
+      "other_meme_n": 23,
+      "other_meme_share": 0.2875
+    },
+    "unified": {
+      "fingerprint": "8871964458deadb096e82aee7c1a668ac811a0483524f004c46cecf531ec5fd3",
+      "quantitative_equals_research_report": true,
+      "semantic_equals_persisted_measurement": true
+    },
+    "cache_reuse": {
+      "reviews_considered": 80,
+      "cached_reviews": 65,
+      "needs_refresh_reviews": 15,
+      "llm_reviews": 15,
+      "reasons": {
+        "identity_mismatch": 10,
+        "missing_label": 5
+      }
+    },
+    "embedding": {
+      "status": "PASS",
+      "backend": "LocalONNXEmbeddingBackend",
+      "model_id": "intfloat/multilingual-e5-small",
+      "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+      "artifact_sha256": "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665",
+      "index_id": "7f568d5678a167e7ccb8236992df5bdcd4b1a873ad6f28c544563008a956da30",
+      "population_n": 80,
+      "indexed_review_n": 80,
+      "semantic_unit_n": 85,
+      "unique_embedding_n": 84,
+      "cache_hit_n": 0,
+      "cache_miss_n": 84,
+      "population_fingerprint": "27bc6aeafc7a27ad102c75874785390ced59d23f89011e656f31626363d9ce9f",
+      "index_fingerprint": "8310341c7daf0175490f1cef937123bc3fdb07bad7392c144b21b87aa1b7d90a"
+    },
+    "discovery": {
+      "status": "PASS_WITH_LIMITATION",
+      "materialization_id": "8981ae13c2e36802dff360a8cf02e4db9ec55d8059f2ffeeeccd97541419518d",
+      "discovery_fingerprint": "e3789e2cf69b6e2dace56a03d12f625cf3c421d39d37c1c71bbaf5bb165154e4",
+      "dense_region_n": 2,
+      "rare_region_n": 0,
+      "outlier_review_n": 48,
+      "clustered_review_share": 0.4,
+      "unclustered_review_share": 0.6,
+      "stability_distribution": {
+        "moderate": 11,
+        "stable": 39
+      },
+      "taxonomy_audit": {
+        "review_level_label_coverage": 1.0,
+        "well_covered_region_n": 0,
+        "mixed_existing_labels_region_n": 2,
+        "potential_gap_region_n": 0,
+        "insufficient_taxonomy_coverage_region_n": 48
+      },
+      "candidate_ids": []
+    },
+    "interpretation": {
+      "dry_run_status": "completed",
+      "dry_run_region_n": 50,
+      "dry_run_eligible_region_n": 2,
+      "dry_run_deferred_region_n": 48,
+      "real_status": "BLOCKED_PROVIDER_TIMEOUT",
+      "real_candidate_ids": []
+    },
+    "readiness": {
+      "Steam Acquisition": "PASS",
+      "Research Core": "PASS_WITH_LIMITATION",
+      "Research Population Snapshot": "PASS",
+      "Measurement Bundle": "PASS_WITH_LIMITATION",
+      "Production LLM": "PASS_WITH_LIMITATION",
+      "ClassificationMaterialization": "PASS",
+      "3F": "PASS_WITH_LIMITATION",
+      "Unified Research Result": "PASS_WITH_LIMITATION",
+      "3A Embedding": "PASS",
+      "3B Discovery": "PASS_WITH_LIMITATION",
+      "Taxonomy Audit": "PASS_WITH_LIMITATION",
+      "3C Interpretation": "BLOCKED"
+    },
+    "blockers": [
+      {
+        "severity": "P2",
+        "code": "SEMANTIC_REGION_INTERPRETATION_PROVIDER_TIMEOUT",
+        "status": "open"
+      },
+      {
+        "severity": "P2",
+        "code": "CLASSIFIER_EVIDENCE_QUOTE_EMPTY",
+        "status": "open"
+      }
+    ]
+  },
   "research_core": {
     "status": "PASS_WITH_LIMITATION",
     "population_n": 80,
