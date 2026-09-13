@@ -26,9 +26,27 @@ cache miss.
 `classifier_validation.py` provides deterministic, offline multilabel topic,
 issue, and request metrics.  It validates gold labels against the selected
 contract and records invalid predictions rather than silently dropping them.
-The report is validation-set performance only: it is not model-quality proof,
-population inference, sentiment measurement, or a correction for reviewer
-self-selection.
+The v2 validation report counts TP/FP/FN for every active taxonomy topic in
+micro aggregation, including false positives for topics with zero gold
+support.  Macro metrics intentionally use only topics represented by positive
+gold examples.  A zero-gold-support prediction is reported as a diagnostic;
+it does not increase the macro denominator.  Issue and request fields use the
+same invalid-field policy as topic labels: any invalid label makes that field
+an empty prediction for scoring.
+
+Evaluation IDs are checked explicitly.  Duplicate gold or list-based
+prediction IDs fail the evaluation, while missing and unexpected predictions
+are reported through coverage fields rather than silently repaired.  The
+`evaluation_coverage` value is the share of gold records with a matched
+prediction; it is not classifier accuracy.  The report is validation-set
+performance only: it is not model-quality proof, population inference,
+sentiment measurement, or a correction for reviewer self-selection.
+
+For example, if gold contains only `technical/bugs` and a prediction contains
+`technical/bugs` plus `other/general`, the represented topic has perfect
+macro F1, while micro precision is `0.5` because the additional legal topic
+is a false positive.  This is expected multilabel behavior, not a conflict
+between the metrics.
 
 The stage does not change Research Core, the Research Report, Stage 2E
 diagnostics, taxonomy governance, or the existing production LLM flow unless
