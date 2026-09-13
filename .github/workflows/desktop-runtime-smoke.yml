@@ -24,7 +24,18 @@ jobs:
           python-version: "3.10"
 
       - name: Build frozen desktop sidecar
-        run: python apps/desktop/pyinstaller/build.py --target-triple x86_64-pc-windows-msvc
+        shell: pwsh
+        run: |
+          $log = Join-Path $env:RUNNER_TEMP "sentinext-desktop-build.log"
+          python apps/desktop/pyinstaller/build.py --target-triple x86_64-pc-windows-msvc 2>&1 | Tee-Object -FilePath $log
+          $code = $LASTEXITCODE
+          if ($code -ne 0) {
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "## Desktop build failure"
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '```text'
+            Get-Content -Path $log -Tail 160 | Add-Content -Path $env:GITHUB_STEP_SUMMARY
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '```'
+            exit $code
+          }
 
       - name: Run frozen executable self-test
         run: apps/desktop/pyinstaller/dist/sentinext-backend.exe --self-test
