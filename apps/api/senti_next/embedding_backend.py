@@ -138,6 +138,8 @@ class LocalONNXEmbeddingBackend:
         self.model_dir = Path(model_dir).expanduser()
         self.model_filename = model_filename
         artifact_path = self.model_dir / model_filename
+        if not artifact_path.exists() and model_filename == "model.onnx":
+            artifact_path = self.model_dir / "onnx" / model_filename
         if not artifact_path.exists():
             raise FileNotFoundError(f"embedding model artifact not found: {artifact_path}")
         actual_sha = hashlib.sha256(artifact_path.read_bytes()).hexdigest()
@@ -157,6 +159,8 @@ class LocalONNXEmbeddingBackend:
         except ImportError as exc:  # pragma: no cover - exercised by availability checks
             raise RuntimeError("onnxruntime and tokenizers are required for the local backend") from exc
         tokenizer_path = self.model_dir / "tokenizer.json"
+        if not tokenizer_path.exists():
+            tokenizer_path = self.model_dir / "onnx" / "tokenizer.json"
         if not tokenizer_path.exists():
             raise FileNotFoundError(f"tokenizer artifact not found: {tokenizer_path}")
         self._tokenizer = Tokenizer.from_file(str(tokenizer_path))
@@ -207,16 +211,32 @@ def inspect_local_model(model_dir: str | Path | None = None) -> dict[str, Any]:
     """Return an explicit model availability state without downloading anything."""
     directory = Path(model_dir) if model_dir else default_model_cache_dir()
     artifact = directory / "model.onnx"
+    if not artifact.exists():
+        artifact = directory / "onnx" / "model.onnx"
     tokenizer = directory / "tokenizer.json"
+    if not tokenizer.exists():
+        tokenizer = directory / "onnx" / "tokenizer.json"
     if not artifact.exists() or not tokenizer.exists():
         return {"status": "not_installed", "model_id": DEFAULT_MODEL_ID, "model_revision": DEFAULT_MODEL_REVISION}
     try:
         digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
+        manifest_path = directory / "model_manifest.json"
+        if manifest_path.exists():
+            try:
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError) as exc:
+                return {"status": "load_failed", "model_id": DEFAULT_MODEL_ID, "reason": f"invalid model manifest: {exc}"}
+            if manifest.get("model_revision") != DEFAULT_MODEL_REVISION or manifest.get("artifact_sha256") != digest:
+                return {
+                    "status": "load_failed",
+                    "model_id": DEFAULT_MODEL_ID,
+                    "reason": "model artifact checksum or revision does not match manifest",
+                }
         return {
             "status": "ready",
             "model_id": DEFAULT_MODEL_ID,
             "model_revision": DEFAULT_MODEL_REVISION,
-            "artifact_filename": artifact.name,
+            "artifact_filename": str(artifact.relative_to(directory)),
             "artifact_sha256": digest,
             "cache_dir": str(directory),
         }
@@ -238,6 +258,18 @@ def install_default_model(*, model_dir: str | Path | None = None, revision: str 
         repo_id=DEFAULT_MODEL_ID,
         revision=revision,
         local_dir=str(directory),
-        allow_patterns=["*.onnx", "tokenizer.json", "tokenizer_config.json", "special_tokens_map.json"],
+        allow_patterns=["onnx/model.onnx", "onnx/tokenizer.json", "onnx/tokenizer_config.json", "onnx/special_tokens_map.json"],
     )
+    artifact = directory / "onnx" / "model.onnx"
+    if not artifact.exists():
+        artifact = directory / "model.onnx"
+    if not artifact.exists():
+        raise FileNotFoundError("downloaded model did not contain an ONNX model.onnx artifact")
+    manifest = {
+        "model_id": DEFAULT_MODEL_ID,
+        "model_revision": revision,
+        "artifact_filename": str(artifact.relative_to(directory)),
+        "artifact_sha256": hashlib.sha256(artifact.read_bytes()).hexdigest(),
+    }
+    (directory / "model_manifest.json").write_text(json.dumps(manifest, sort_keys=True, indent=2), encoding="utf-8")
     return directory

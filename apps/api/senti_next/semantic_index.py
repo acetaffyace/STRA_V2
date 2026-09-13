@@ -190,6 +190,14 @@ class SemanticIndexBuildResult:
         }
 
 
+class SemanticIndexBuildError(RuntimeError):
+    """Embedding failure with the deterministic index counts built so far."""
+
+    def __init__(self, message: str, partial_result: SemanticIndexBuildResult) -> None:
+        super().__init__(message)
+        self.partial_result = partial_result
+
+
 def embedding_cache_key(*, text_hash: str, contract: SemanticIndexContract) -> str:
     contract.validate()
     payload = {
@@ -336,7 +344,28 @@ def build_semantic_index(
                 pending_order.append(key)
 
     if pending_order:
-        encoded = np.asarray(backend.encode([pending_texts[key] for key in pending_order]), dtype=np.float32)
+        try:
+            encoded = np.asarray(backend.encode([pending_texts[key] for key in pending_order]), dtype=np.float32)
+        except Exception as exc:
+            partial = SemanticIndexBuildResult(
+                schema_version=SEMANTIC_INDEX_SCHEMA_VERSION,
+                research_run_id=research_run_id,
+                population_fingerprint=population_fingerprint,
+                contract=contract,
+                model_identity=backend.identity,
+                population_n=len(source),
+                eligible_review_n=sum(1 for member in members if member.eligible),
+                indexed_review_n=sum(1 for member in members if member.eligible),
+                semantic_unit_n=len(units),
+                unique_embedding_n=len(embeddings),
+                cache_hit_n=sum(1 for unit in units if unit.embedding_key in cache),
+                cache_miss_n=len(pending_order),
+                members=members,
+                units=units,
+                embeddings=embeddings,
+            )
+            partial.index_fingerprint = _index_fingerprint(population_fingerprint, contract, members, units)
+            raise SemanticIndexBuildError(str(exc), partial) from exc
         if encoded.shape != (len(pending_order), contract.dimensions):
             raise ValueError(f"embedding backend returned shape {encoded.shape}, expected {(len(pending_order), contract.dimensions)}")
         if not np.isfinite(encoded).all():
@@ -410,14 +439,18 @@ def build_semantic_index_for_run(
     active_contract = contract or SemanticIndexContract.from_backend(active_backend)
     active_contract.validate()
     cache = storage.load_embedding_cache(contract=active_contract)
-    result = build_semantic_index(
-        source,
-        research_run_id=research_run_id,
-        population_fingerprint=str(population_fingerprint),
-        contract=active_contract,
-        backend=active_backend,
-        embedding_cache=cache,
-    )
     index_id = storage._index_id(research_run_id, str(population_fingerprint), active_contract)
+    try:
+        result = build_semantic_index(
+            source,
+            research_run_id=research_run_id,
+            population_fingerprint=str(population_fingerprint),
+            contract=active_contract,
+            backend=active_backend,
+            embedding_cache=cache,
+        )
+    except SemanticIndexBuildError as exc:
+        storage.persist_failed_index(app_id=int(metadata.get("app_id") or stored.get("app_id") or 0), index_id=index_id, result=exc.partial_result, error=str(exc))
+        raise
     storage.persist_semantic_index(app_id=int(metadata.get("app_id") or stored.get("app_id") or 0), index_id=index_id, result=result)
     return result
