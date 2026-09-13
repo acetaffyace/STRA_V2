@@ -1,0 +1,132 @@
+{
+  "schema_version": "stage4b-real-slice-summary-v1",
+  "baseline_sha": "5a4716654e5e17fce1d09e274dde5726dfdab5db",
+  "branch": "integration/research-pipeline-v1",
+  "target_game": {
+    "name": "HELLDIVERS 2",
+    "app_id": 553850
+  },
+  "run": {
+    "run_id": "143aaf6e722141c4a445499fcad2b16e",
+    "parameters": {
+      "review_count": 80,
+      "language": "english",
+      "filter": "recent",
+      "persist": true,
+      "output_language": "zh"
+    },
+    "status": "completed"
+  },
+  "research_core": {
+    "status": "PASS_WITH_LIMITATION",
+    "population_n": 80,
+    "valid_n": 80,
+    "recommended_n": 70,
+    "not_recommended_n": 10,
+    "recommendation_rate": 0.875,
+    "confidence_interval": {
+      "method": "wilson",
+      "confidence_level": 0.95,
+      "lower": 0.7849719790084033,
+      "upper": 0.9306644238399513,
+      "status": "assumption_sensitive_not_design_based"
+    },
+    "acquisition_coverage": "incomplete",
+    "collection_complete": false,
+    "truncated_by_max_reviews": true,
+    "stop_reason": "max_reviews_reached",
+    "language_distribution": {
+      "english": 80
+    },
+    "stage2e_activity": {
+      "activity_spike_detected": false,
+      "coordinated_expression_detected": false,
+      "exact_duplicate_share": 0.025
+    }
+  },
+  "measurement": {
+    "status": "PASS_WITH_LIMITATION",
+    "bundle_id": "measurement_bundle_4b151375c7a873b57016196163072ccb",
+    "measurement_status": "PROVISIONAL",
+    "validation_run_id": null,
+    "validation_status": "UNAVAILABLE",
+    "taxonomy_snapshot_id": "snapshot_13190aadeede17d62ea387efc0efb7e3",
+    "taxonomy_version": "sentinext-taxonomy-v1",
+    "taxonomy_fingerprint": "418f27caf82290b258ded444a3f1eec8b7975a0f0989e248965e7279adb71b7d",
+    "classifier_provider": "unconfigured",
+    "classifier_model_id": "unconfigured",
+    "classifier_prompt_version": "steam_review_insights_v16_basic_labels",
+    "classifier_schema_version": "review-classification-schema-v1",
+    "materialization_id": null,
+    "semantic_measurement_result_fingerprint": null
+  },
+  "unified_result": {
+    "fingerprint": "7e42efd3321211a43beb0680305d5378e466534c45169bd326c9a378789db0ad",
+    "quantitative_equals_research_report": true,
+    "semantic_is_null": true,
+    "population_fingerprint": null
+  },
+  "cache_reuse": {
+    "reviews_considered": 80,
+    "cached_reviews": 0,
+    "needs_refresh_reviews": 80,
+    "llm_reviews": 80,
+    "empty_reviews": 0,
+    "short_reviews": 29,
+    "reasons": {
+      "missing_label": 80
+    },
+    "status": "MEASURED_BUT_SEMANTIC_UNAVAILABLE"
+  },
+  "embedding": {
+    "status": "PASS_WITH_LIMITATION",
+    "backend": "LocalONNXEmbeddingBackend",
+    "model_id": "intfloat/multilingual-e5-small",
+    "model_revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+    "model_status": "ready",
+    "index_id": null,
+    "index_status": "BLOCKED_IMMUTABLE_POPULATION_FINGERPRINT_MISSING"
+  },
+  "discovery": {
+    "status": "BLOCKED",
+    "regions": [],
+    "taxonomy_audit": null
+  },
+  "interpretation": {
+    "status": "BLOCKED_NO_DISCOVERY_MATERIALIZATION",
+    "candidate_ids": []
+  },
+  "readiness": {
+    "Steam Acquisition": "PASS",
+    "Research Core": "PASS_WITH_LIMITATION",
+    "Measurement Bundle": "PASS_WITH_LIMITATION",
+    "LLM Classification": "BLOCKED",
+    "Classification Materialization": "BLOCKED",
+    "3F": "BLOCKED",
+    "Unified Research Result": "PASS_WITH_LIMITATION",
+    "3A Embedding": "PASS_WITH_LIMITATION",
+    "3B Discovery": "BLOCKED",
+    "Taxonomy Audit": "BLOCKED",
+    "3C Interpretation": "BLOCKED"
+  },
+  "blockers": [
+    {
+      "severity": "P0",
+      "code": "REAL_SEMANTIC_PROVIDER_UNAVAILABLE",
+      "status": "open"
+    },
+    {
+      "severity": "P1",
+      "code": "IMMUTABLE_RUN_POPULATION_UNAVAILABLE",
+      "status": "open"
+    },
+    {
+      "severity": "P2",
+      "code": "DEFAULT_LOCAL_DB_FTS_INTEGRITY_DRIFT",
+      "status": "open"
+    }
+  ],
+  "github_actions": {
+    "status": "pending"
+  }
+}
