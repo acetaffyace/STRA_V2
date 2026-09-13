@@ -274,13 +274,16 @@ def build_semantic_discovery(
     taxonomy_labels: Mapping[str, Any] | None = None,
     stage2e: Mapping[str, Any] | None = None,
     backend: SemanticDiscoveryBackend | None = None,
+    population_n_override: int | None = None,
 ) -> dict[str, Any]:
     """Build a deterministic open-set report from existing Stage 3A vectors."""
     active_contract = contract or SemanticDiscoveryContract()
     active_contract.validate()
     ordered_units = sorted(units, key=lambda unit: (unit.review_id, unit.unit_index, unit.unit_id))
     review_ids, review_vectors, grouped = _review_vectors(ordered_units)
-    population_n = len(review_metadata) if review_metadata is not None else len(review_ids)
+    population_n = population_n_override if population_n_override is not None else (len(review_metadata) if review_metadata is not None else len(review_ids))
+    if population_n < len(review_ids):
+        raise ValueError("population_n cannot be smaller than indexed review count")
     active_backend = backend or HDBSCANDiscoveryBackend()
     effective_min_cluster_size = active_contract.effective_min_cluster_size(max(1, len(review_ids)))
     labels, probabilities, outlier_scores = active_backend.discover(
@@ -422,4 +425,13 @@ def build_semantic_discovery(
             "taxonomy_is_audit_target_not_training_truth": True,
         },
     }
+    fingerprint_payload = {
+        "semantic_index_fingerprint": semantic_index_fingerprint,
+        "contract": active_contract.fingerprint,
+        "regions": [
+            {"region_id": region["region_id"], "review_ids": region["review_ids"], "semantic_unit_ids": region["semantic_unit_ids"]}
+            for region in regions
+        ],
+    }
+    report["discovery_fingerprint"] = hashlib.sha256(json.dumps(fingerprint_payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     return report

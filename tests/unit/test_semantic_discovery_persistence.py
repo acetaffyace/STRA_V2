@@ -42,6 +42,7 @@ def _stored_index() -> str:
             {"recommendationid": "b", "review": "update crash"},
             {"recommendationid": "c", "review": "更新后崩溃"},
             {"recommendationid": "d", "review": "controller"},
+            {"recommendationid": "e", "review": ""},
         ],
         research_run_id="research-run",
         population_fingerprint="population-fingerprint",
@@ -69,6 +70,8 @@ def test_discovery_persists_exact_index_identity_and_is_idempotent(isolated_db) 
         expected_population_fingerprint="population-fingerprint",
         backend=StaticBackend(),
     )
+    assert report["population_n"] == 5
+    assert report["indexed_review_n"] == 4
     run_id = persist_semantic_discovery(report)
     assert load_semantic_discovery(run_id) == report
     assert persist_semantic_discovery(report) == run_id
@@ -77,6 +80,8 @@ def test_discovery_persists_exact_index_identity_and_is_idempotent(isolated_db) 
         assert member_count >= report["indexed_review_n"]
     with pytest.raises(ValueError, match="fingerprint"):
         build_semantic_discovery_for_index(index_id, expected_population_fingerprint="wrong", backend=StaticBackend())
+    with pytest.raises(ValueError, match="semantic index fingerprint"):
+        build_semantic_discovery_for_index(index_id, expected_semantic_index_fingerprint="wrong", backend=StaticBackend())
 
 
 def test_discovery_can_be_built_without_taxonomy_or_stage2e(isolated_db) -> None:
