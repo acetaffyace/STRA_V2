@@ -415,3 +415,7 @@ The real Production 3C call was started with the frozen evidence packages, froze
 - P3: isolated 3A embedding cache was cold; no optional second Analyze was run.
 
 R2 did not modify taxonomy, Research Core methodology, schema beyond Migration 24, or UI architecture. Because the official semantic pipeline is correct and reproducible but formal validation remains provisional and 3C provider responsiveness needs follow-up, the recommended next action is **Backend Repair** focused only on bounded 3C provider-call handling/observability and evidence-output quality. After that review, the product can proceed to **Presentation API + Dashboard convergence**; no UI work was started in R2.
+
+### R2 remote CI
+
+Finalized documentation commit `6cacc06` was validated by GitHub Actions run `34771690536`: backend `success`, frontend `success`, overall `success`.
