@@ -221,7 +221,5 @@ workspace-local basetemp completed the backend suite.
 
 ## 16. Final commit SHA(s)
 
-To be filled after the implementation commit:
-
 - `6ceaf13` — `chore: checkpoint stage 3e before pipeline integration`
-- `<implementation SHA>` — `feat: add validated semantic measurement contracts`
+- `5314b2e5a7397c4a7c3f95d170ea4eff7e88b492` — `feat: add validated semantic measurement contracts`
