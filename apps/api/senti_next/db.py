@@ -12,7 +12,7 @@ from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.pool import NullPool, StaticPool
 
-from . import label_schema, result_schema, semantic_discovery_materialization_schema, semantic_discovery_schema, semantic_index_schema
+from . import label_schema, result_schema, semantic_discovery_materialization_schema, semantic_discovery_schema, semantic_index_schema, semantic_region_interpretation_schema
 from . import migrations, runtime_state
 
 logger = logging.getLogger(__name__)
@@ -762,6 +762,26 @@ def init_db() -> None:
                 semantic_discovery_materialization_schema.migrate_semantic_discovery_materializations,
             )],
             backup_path=materialization_backup,
+            restore_on_error=True,
+        )
+
+    # Stage 3C is an independent interpretation/audit layer over completed
+    # Stage 3B materializations.  It never alters Research Core, taxonomy, or
+    # the immutable semantic index.
+    if database in (None, ":memory:"):
+        with get_connection() as conn:
+            raw = conn.connection.driver_connection
+            if migrations.current_version(raw) < semantic_region_interpretation_schema.SEMANTIC_REGION_INTERPRETATION_MIGRATION_VERSION:
+                semantic_region_interpretation_schema.migrate_semantic_region_interpretation(raw)
+                migrations.record_version(raw, semantic_region_interpretation_schema.SEMANTIC_REGION_INTERPRETATION_MIGRATION_VERSION, semantic_region_interpretation_schema.DESCRIPTION)
+                raw.commit()
+    else:
+        interpretation_path = Path(database).expanduser().resolve()
+        interpretation_backup = interpretation_path.with_name(interpretation_path.name + ".semantic_region_interpretation_v1.bak")
+        migrations.apply_ordered_migrations(
+            interpretation_path,
+            [(semantic_region_interpretation_schema.SEMANTIC_REGION_INTERPRETATION_MIGRATION_VERSION, semantic_region_interpretation_schema.DESCRIPTION, semantic_region_interpretation_schema.migrate_semantic_region_interpretation)],
+            backup_path=interpretation_backup,
             restore_on_error=True,
         )
 

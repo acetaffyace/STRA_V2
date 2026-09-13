@@ -32,6 +32,7 @@ MIGRATION_REGISTRY: tuple[tuple[int, str], ...] = (
     (14, "full-population semantic index and reusable embedding cache"),
     (15, "open-set semantic discovery and taxonomy audit results"),
     (16, "semantic discovery structure/context identity and materializations"),
+    (17, "semantic region evidence and taxonomy candidate interpretation"),
 )
 
 

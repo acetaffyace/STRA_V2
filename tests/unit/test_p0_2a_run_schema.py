@@ -46,7 +46,7 @@ def test_fresh_database_has_generalized_schema_and_version_three():
     assert expected <= columns()
     with db.get_connection() as conn:
         versions = conn.exec_driver_sql("SELECT version FROM schema_migrations ORDER BY version").fetchall()
-        assert [row[0] for row in versions] == [1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15, 16]
+        assert [row[0] for row in versions] == [1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15, 16, 17]
 
 
 def test_existing_version_review_storage_and_api_shape_still_work():
