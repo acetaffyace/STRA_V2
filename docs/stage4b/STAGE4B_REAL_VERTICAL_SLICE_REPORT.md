@@ -175,10 +175,113 @@ No credentials, API keys, raw prompts, raw Steam review text, local database, or
 
 ## Tests and CI
 
-This Stage 4B change adds a redacted HTTP harness, its offline contract test, documentation, and a machine-readable summary; it does not modify application schema or Research Core methodology. Migration latest remains 23.
+At the original Stage 4B baseline, this change added a redacted HTTP harness, its offline contract test, documentation, and a machine-readable summary; application schema remained at Migration 23. The R1 repair below adds Migration 24 without changing Research Core methodology.
 
 Remote GitHub Actions run `34766673591` for the first pushed Stage 4B commit completed successfully: backend `success`, frontend `success`, overall `success`. URL: https://github.com/acetaffyace/STRA_V2/actions/runs/34766673591
 
 ## Recommended next path
 
 **Path C — Backend Repair.** First make a real Production provider/model available and ensure quantitative-only completed runs preserve the immutable population fingerprint and full frozen review payload needed by the exact-run Stage 3A contract. Re-run the same 80-review slice before considering Presentation/UI or taxonomy convergence.
+
+
+### Scope and original blockers
+
+This repair is limited to the three backend blockers exposed by the original Run A:
+
+- `IMMUTABLE_RUN_POPULATION_UNAVAILABLE` — a completed quantitative-only run had no independent exact population snapshot, so Stage 3A correctly refused to use it.
+- `DEFAULT_LOCAL_DB_FTS_INTEGRITY_DRIFT` — startup repair did not restore the canonical `reviews.review_text` projection before rebuilding postings.
+- `REAL_SEMANTIC_PROVIDER_UNAVAILABLE` remains an external prerequisite. No credential was added, no fake classifier was used, and no hybrid result was promoted as semantic success.
+
+### Fixes
+
+Migration 24 adds additive, idempotent `analysis_run_populations` and `analysis_run_population_items` tables. `/analyze` freezes the final sampled `all_reviews` before background Research Core work, including a complete canonical review payload for every item. The shared population fingerprint remains the Stage 4A-compatible sorted `(review_id, sha256(raw review text))` contract. Re-freezing the same run with the same population is idempotent; a changed population raises `research_population_snapshot_conflict` and cannot replace the old rows.
+
+`build_semantic_index_for_run()` now reads only the immutable run snapshot. It does not fall back to mutable app reviews, presentation samples, or latest result payloads. Classification materialization verifies agreement with the same snapshot fingerprint and fails closed on mismatch. Historical runs created before Migration 24 remain unavailable rather than being backfilled from mutable data.
+
+The runtime now rotates only a system-style provisional bootstrap bundle when it has no validation run, uses the baseline taxonomy, and carries the `not_formally_validated` limitation. A later provider/model identity change creates and activates an identity-specific provisional bundle, deactivates the old bundle, and preserves the activation event. Validated bundles, validation-bound bundles, explicit no-active state, and retired bundles are never auto-rotated or resurrected.
+
+FTS repair now restores `reviews.review_text` from `reviews.data.$.review`, rebuilds the external-content FTS5 postings, verifies projection/posting integrity, and recreates only the derived index if a damaged segment rejects the canonical rebuild command. Startup remains fail-closed if repair cannot verify; it never deletes review data.
+
+### Repaired real run
+
+The new isolated file-backed runtime completed a real HTTP `/analyze` run:
+
+- run: `99e9c86337f04134962c4dece037e9b2`
+- target: HELLDIVERS 2 / `553850`
+- request: 80 recent English reviews, `persist=true`, output language `zh`
+- status: `completed`
+- population snapshot: 80 reviews, fingerprint `27bc6aeafc7a27ad102c75874785390ced59d23f89011e656f31626363d9ce9f`
+- restart persistence: verified against the file-backed SQLite database
+- Research Core: 80 valid observations, 70 recommended, 10 not recommended, rate `0.875`; coverage incomplete because `max_reviews_reached`; the persisted report remains authoritative
+- Unified quantitative result: persisted and equal to the exact Research Core report
+
+The same-parameter estimate was also executed. It reported 80 considered, 0 cached, 80 needing refresh, and 80 LLM candidates with `missing_label: 80`. This is expected for a provider-unavailable run and is not presented as a cache identity failure.
+
+### Provider state
+
+Production semantic provider/model: unavailable / unconfigured. The run recorded `semantic_status=unavailable` with reason `no_provider`. Semantic classification, materialization, 3F, frozen taxonomy label mapping, taxonomy audit, and 3C interpretation therefore remain honestly blocked. No API key, credential, fake provider, or fake semantic output was used.
+
+### Real 3A and 3B results
+
+The fixed local ONNX model was ready:
+
+- model: `intfloat/multilingual-e5-small`
+- immutable revision: `614241f622f53c4eeff9890bdc4f31cfecc418b3`
+- artifact SHA-256: `ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665`
+
+Stage 3A then succeeded directly from the frozen Run population:
+
+- index: `ccf4d8203324ff5e9aa4a702283849b93d4a17b120e406c6d540457daebf16c8`
+- population/index fingerprint: `27bc6aeafc7a27ad102c75874785390ced59d23f89011e656f31626363d9ce9f`
+- population: 80; indexed reviews: 80
+- semantic units: 85; unique embeddings: 84
+- embedding cache hits/misses: 85 / 0
+- index fingerprint: `8310341c7daf0175490f1cef937123bc3fdb07bad7392c144b21b87aa1b7d90a`
+
+Real HDBSCAN Stage 3B also succeeded without LLM labels:
+
+- discovery run: `77844c128ea4572be4375bd88ee7694c0af44b2ee329ce6bcee2248ccd5119b9`
+- dense regions: 2; rare regions: 0; outlier reviews: 48
+- clustered review share: 0.4; unclustered review share: 0.6
+- stability: 39 stable, 11 moderate
+- taxonomy audit: unavailable without frozen classifier labels; no candidate was generated
+
+These are discovery support/geometry results, not 3F topic prevalence and not player percentages. No taxonomy was changed, promoted, or activated. 3C was not run because no eligible taxonomy-labeled materialization existed.
+
+### Regression and migration coverage
+
+Added regression coverage for immutable snapshot idempotence/conflict, mutable-store isolation, restart persistence, quantitative-only-to-Stage-3A, shared fingerprint compatibility, materialization agreement, provisional identity rotation, no-active non-resurrection, validated non-rotation, FTS projection repair, FTS posting repair, file-backed startup recovery, Migration 24 table/FK/idempotence behavior, and retained result rows. The runner also received an offline import-path contract fix and still contains no secret or fake runtime path.
+
+Exact validation commands:
+
+```powershell
+$tmp='D:\project\STRA_V2\.pytest_tmp_full3'; New-Item -ItemType Directory -Force -Path $tmp
+$env:TEMP=$tmp; $env:TMP=$tmp; .venv\Scripts\python.exe -m pytest -q -rA
+npm ci
+npx tsc --noEmit
+npm run build
+```
+
+The first full backend pass after implementation found only two stale tests asserting Migration 23; both were updated to assert Migration 24. The final test and CI results are recorded after push.
+
+### Updated readiness and blockers
+
+| Module | Status | Reason |
+|---|---|---|
+| Steam Acquisition | PASS | Real 553850 acquisition through `/analyze` completed. |
+| Research Core | PASS_WITH_LIMITATION | Exact 80-review quantitative report persisted; recent max-review truncation limits coverage. |
+| Measurement Bundle | PASS_WITH_LIMITATION | Provisional baseline and runtime-identity rotation are implemented; no provider is configured. |
+| LLM Classification | BLOCKED | `REAL_SEMANTIC_PROVIDER_UNAVAILABLE` remains external. |
+| Classification Materialization | BLOCKED | Requires semantic labels from the unavailable provider. |
+| 3F | BLOCKED | No semantic measurement result exists without classification. |
+| Unified Research Result | PASS_WITH_LIMITATION | Quantitative payload is exact and persisted; semantic payload is null by contract. |
+| 3A Embedding | PASS | Real immutable ONNX model indexed the frozen 80-review population. |
+| 3B Discovery | PASS_WITH_LIMITATION | Real HDBSCAN completed context-free; taxonomy audit is unavailable without frozen labels. |
+| Taxonomy Audit | BLOCKED | No frozen taxonomy label map exists in a provider-unavailable run. |
+| 3C Interpretation | BLOCKED | No eligible discovery materialization/evidence package exists. |
+
+Blocker severity after R1: P0 `REAL_SEMANTIC_PROVIDER_UNAVAILABLE` remains open; the prior P1 immutable-population and P2 FTS blockers are repaired and regression-tested. No new P1/P2/P3 blocker was found.
+
+### Recommended next action
+
+Remain on **Path C — Backend Repair**, but the remaining action is operational: configure an approved Production LLM provider/model without committing or exposing credentials, then rerun the same 80-review slice to exercise classification, frozen materialization, 3F, taxonomy audit, and optional 3C. Do not start UI or taxonomy convergence until that semantic branch is available and reviewed.

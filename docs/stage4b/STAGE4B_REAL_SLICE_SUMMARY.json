@@ -17,6 +17,83 @@
     },
     "status": "completed"
   },
+  "repair_run": {
+    "run_id": "99e9c86337f04134962c4dece037e9b2",
+    "parameters": {
+      "review_count": 80,
+      "language": "english",
+      "filter": "recent",
+      "persist": true,
+      "output_language": "zh"
+    },
+    "status": "completed",
+    "population": {
+      "population_n": 80,
+      "population_fingerprint": "27bc6aeafc7a27ad102c75874785390ced59d23f89011e656f31626363d9ce9f",
+      "snapshot_status": "frozen",
+      "restart_persistence": "verified"
+    },
+    "research_core": {
+      "valid_n": 80,
+      "recommended_n": 70,
+      "not_recommended_n": 10,
+      "recommendation_rate": 0.875,
+      "acquisition_coverage": "incomplete",
+      "collection_complete": false,
+      "truncated_by_max_reviews": true,
+      "stop_reason": "max_reviews_reached",
+      "language_distribution": {
+        "english": 80
+      }
+    },
+    "semantic": {
+      "status": "unavailable",
+      "reason": "no_provider",
+      "provider": null,
+      "model": null,
+      "unified_result_fingerprint": "cb6d110d12aa29a743ca8229b143b0586d6d82234c5584ed7aa0229f0bdb8e60"
+    },
+    "cache_reuse": {
+      "reviews_considered": 80,
+      "cached_reviews": 0,
+      "needs_refresh_reviews": 80,
+      "llm_reviews": 80,
+      "reasons": {
+        "missing_label": 80
+      }
+    },
+    "embedding": {
+      "status": "PASS",
+      "backend": "LocalONNXEmbeddingBackend",
+      "model_id": "intfloat/multilingual-e5-small",
+      "model_revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+      "artifact_sha256": "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665",
+      "index_id": "ccf4d8203324ff5e9aa4a702283849b93d4a17b120e406c6d540457daebf16c8",
+      "population_n": 80,
+      "indexed_review_n": 80,
+      "semantic_unit_n": 85,
+      "unique_embedding_n": 84,
+      "cache_hit_n": 85,
+      "cache_miss_n": 0,
+      "population_fingerprint": "27bc6aeafc7a27ad102c75874785390ced59d23f89011e656f31626363d9ce9f",
+      "index_fingerprint": "8310341c7daf0175490f1cef937123bc3fdb07bad7392c144b21b87aa1b7d90a"
+    },
+    "discovery": {
+      "status": "PASS_WITH_LIMITATION",
+      "discovery_run_id": "77844c128ea4572be4375bd88ee7694c0af44b2ee329ce6bcee2248ccd5119b9",
+      "dense_region_n": 2,
+      "rare_region_n": 0,
+      "outlier_review_n": 48,
+      "clustered_review_share": 0.4,
+      "unclustered_review_share": 0.6,
+      "stability_distribution": {
+        "moderate": 11,
+        "stable": 39
+      },
+      "taxonomy_audit": "unavailable_without_frozen_labels",
+      "candidate_ids": []
+    }
+  },
   "research_core": {
     "status": "PASS_WITH_LIMITATION",
     "population_n": 80,
@@ -123,6 +200,13 @@
     {
       "severity": "P2",
       "code": "DEFAULT_LOCAL_DB_FTS_INTEGRITY_DRIFT",
+      "status": "open"
+    }
+  ],
+  "repair_blockers": [
+    {
+      "severity": "P0",
+      "code": "REAL_SEMANTIC_PROVIDER_UNAVAILABLE",
       "status": "open"
     }
   ],
