@@ -180,6 +180,43 @@ def persist_semantic_discovery(report: Mapping[str, Any], *, discovery_run_id: s
     return run_id
 
 
+def _persist_failed_discovery(
+    *,
+    index_run: Mapping[str, Any],
+    contract: SemanticDiscoveryContract,
+    error: str,
+    discovery_run_id: str,
+) -> None:
+    """Record a failed discovery attempt without creating a completed report."""
+    with db.get_connection() as conn:
+        conn.execute(
+            text("DELETE FROM semantic_discovery_runs WHERE discovery_run_id = :run_id"),
+            {"run_id": discovery_run_id},
+        )
+        conn.execute(
+            text(
+                "INSERT INTO semantic_discovery_runs "
+                "(discovery_run_id, semantic_index_id, research_run_id, population_fingerprint, semantic_index_fingerprint, "
+                "discovery_contract_json, algorithm_version, population_n, indexed_review_n, semantic_unit_n, status, error) "
+                "VALUES (:run_id, :index_id, :research_run_id, :population_fingerprint, :index_fingerprint, :contract_json, "
+                ":algorithm, :population_n, :indexed_review_n, :semantic_unit_n, 'failed', :error)"
+            ),
+            {
+                "run_id": discovery_run_id,
+                "index_id": index_run["index_id"],
+                "research_run_id": index_run["research_run_id"],
+                "population_fingerprint": index_run["population_fingerprint"],
+                "index_fingerprint": index_run["index_fingerprint"],
+                "contract_json": json.dumps(contract.to_dict(population_n=int(index_run["indexed_review_n"])), sort_keys=True, separators=(",", ":")),
+                "algorithm": DISCOVERY_ALGORITHM_VERSION,
+                "population_n": int(index_run["population_n"]),
+                "indexed_review_n": int(index_run["indexed_review_n"]),
+                "semantic_unit_n": int(index_run["semantic_unit_n"]),
+                "error": error[:2000],
+            },
+        )
+
+
 def load_semantic_discovery(discovery_run_id: str) -> Optional[dict[str, Any]]:
     with db.get_connection() as conn:
         row = conn.execute(text("SELECT report_json FROM semantic_discovery_runs WHERE discovery_run_id = :run_id"), {"run_id": discovery_run_id}).scalar()
@@ -207,16 +244,28 @@ def build_semantic_discovery_for_index(
     if index:
         for member in index["members"]:
             metadata.setdefault(member["review_id"], {"semantic_text_hash": member.get("review_text_hash")})
-    return build_semantic_discovery(
-        units,
-        semantic_index_id=semantic_index_id,
-        research_run_id=str(index_run["research_run_id"]),
-        population_fingerprint=str(index_run["population_fingerprint"]),
-        semantic_index_fingerprint=str(index_run["index_fingerprint"]),
-        contract=contract,
-        review_metadata=metadata,
-        taxonomy_labels=taxonomy_labels,
-        stage2e=stage2e,
-        backend=backend,
-        population_n_override=int(index_run["population_n"]),
-    )
+    active_contract = contract or SemanticDiscoveryContract()
+    active_contract.validate()
+    run_id = _discovery_run_id(semantic_index_id, active_contract)
+    try:
+        return build_semantic_discovery(
+            units,
+            semantic_index_id=semantic_index_id,
+            research_run_id=str(index_run["research_run_id"]),
+            population_fingerprint=str(index_run["population_fingerprint"]),
+            semantic_index_fingerprint=str(index_run["index_fingerprint"]),
+            contract=active_contract,
+            review_metadata=metadata,
+            taxonomy_labels=taxonomy_labels,
+            stage2e=stage2e,
+            backend=backend,
+            population_n_override=int(index_run["population_n"]),
+        )
+    except Exception as exc:
+        _persist_failed_discovery(
+            index_run=index_run,
+            contract=active_contract,
+            error=str(exc),
+            discovery_run_id=run_id,
+        )
+        raise

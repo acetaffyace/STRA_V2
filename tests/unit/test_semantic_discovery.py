@@ -89,6 +89,8 @@ def test_review_level_mean_and_unit_level_audit_are_both_retained() -> None:
     assert report["semantic_unit_n"] == 8
     assert any("r0:1" in region["semantic_unit_ids"] for region in report["regions"])
     assert report["review_representation"] == "normalized_mean_unit"
+    assert report["unit_level_audit"]["unit_n"] == 8
+    assert any(item["semantic_unit_id"] == "r0:1" for item in report["unit_level_audit"]["units"])
 
 
 def test_region_ids_and_results_are_input_order_invariant() -> None:

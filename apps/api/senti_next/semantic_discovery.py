@@ -188,6 +188,38 @@ def _neighbour_metrics(vectors: np.ndarray, neighbor_k: int) -> dict[int, dict[s
     return metrics
 
 
+def _unit_audit(units: Sequence[SemanticUnitRecord], neighbor_k: int) -> dict[str, Any]:
+    """Retain unit-level neighborhood evidence alongside review discovery.
+
+    Review-level means are useful for clustering but can blur a long review's
+    distinct topics.  This audit keeps every unit's local geometry available
+    for later tail-topic and rare-region inspection without changing review
+    membership or the Research denominator.
+    """
+    ordered = sorted(units, key=lambda unit: (unit.review_id, unit.unit_index, unit.unit_id))
+    vectors = np.stack([unit.vector for unit in ordered]) if ordered else np.empty((0, 0), dtype=np.float32)
+    metrics = _neighbour_metrics(vectors, neighbor_k)
+    entries = []
+    for index, unit in enumerate(ordered):
+        neighborhood = metrics.get(index, {})
+        nearest = neighborhood.get("nearest_neighbor_similarity")
+        entries.append(
+            {
+                "semantic_unit_id": unit.unit_id,
+                "review_id": unit.review_id,
+                "unit_index": unit.unit_index,
+                "semantic_text_hash": unit.semantic_text_hash,
+                "neighborhood": neighborhood,
+                "rare_neighborhood_candidate": nearest is not None and nearest >= RARE_REGION_MIN_SIMILARITY,
+            }
+        )
+    return {
+        "unit_n": len(ordered),
+        "rare_neighborhood_candidate_n": sum(1 for entry in entries if entry["rare_neighborhood_candidate"]),
+        "units": entries,
+    }
+
+
 def _components(ids: Sequence[str], vectors: np.ndarray, candidate_indices: set[int]) -> list[list[int]]:
     remaining = set(candidate_indices)
     similarity = vectors @ vectors.T if len(vectors) else np.empty((0, 0))
@@ -391,6 +423,7 @@ def build_semantic_discovery(
             region["taxonomy_coverage_status"] = audit["coverage_status"]
 
     regions.sort(key=lambda region: region["region_id"])
+    unit_audit = _unit_audit(ordered_units, active_contract.neighbor_k)
     clustered_reviews = sum(region["support_reviews"] for region in regions if region["discovery_type"] != "outlier")
     unclustered_reviews = sum(region["support_reviews"] for region in regions if region["discovery_type"] == "outlier")
     report = {
@@ -410,6 +443,7 @@ def build_semantic_discovery(
         "clustered_review_share": clustered_reviews / len(review_ids) if review_ids else 0.0,
         "unclustered_review_share": unclustered_reviews / len(review_ids) if review_ids else 0.0,
         "regions": regions,
+        "unit_level_audit": unit_audit,
         "stability_distribution": _distribution(region["stability"] for region in regions),
         "taxonomy_audit": {
             "well_covered_region_n": sum(1 for region in regions if region["taxonomy_coverage_status"] == "well_covered"),

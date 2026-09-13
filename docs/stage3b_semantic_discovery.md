@@ -107,7 +107,8 @@ No provider, API key, LLM, BERTopic, UMAP or frontend is required.
 ## Limitations and deferred work
 
 Review-level means can blur multi-topic long reviews, so unit-level audit is
-retained.  HDBSCAN structure is sensitive to density and finite samples;
+retained (`unit_level_audit` keeps per-unit neighborhood evidence for rare and
+tail-topic inspection).  HDBSCAN structure is sensitive to density and finite samples;
 stability diagnostics expose this rather than selecting parameters against the
 current taxonomy.  Region support is not semantic prevalence, and no causal,
 severity, public-opinion or review-bombing claim is made.
@@ -115,3 +116,8 @@ severity, public-opinion or review-bombing claim is made.
 Stage 3B does not name topics, repair taxonomy, train a classifier, build a
 semantic sample, add UMAP visualization, or integrate `/analyze`.  Those belong
 to later explicit stages, especially Stage 3C taxonomy validation/evolution.
+
+If a discovery backend fails, migration 15 records a `failed` discovery run with
+the exact index/contract identity and sanitized error text; no completed report
+or region rows are created.  Research Core and the immutable Stage 3A index are
+unchanged.

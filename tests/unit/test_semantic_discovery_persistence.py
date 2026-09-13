@@ -34,6 +34,13 @@ class StaticBackend:
         return labels, np.ones(len(vectors)), np.zeros(len(vectors))
 
 
+class FailingBackend:
+    identity = "failing"
+
+    def discover(self, vectors, *, min_cluster_size, min_samples, metric):  # type: ignore[no-untyped-def]
+        raise RuntimeError("synthetic discovery failure")
+
+
 def _stored_index() -> str:
     backend = FakeEmbeddingBackend(dimensions=8)
     result = build_semantic_index(
@@ -89,3 +96,17 @@ def test_discovery_can_be_built_without_taxonomy_or_stage2e(isolated_db) -> None
     report = build_semantic_discovery_for_index(index_id, backend=StaticBackend())
     assert report["taxonomy_audit"]["well_covered_region_n"] == 0
     assert all(region["stage2e_overlap"] == {} for region in report["regions"])
+
+
+def test_failed_discovery_is_recorded_without_a_completed_report(isolated_db) -> None:
+    index_id = _stored_index()
+    with pytest.raises(RuntimeError, match="synthetic discovery failure"):
+        build_semantic_discovery_for_index(index_id, backend=FailingBackend())
+    with db.get_connection() as conn:
+        row = conn.execute(
+            text("SELECT status, error, report_json FROM semantic_discovery_runs WHERE semantic_index_id = :index_id"),
+            {"index_id": index_id},
+        ).mappings().first()
+    assert row["status"] == "failed"
+    assert "synthetic discovery failure" in row["error"]
+    assert row["report_json"] is None
