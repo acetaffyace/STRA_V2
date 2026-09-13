@@ -223,3 +223,77 @@ workspace-local basetemp completed the backend suite.
 
 - `6ceaf13` — `chore: checkpoint stage 3e before pipeline integration`
 - `5314b2e5a7397c4a7c3f95d170ea4eff7e88b492` — `feat: add validated semantic measurement contracts`
+
+## Stage 4A.1-R1 Review Fix — Validation Integrity Hardening
+
+This section is appended as a review correction; the historical Stage 4A.1
+record above is intentionally preserved.
+
+### Review findings corrected
+
+1. An injected/fake classifier could previously produce a metric PASS and then
+   be admitted as a `VALIDATED` bundle. `run_classifier_validation()` now marks
+   callback execution as `injected_classifier`; only the no-callback production
+   path can produce `production_classifier` provenance. A fake run can create
+   metrics and a provisional bundle, never a validated one.
+2. The scorer previously omitted taxonomy topics with zero gold support from
+   the visible per-topic audit. It now reports all active topics, including
+   `taxonomy_topic_n`, covered count/rate, zero-support topic IDs, and complete
+   `topic_support_status`. Macro F1 remains calculated only over gold-supported
+   topics. Any zero-support or limited-support topic forces at least
+   `PASS_WITH_LIMITATIONS`.
+3. Production execution now preserves the `model_used` returned by
+   `llm.classify_reviews()` in `ClassifierExecutionResult.actual_model_id`.
+   Production callers cannot override provider/model/prompt/schema identity.
+   Injected execution requires an explicit test identity, and the run identity
+   includes execution mode, actual model identity, execution fingerprint, and
+   full gate-policy content.
+4. Bundle admission reloads `validation_run_id` from the database. The stored
+   record, not a caller mapping, controls gate status, execution mode, and
+   actual identity. Activation repeats the production-run referential checks.
+   Baseline provisional bootstrap now matches the complete current classifier
+   identity; provider/model/prompt/schema changes create a new bundle.
+5. `.github/workflows/ci.yml` now includes `integration/**` in the push
+   trigger; other CI semantics are unchanged.
+
+### Migration 21
+
+Migration 21, `classifier validation execution provenance hardening`, is
+additive and idempotent. It adds nullable historical-safe fields to
+`classifier_validation_runs`:
+
+```text
+execution_mode
+actual_model_id
+execution_identity_fingerprint
+actual_provider
+gate_policy_json
+```
+
+Existing Migration 20 rows remain readable with null actual-execution fields;
+new formal runs require complete execution provenance before persistence.
+Tests cover 20→21 upgrade, fresh latest initialization, repeated init, and
+preservation of an existing validation row.
+
+### R1 tests and remote CI
+
+- Focused R1 tests: **25 passed**.
+- Full backend suite: **493 collected, 491 passed, 2 skipped** using
+  `\.venv\Scripts\python.exe -m pytest -q --basetemp .pytest-temp-stage4a-r1-full2`.
+- Syntax/import compilation for `main.py` and all changed validation/database
+  modules: passed.
+- GitHub Actions run: **34759874689**
+  ([run page](https://github.com/acetaffyace/STRA_V2/actions/runs/34759874689))
+  for commit `56b84864a0ebcb71bd143fc4ff772789f07b8d22`.
+  - backend: `success`
+  - frontend (`npm ci`, `npx tsc --noEmit`, `npm run build`): `success`
+  - overall: `success`
+
+R1 core commit:
+
+- `56b84864a0ebcb71bd143fc4ff772789f07b8d22` — `fix: harden semantic measurement admission`
+
+R1 explicitly remains limited to validation-integrity hardening, Migration 21,
+tests, and the integration-branch CI trigger. Stage 4A.2, `/analyze`,
+Classification Materialization, 3F, Version Review, Compare, Agent, Reports,
+and UI remain deferred.
