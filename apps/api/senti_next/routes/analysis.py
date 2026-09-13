@@ -23,6 +23,13 @@ from ..analysis import recommended_share_over_time
 from ..adaptive_analysis import build_analysis_design, infer_game_profile
 from ..five_questions import build_five_question_contract
 from ..research_core import build_snapshot_research_report
+from ..classification_materialization import (
+    bind_materialization_to_analysis_run,
+    bind_measurement_to_analysis_run,
+    create_classification_materialization,
+    load_materialized_review_labels,
+)
+from ..semantic_measurement_runtime import ResolvedMeasurementContext, resolve_measurement_context
 from .. import (
     fetch_reviews,
     fetch_reviews_multi_language,
@@ -461,13 +468,29 @@ def _run_analysis_job(
             "classified_count": classified_count,
         }
 
-    def _semantic_status(status: str, reason: Optional[str]) -> dict:
-        return {
+    def _semantic_status(
+        status: str,
+        reason: Optional[str],
+        *,
+        context: Optional[ResolvedMeasurementContext] = None,
+        materialization: Optional[dict] = None,
+    ) -> dict:
+        payload = {
             "status": status,
             "reason": reason,
-            "provider": runtime.get("provider"),
-            "model_id": runtime.get("model_id"),
+            "provider": (context.classifier_provider if context else runtime.get("provider")),
+            "model_id": (context.classifier_model_id if context else runtime.get("model_id")),
         }
+        if context is not None:
+            payload["state"] = status
+            payload["measurement_bundle_id"] = context.bundle_id
+            payload["measurement_status"] = context.measurement_status
+            payload["validation_run_id"] = context.validation_run_id
+            payload["validation_status"] = context.validation_status
+            payload["limitations"] = list(context.limitations)
+        if materialization is not None:
+            payload["classification_materialization_id"] = materialization["materialization_id"]
+        return payload
 
     def _finalize_quantitative_only(research_report: dict, status: dict) -> None:
         try:
@@ -519,8 +542,6 @@ def _run_analysis_job(
 
     if not all_reviews:
         semantic_state = _semantic_status("unavailable", "no_reviews")
-    elif runtime.get("status") != "available":
-        semantic_state = _semantic_status("unavailable", runtime.get("reason") or "invalid_configuration")
     else:
         semantic_state = _semantic_status("pending", None)
 
@@ -574,7 +595,43 @@ def _run_analysis_job(
             storage.clear_progress(app_id)
         return
 
+    # Preserve the established quantitative-only behavior when the current
+    # provider cannot run at all.  Bundle resolution is meaningful only after
+    # this optional runtime preflight has passed.
+    if runtime.get("status") != "available":
+        semantic_state = _semantic_status("unavailable", runtime.get("reason") or "invalid_configuration")
+        try:
+            _finalize_quantitative_only(research_report, semantic_state)
+        finally:
+            storage.clear_progress(app_id)
+        return
+
     try:
+        measurement_context = resolve_measurement_context()
+        if not measurement_context.ready:
+            semantic_state = _semantic_status(
+                "unavailable", measurement_context.reason, context=measurement_context
+            )
+            _finalize_quantitative_only(research_report, semantic_state)
+            return
+
+        assert measurement_context.bundle is not None
+        assert measurement_context.taxonomy_contract is not None
+        bind_measurement_to_analysis_run(run_id, measurement_context.bundle)
+        metadata_payload["semantic_measurement"] = {
+            "bundle_id": measurement_context.bundle_id,
+            "measurement_status": measurement_context.measurement_status,
+            "validation_run_id": measurement_context.validation_run_id,
+            "validation_status": measurement_context.validation_status,
+            "taxonomy_snapshot_id": measurement_context.taxonomy_snapshot_id,
+            "taxonomy_version": measurement_context.taxonomy_version,
+            "taxonomy_fingerprint": measurement_context.taxonomy_fingerprint,
+            "classifier_provider": measurement_context.classifier_provider,
+            "classifier_model_id": measurement_context.classifier_model_id,
+            "classifier_prompt_version": measurement_context.classifier_prompt_version,
+            "classifier_schema_version": measurement_context.classifier_schema_version,
+            "limitations": list(measurement_context.limitations),
+        }
         storage.update_progress_phase(app_id, "classifying")
         storage.transition_general_analysis_run(run_id, "running", phase="classifying")
         storage.reset_progress(app_id, total_reviews, phase="classifying")
@@ -583,8 +640,8 @@ def _run_analysis_job(
             run_id=run_id,
             phase="classifying",
             operation="classify",
-            prompt_version=llm.active_classifier_prompt_version(),
-            taxonomy_version=llm.TAXONOMY_VERSION,
+            prompt_version=measurement_context.classifier_prompt_version,
+            taxonomy_version=measurement_context.taxonomy_version,
             requested_review_count=len(all_reviews),
         ):
             llm.ensure_review_labels(
@@ -592,11 +649,24 @@ def _run_analysis_job(
                 all_reviews,
                 progress_callback=_progress_callback if total_reviews > 0 else None,
                 game_context=game_context,
+                taxonomy_contract=measurement_context.taxonomy_contract,
+                strict_taxonomy_identity=True,
             )
-            # `ensure_review_labels` returns flat prediction payloads for
-            # callers, while `apply_review_labels` also needs the canonical
-            # storage envelope (label_origin/validated/provider/input hash).
             llm_labels = storage.load_review_labels(app_id)
+
+        materialization = create_classification_materialization(
+            run_id=run_id,
+            app_id=app_id,
+            all_reviews=all_reviews,
+            bundle=measurement_context.bundle,
+            taxonomy_contract=measurement_context.taxonomy_contract,
+            labels=llm_labels,
+            game_context=game_context,
+        )
+        bind_materialization_to_analysis_run(run_id, materialization["materialization_id"])
+        # The materialization, rather than the mutable app cache, is the
+        # canonical label source for all downstream aggregation in this run.
+        llm_labels = load_materialized_review_labels(materialization["materialization_id"])
 
         if storage.is_general_analysis_cancel_requested(run_id):
             raise InterruptedError("Analysis cancelled by user")
@@ -605,7 +675,10 @@ def _run_analysis_job(
         df = llm.apply_review_labels(df, llm_labels)
 
         if df is None or df.empty:
-            semantic_state = _semantic_status("unavailable", "no_classifiable_reviews")
+            semantic_state = _semantic_status(
+                "unavailable", "no_classifiable_reviews", context=measurement_context,
+                materialization=materialization,
+            )
             _finalize_quantitative_only(research_report, semantic_state)
             return
 
@@ -669,8 +742,8 @@ def _run_analysis_job(
                 run_id=run_id,
                 phase="aggregating",
                 operation="health_overview",
-                prompt_version=llm.ACTIVE_PROMPT_VERSION,
-                taxonomy_version=llm.TAXONOMY_VERSION,
+                prompt_version=measurement_context.classifier_prompt_version,
+                taxonomy_version=measurement_context.taxonomy_version,
             ):
                 health_overview = llm.generate_health_overview(
                     reviews=reviews_payload,
@@ -687,9 +760,22 @@ def _run_analysis_job(
 
         # Store review fingerprint so auto-refresh can detect changes.
         metadata.review_fingerprint = storage.get_reviews_fingerprint(app_id)
+        semantic_measurement_payload = metadata_payload.get("semantic_measurement")
         metadata_payload = metadata.dict()
         metadata_payload["population_provenance"] = population_provenance
-        semantic_status = _semantic_status("available", None)
+        semantic_status = _semantic_status(
+            "available", None, context=measurement_context, materialization=materialization
+        )
+        metadata_payload["semantic_measurement"] = semantic_measurement_payload or {}
+        metadata_payload["semantic_measurement"].update({
+            "classification_materialization_id": materialization["materialization_id"],
+            "population_fingerprint": materialization["population_fingerprint"],
+            "population_n": materialization["population_n"],
+            "materialized_n": materialization["materialized_n"],
+            "validated_llm_n": materialization["validated_llm_n"],
+            "fallback_n": materialization["fallback_n"],
+            "missing_n": materialization["missing_n"],
+        })
 
         storage.finalize_general_analysis_run(
             run_id=run_id,

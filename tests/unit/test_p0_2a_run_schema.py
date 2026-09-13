@@ -46,7 +46,7 @@ def test_fresh_database_has_generalized_schema_and_version_three():
     assert expected <= columns()
     with db.get_connection() as conn:
         versions = conn.exec_driver_sql("SELECT version FROM schema_migrations ORDER BY version").fetchall()
-        assert [row[0] for row in versions] == [1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21]
+        assert [row[0] for row in versions] == [1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22]
 
 
 def test_existing_version_review_storage_and_api_shape_still_work():
@@ -83,6 +83,14 @@ def test_general_run_can_leave_version_scope_null_and_provenance_unknown():
 
 def test_legacy_migration_preserves_data_and_classifies_version_runs():
     fresh_columns = columns()
+    # This test exercises the historical P0.2a migration only.  Stage 4A.2
+    # adds nullable run references later, so they are not part of this
+    # migration's parity contract.
+    fresh_columns -= {
+        "measurement_bundle_id", "classification_materialization_id",
+        "taxonomy_snapshot_id", "taxonomy_fingerprint", "measurement_status",
+        "validation_run_id", "validation_status",
+    }
     root = Path.cwd() / ".p0_2a-parity-fixture"
     root.mkdir(exist_ok=True)
     legacy = root / "legacy.db"

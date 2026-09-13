@@ -37,6 +37,7 @@ MIGRATION_REGISTRY: tuple[tuple[int, str], ...] = (
     (19, "taxonomy snapshot and fingerprint in review label cache identity"),
     (20, "classifier validation runs and semantic measurement bundles"),
     (21, "classifier validation execution provenance hardening"),
+    (22, "frozen classification materializations"),
 )
 
 

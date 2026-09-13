@@ -12,7 +12,7 @@ from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.pool import NullPool, StaticPool
 
-from . import classifier_taxonomy_schema, classifier_validation_execution_schema, label_schema, result_schema, semantic_discovery_materialization_schema, semantic_discovery_schema, semantic_index_schema, semantic_measurement_schema, semantic_region_interpretation_schema, taxonomy_governance_schema
+from . import classification_materialization_schema, classifier_taxonomy_schema, classifier_validation_execution_schema, label_schema, result_schema, semantic_discovery_materialization_schema, semantic_discovery_schema, semantic_index_schema, semantic_measurement_schema, semantic_region_interpretation_schema, taxonomy_governance_schema
 from . import migrations, runtime_state
 
 logger = logging.getLogger(__name__)
@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 startup_complete = threading.Event()
 
 _engine: Optional[Engine] = None
+_initialized = False
 
 
 def _default_sqlite_path() -> str:
@@ -121,6 +122,9 @@ def get_connection() -> Generator:
 
 def init_db() -> None:
     """Initialize the SQLite database schema."""
+    global _initialized
+    if _initialized and _engine is not None:
+        return
     migrations.validate_migration_registry()
     with get_connection() as conn:
         # P0.0A migration foundation. The existing DDL remains the bootstrap
@@ -883,11 +887,34 @@ def init_db() -> None:
             restore_on_error=True,
         )
 
+    # Stage 4A.2 freezes the exact classification result of each general
+    # analysis run and adds nullable direct references to analysis_runs.
+    if database in (None, ":memory:"):
+        with get_connection() as conn:
+            raw = conn.connection.driver_connection
+            if migrations.current_version(raw) < classification_materialization_schema.CLASSIFICATION_MATERIALIZATION_MIGRATION_VERSION:
+                classification_materialization_schema.migrate_classification_materialization(raw)
+                migrations.record_version(raw, classification_materialization_schema.CLASSIFICATION_MATERIALIZATION_MIGRATION_VERSION, classification_materialization_schema.DESCRIPTION)
+                raw.commit()
+            else:
+                classification_materialization_schema.migrate_classification_materialization(raw)
+                raw.commit()
+    else:
+        materialization_path = Path(database).expanduser().resolve()
+        materialization_backup = materialization_path.with_name(materialization_path.name + ".classification_materialization_v1.bak")
+        migrations.apply_ordered_migrations(
+            materialization_path,
+            [(classification_materialization_schema.CLASSIFICATION_MATERIALIZATION_MIGRATION_VERSION, classification_materialization_schema.DESCRIPTION, classification_materialization_schema.migrate_classification_materialization)],
+            backup_path=materialization_backup,
+            restore_on_error=True,
+        )
+
     with get_connection() as conn:
         run_schema.recover_interrupted_general_runs(conn)
         recovered = run_schema.recover_invalid_version_runs(conn)
         if recovered:
             logger.warning("Recovered %s invalid version-review run(s) after startup", recovered)
+    _initialized = True
 
 
 def check_db_health() -> bool:
@@ -935,8 +962,9 @@ def mark_failed(reason: str) -> None:
 
 def close_engine() -> None:
     """Close the database engine and dispose of connection pool."""
-    global _engine
+    global _engine, _initialized
     if _engine is not None:
         _engine.dispose()
         _engine = None
         logger.info("Database engine closed")
+    _initialized = False

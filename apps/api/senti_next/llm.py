@@ -1868,7 +1868,12 @@ def classification_identity(
     }
 
 
-def label_cache_eligible(label: Mapping[str, Any], current_identity: Mapping[str, Any]) -> bool:
+def label_cache_eligible(
+    label: Mapping[str, Any],
+    current_identity: Mapping[str, Any],
+    *,
+    strict_taxonomy_identity: bool = False,
+) -> bool:
     """Centralized rule for reusing a persisted label."""
     return bool(
         label.get("label_origin") == "llm"
@@ -1881,13 +1886,13 @@ def label_cache_eligible(label: Mapping[str, Any], current_identity: Mapping[str
         and label.get("model_id") == current_identity.get("model_id")
         and (
             (
-                current_identity.get("taxonomy_version") == TAXONOMY_VERSION
+                not strict_taxonomy_identity
+                and current_identity.get("taxonomy_version") == TAXONOMY_VERSION
                 and label.get("taxonomy_snapshot_id") in (None, current_identity.get("taxonomy_snapshot_id"))
                 and label.get("taxonomy_fingerprint") in (None, current_identity.get("taxonomy_fingerprint"))
             )
             or (
-                current_identity.get("taxonomy_version") != TAXONOMY_VERSION
-                and label.get("taxonomy_snapshot_id") == current_identity.get("taxonomy_snapshot_id")
+                label.get("taxonomy_snapshot_id") == current_identity.get("taxonomy_snapshot_id")
                 and label.get("taxonomy_fingerprint") == current_identity.get("taxonomy_fingerprint")
             )
         )
@@ -2116,12 +2121,17 @@ def ensure_review_labels(
     cache_enabled: bool = True,
     taxonomy_version: Optional[str] = None,
     taxonomy_snapshot_id: Optional[str] = None,
+    taxonomy_contract: Optional[ClassifierTaxonomyContract] = None,
+    strict_taxonomy_identity: bool = False,
 ) -> Dict[str, Dict[str, Any]]:
     from .providers.config import get_active_provider
 
     if taxonomy_version is not None and taxonomy_snapshot_id is not None:
         raise ValueError("taxonomy_version_and_snapshot_id_are_mutually_exclusive")
-    taxonomy_contract = load_classifier_taxonomy(taxonomy_version, taxonomy_snapshot_id)
+    if taxonomy_contract is not None and (taxonomy_version is not None or taxonomy_snapshot_id is not None):
+        raise ValueError("taxonomy_contract_and_identity_are_mutually_exclusive")
+    taxonomy_contract = taxonomy_contract or load_classifier_taxonomy(taxonomy_version, taxonomy_snapshot_id)
+    taxonomy_contract.validate()
     explicit_nonbaseline_taxonomy = taxonomy_contract.taxonomy_version != TAXONOMY_VERSION
 
     if not reviews:
@@ -2168,7 +2178,9 @@ def ensure_review_labels(
         review_hash = identity["review_hash"]
 
         cached = existing.get(review_id)
-        needs_refresh = force_refresh or cached is None or not label_cache_eligible(cached or {}, identity)
+        needs_refresh = force_refresh or cached is None or not label_cache_eligible(
+            cached or {}, identity, strict_taxonomy_identity=strict_taxonomy_identity
+        )
 
         if not review_text:
             if cached is not None and not needs_refresh:
@@ -2797,6 +2809,8 @@ def estimate_review_labeling(
     *,
     force_refresh: bool = False,
     cache_enabled: bool = True,
+    taxonomy_contract: Optional[ClassifierTaxonomyContract] = None,
+    strict_taxonomy_identity: bool = False,
 ) -> Dict[str, Any]:
     """Estimate how many reviews will require LLM calls vs cache/rules.
 
@@ -2805,6 +2819,8 @@ def estimate_review_labeling(
     from .providers.config import get_active_provider
     active_name, active_model = get_active_provider()
     active_prompt_version = _active_classifier_prompt_version()
+    if taxonomy_contract is not None:
+        taxonomy_contract.validate()
 
     if not reviews:
         return {
@@ -2845,11 +2861,13 @@ def estimate_review_labeling(
         review_text = (review.get("review") or "").strip()
         identity = classification_identity(
             review, None, provider=active_name, model_id=current_model_id,
-            prompt_version=active_prompt_version,
+            prompt_version=active_prompt_version, taxonomy_contract=taxonomy_contract,
         )
 
         cached = existing.get(review_id)
-        needs_refresh = force_refresh or cached is None or not label_cache_eligible(cached or {}, identity)
+        needs_refresh = force_refresh or cached is None or not label_cache_eligible(
+            cached or {}, identity, strict_taxonomy_identity=strict_taxonomy_identity
+        )
         if cached is None:
             reasons["missing_label"] = reasons.get("missing_label", 0) + 1
         elif not label_cache_eligible(cached, identity):

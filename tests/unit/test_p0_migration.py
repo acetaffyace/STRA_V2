@@ -150,4 +150,5 @@ def test_application_db_initialization_records_stable_bootstrap_version(monkeypa
                     (19, "taxonomy snapshot and fingerprint in review label cache identity"),
                     (20, "classifier validation runs and semantic measurement bundles"),
                     (21, "classifier validation execution provenance hardening"),
+                    (22, "frozen classification materializations"),
                                         ]

@@ -2071,7 +2071,10 @@ def get_analysis_run(run_id: str) -> Optional[Dict[str, Any]]:
                        retrieved_count, deduplicated_count, analysis_population_count,
                        valid_review_count, classified_count, fallback_count, enriched_count,
                        scope_fingerprint, taxonomy_version, prompt_version, analysis_version,
-                       provider, model_id
+                       provider, model_id, measurement_bundle_id,
+                       classification_materialization_id, taxonomy_snapshot_id,
+                       taxonomy_fingerprint, measurement_status, validation_run_id,
+                       validation_status
                 FROM analysis_runs
                 WHERE run_id = :run_id AND user_id = :user_id
             """),
@@ -2104,7 +2107,10 @@ def list_analysis_runs(app_id: Optional[int] = None) -> List[Dict[str, Any]]:
         rows = conn.execute(
             text(f"""
                 SELECT run_id, user_id, target_app_id, event_id, config, status,
-                       metrics, error, created_at, updated_at
+                       metrics, error, created_at, updated_at,
+                       measurement_bundle_id, classification_materialization_id,
+                       taxonomy_snapshot_id, taxonomy_fingerprint,
+                       measurement_status, validation_run_id, validation_status
                 FROM analysis_runs
                 WHERE user_id = :user_id {app_clause}
                 ORDER BY created_at DESC
