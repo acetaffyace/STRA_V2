@@ -282,6 +282,8 @@ The first full backend pass after implementation found only two stale tests asse
 
 Blocker severity after R1: P0 `REAL_SEMANTIC_PROVIDER_UNAVAILABLE` remains open; the prior P1 immutable-population and P2 FTS blockers are repaired and regression-tested. No new P1/P2/P3 blocker was found.
 
+The pushed R1 HEAD was validated by GitHub Actions run `34768743389`: backend `success`, frontend `success`, overall `success`. URL: https://github.com/acetaffyace/STRA_V2/actions/runs/34768743389
+
 ### Recommended next action
 
 Remain on **Path C — Backend Repair**, but the remaining action is operational: configure an approved Production LLM provider/model without committing or exposing credentials, then rerun the same 80-review slice to exercise classification, frozen materialization, 3F, taxonomy audit, and optional 3C. Do not start UI or taxonomy convergence until that semantic branch is available and reviewed.
