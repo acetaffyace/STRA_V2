@@ -148,4 +148,5 @@ def test_application_db_initialization_records_stable_bootstrap_version(monkeypa
                     (17, "semantic region evidence and taxonomy candidate interpretation"),
                     (18, "versioned taxonomy governance and immutable snapshots"),
                     (19, "taxonomy snapshot and fingerprint in review label cache identity"),
-                                    ]
+                    (20, "classifier validation runs and semantic measurement bundles"),
+                                        ]
