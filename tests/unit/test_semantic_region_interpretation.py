@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import copy
 
 import numpy as np
 import pytest
@@ -128,6 +129,16 @@ def test_interpretation_persists_deterministic_and_llm_candidates(monkeypatch):
         assert latest["decision_id"] == decision_id
     finally:
         db.close_engine()
+
+
+def test_interpretation_does_not_mutate_materialization_or_taxonomy_context():
+    materialization = _materialization()
+    before = copy.deepcopy(materialization)
+    taxonomy = {"r1": ["technical/bugs"], "r3": ["other/general"]}
+    package = build_semantic_region_evidence(materialization, materialization["regions"][0], units=_units(), review_metadata={"r1": {"review": "Game crashes"}})
+    assert package["region_id"] == "dense-1"
+    assert materialization == before
+    assert taxonomy == {"r1": ["technical/bugs"], "r3": ["other/general"]}
 
 
 def test_budget_guardrail_makes_zero_provider_calls(monkeypatch):
