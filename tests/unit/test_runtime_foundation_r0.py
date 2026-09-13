@@ -40,7 +40,7 @@ def test_dependency_topology_has_shared_core_and_desktop_reuses_it() -> None:
 def test_migration_registry_is_unique_and_has_single_latest_source() -> None:
     versions = [version for version, _ in migrations.MIGRATION_REGISTRY]
     assert versions == sorted(set(versions))
-    assert migrations.latest_known_schema_version() == 22
+    assert migrations.latest_known_schema_version() == 23
     assert not hasattr(migrations, "CURRENT_SCHEMA_VERSION")
 
 

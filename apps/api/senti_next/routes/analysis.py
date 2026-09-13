@@ -30,6 +30,8 @@ from ..classification_materialization import (
     load_materialized_review_labels,
 )
 from ..semantic_measurement_runtime import ResolvedMeasurementContext, resolve_measurement_context
+from ..topic_measurement import build_semantic_measurement_result
+from ..unified_research_result import build_unified_research_result
 from .. import (
     fetch_reviews,
     fetch_reviews_multi_language,
@@ -108,6 +110,8 @@ class AnalysisStatusResponse(BaseModel):
     insights: Optional[dict] = None
     research_report: Optional[dict] = None
     semantic_status: Optional[dict] = None
+    semantic_measurement_result: Optional[dict] = None
+    unified_research_result: Optional[dict] = None
     reviews: List[dict] = Field(default_factory=list)
     error: Optional[str] = None
     run_id: Optional[str] = None
@@ -498,6 +502,14 @@ def _run_analysis_job(
             storage.update_progress(app_id, total_reviews, total_reviews)
         except Exception:
             logger.debug("Failed to mark quantitative-only finalization for %s", run_id, exc_info=True)
+        unified_result = build_unified_research_result(
+            run_id=run_id,
+            app_id=app_id,
+            research_report=research_report,
+            semantic_measurement_result=None,
+            semantic_status=status,
+            metadata=metadata_payload,
+        )
         storage.finalize_general_analysis_run(
             run_id,
             app_id,
@@ -509,6 +521,8 @@ def _run_analysis_job(
             counts=_research_counts(research_report),
             research_report=research_report,
             semantic_status=status,
+            semantic_measurement_result=None,
+            unified_research_result=unified_result,
         )
 
     # Research Core is the canonical minimum analytical product.  Any failure
@@ -777,6 +791,18 @@ def _run_analysis_job(
             "missing_n": materialization["missing_n"],
         })
 
+        semantic_measurement_result = build_semantic_measurement_result(
+            run_id=run_id,
+            materialization_id=materialization["materialization_id"],
+        )
+        unified_result = build_unified_research_result(
+            run_id=run_id,
+            app_id=app_id,
+            research_report=research_report,
+            semantic_measurement_result=semantic_measurement_result,
+            semantic_status=semantic_status,
+            metadata=metadata_payload,
+        )
         storage.finalize_general_analysis_run(
             run_id=run_id,
             app_id=app_id,
@@ -792,6 +818,8 @@ def _run_analysis_job(
             ),
             research_report=research_report,
             semantic_status=semantic_status,
+            semantic_measurement_result=semantic_measurement_result,
+            unified_research_result=unified_result,
         )
         _save_starred_snapshot(insights, reviews_payload)
     except InterruptedError as exc:
@@ -1035,7 +1063,15 @@ def analyze(
     label_estimate = None
     if semantic_runtime.get("status") == "available" and all_reviews:
         try:
-            estimate = llm.estimate_review_labeling(request.app_id, all_reviews)
+            estimate_context = resolve_measurement_context()
+            if not estimate_context.ready or estimate_context.taxonomy_contract is None:
+                raise ValueError(estimate_context.reason or "measurement_context_not_ready")
+            estimate = llm.estimate_review_labeling(
+                request.app_id,
+                all_reviews,
+                taxonomy_contract=estimate_context.taxonomy_contract,
+                strict_taxonomy_identity=True,
+            )
             label_estimate = LabelReuseEstimate(
                 total_reviews=int(estimate.get("total_reviews", len(all_reviews)) or 0),
                 cached_reviews=int(estimate.get("cached_reviews", 0) or 0),
@@ -1254,10 +1290,18 @@ def analyze_estimate(request: AnalyzeRequest) -> AnalyzeEstimateResponse:
         all_reviews = all_reviews[: sampling_contract.max_reviews]
 
     cached_labels = storage.load_review_labels(request.app_id)
-    estimate = llm.estimate_review_labeling(
-        request.app_id,
-        all_reviews,
-    )
+    try:
+        estimate_context = resolve_measurement_context()
+        if not estimate_context.ready or estimate_context.taxonomy_contract is None:
+            raise ValueError(estimate_context.reason or "measurement_context_not_ready")
+        estimate = llm.estimate_review_labeling(
+            request.app_id,
+            all_reviews,
+            taxonomy_contract=estimate_context.taxonomy_contract,
+            strict_taxonomy_identity=True,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="Semantic measurement context is unavailable.") from exc
 
     return AnalyzeEstimateResponse(
         app_id=request.app_id,
@@ -1405,6 +1449,8 @@ def get_analysis_result(app_id: int) -> AnalysisStatusResponse:
         insights=result.get("insights"),
         research_report=result.get("research_report"),
         semantic_status=result.get("semantic_status"),
+        semantic_measurement_result=result.get("semantic_measurement_result"),
+        unified_research_result=result.get("unified_research_result"),
         reviews=result.get("reviews") or [],
         error=result.get("error"),
         run_id=result.get("run_id"),

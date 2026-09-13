@@ -38,6 +38,7 @@ MIGRATION_REGISTRY: tuple[tuple[int, str], ...] = (
     (20, "classifier validation runs and semantic measurement bundles"),
     (21, "classifier validation execution provenance hardening"),
     (22, "frozen classification materializations"),
+    (23, "canonical semantic measurement and unified research result"),
 )
 
 

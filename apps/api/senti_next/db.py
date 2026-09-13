@@ -12,7 +12,7 @@ from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.pool import NullPool, StaticPool
 
-from . import classification_materialization_schema, classifier_taxonomy_schema, classifier_validation_execution_schema, label_schema, result_schema, semantic_discovery_materialization_schema, semantic_discovery_schema, semantic_index_schema, semantic_measurement_schema, semantic_region_interpretation_schema, taxonomy_governance_schema
+from . import classification_materialization_schema, classifier_taxonomy_schema, classifier_validation_execution_schema, label_schema, result_schema, semantic_discovery_materialization_schema, semantic_discovery_schema, semantic_index_schema, semantic_measurement_result_schema, semantic_measurement_schema, semantic_region_interpretation_schema, taxonomy_governance_schema
 from . import migrations, runtime_state
 
 logger = logging.getLogger(__name__)
@@ -906,6 +906,28 @@ def init_db() -> None:
             materialization_path,
             [(classification_materialization_schema.CLASSIFICATION_MATERIALIZATION_MIGRATION_VERSION, classification_materialization_schema.DESCRIPTION, classification_materialization_schema.migrate_classification_materialization)],
             backup_path=materialization_backup,
+            restore_on_error=True,
+        )
+
+    # Stage 4A.3 stores canonical semantic measurement and unified product
+    # results in both immutable run history and latest-per-app compatibility.
+    if database in (None, ":memory:"):
+        with get_connection() as conn:
+            raw = conn.connection.driver_connection
+            if migrations.current_version(raw) < semantic_measurement_result_schema.SEMANTIC_MEASUREMENT_RESULT_MIGRATION_VERSION:
+                semantic_measurement_result_schema.migrate_semantic_measurement_result(raw)
+                migrations.record_version(raw, semantic_measurement_result_schema.SEMANTIC_MEASUREMENT_RESULT_MIGRATION_VERSION, semantic_measurement_result_schema.DESCRIPTION)
+                raw.commit()
+            else:
+                semantic_measurement_result_schema.migrate_semantic_measurement_result(raw)
+                raw.commit()
+    else:
+        result_path = Path(database).expanduser().resolve()
+        result_backup = result_path.with_name(result_path.name + ".semantic_measurement_result_v1.bak")
+        migrations.apply_ordered_migrations(
+            result_path,
+            [(semantic_measurement_result_schema.SEMANTIC_MEASUREMENT_RESULT_MIGRATION_VERSION, semantic_measurement_result_schema.DESCRIPTION, semantic_measurement_result_schema.migrate_semantic_measurement_result)],
+            backup_path=result_backup,
             restore_on_error=True,
         )
 

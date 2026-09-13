@@ -1457,6 +1457,8 @@ def save_analysis_result(
     stale_reason: Optional[str] = None,
     research_report: Any = _UNSET,
     semantic_status: Any = _UNSET,
+    semantic_measurement_result: Any = _UNSET,
+    unified_research_result: Any = _UNSET,
 ) -> None:
     """Persist analysis output for async jobs."""
     payload_metadata = json.dumps(metadata) if metadata is not None else None
@@ -1464,12 +1466,20 @@ def save_analysis_result(
     payload_reviews = json.dumps(reviews) if reviews is not None else None
     report_supplied = research_report is not _UNSET
     status_supplied = semantic_status is not _UNSET
+    measurement_supplied = semantic_measurement_result is not _UNSET
+    unified_supplied = unified_research_result is not _UNSET
     payload_research_report = (
         json.dumps(research_report) if research_report is not None else None
     ) if report_supplied else None
     payload_semantic_status = (
         json.dumps(semantic_status) if semantic_status is not None else None
     ) if status_supplied else None
+    payload_semantic_measurement_result = (
+        json.dumps(semantic_measurement_result) if semantic_measurement_result is not None else None
+    ) if measurement_supplied else None
+    payload_unified_research_result = (
+        json.dumps(unified_research_result) if unified_research_result is not None else None
+    ) if unified_supplied else None
     timestamp = _get_timestamp()
     from . import db as db_module
     ts_expr = d.to_timestamp_expr(":updated_at") if not d.is_sqlite() else ":updated_at"
@@ -1478,14 +1488,16 @@ def save_analysis_result(
         from sqlalchemy import text
         conn.execute(
             text(f"""
-            INSERT INTO analysis_results (user_id, app_id, metadata, insights, reviews, research_report, semantic_status, status, error, updated_at, run_id, snapshot_hash, stale, context_hash, stale_reason)
-            VALUES (:user_id, :app_id, :metadata, :insights, :reviews, :research_report, :semantic_status, :status, :error, {ts_expr}, :run_id, :snapshot_hash, :stale, :context_hash, :stale_reason)
+            INSERT INTO analysis_results (user_id, app_id, metadata, insights, reviews, research_report, semantic_status, semantic_measurement_result, unified_research_result, status, error, updated_at, run_id, snapshot_hash, stale, context_hash, stale_reason)
+            VALUES (:user_id, :app_id, :metadata, :insights, :reviews, :research_report, :semantic_status, :semantic_measurement_result, :unified_research_result, :status, :error, {ts_expr}, :run_id, :snapshot_hash, :stale, :context_hash, :stale_reason)
             ON CONFLICT(user_id, app_id) DO UPDATE SET
                 metadata = EXCLUDED.metadata,
                 insights = EXCLUDED.insights,
                 reviews = EXCLUDED.reviews,
                 research_report = CASE WHEN :research_report_supplied = 1 THEN EXCLUDED.research_report ELSE analysis_results.research_report END,
                 semantic_status = CASE WHEN :semantic_status_supplied = 1 THEN EXCLUDED.semantic_status ELSE analysis_results.semantic_status END,
+                semantic_measurement_result = CASE WHEN :semantic_measurement_supplied = 1 THEN EXCLUDED.semantic_measurement_result ELSE analysis_results.semantic_measurement_result END,
+                unified_research_result = CASE WHEN :unified_supplied = 1 THEN EXCLUDED.unified_research_result ELSE analysis_results.unified_research_result END,
                 status = EXCLUDED.status,
                 error = EXCLUDED.error,
                 run_id = EXCLUDED.run_id,
@@ -1503,8 +1515,12 @@ def save_analysis_result(
                 "reviews": payload_reviews,
                 "research_report": payload_research_report,
                 "semantic_status": payload_semantic_status,
+                "semantic_measurement_result": payload_semantic_measurement_result,
+                "unified_research_result": payload_unified_research_result,
                 "research_report_supplied": int(report_supplied),
                 "semantic_status_supplied": int(status_supplied),
+                "semantic_measurement_supplied": int(measurement_supplied),
+                "unified_supplied": int(unified_supplied),
                 "status": status,
                 "error": error,
                 "updated_at": updated_at_val,
@@ -1593,7 +1609,7 @@ def load_analysis_result(app_id: int) -> Optional[Dict[str, Any]]:
     with db_module.get_connection() as conn:
         row = conn.execute(
             text("""
-            SELECT metadata, insights, reviews, research_report, semantic_status, status, error, updated_at, run_id, snapshot_hash, stale, context_hash, stale_reason
+            SELECT metadata, insights, reviews, research_report, semantic_status, semantic_measurement_result, unified_research_result, status, error, updated_at, run_id, snapshot_hash, stale, context_hash, stale_reason
             FROM analysis_results
             WHERE user_id = :user_id AND app_id = :app_id
             """),
@@ -1606,6 +1622,8 @@ def load_analysis_result(app_id: int) -> Optional[Dict[str, Any]]:
     insights = _parse_json_field(row["insights"], None)
     research_report = _parse_json_field(row["research_report"], None)
     semantic_status = _parse_json_field(row["semantic_status"], None)
+    semantic_measurement_result = _parse_json_field(row["semantic_measurement_result"], None)
+    unified_research_result = _parse_json_field(row["unified_research_result"], None)
     # Transitional Stage 2P.3 rows may only have the reserved values inside
     # insights. Dedicated columns always take precedence when populated.
     if research_report is None and isinstance(insights, dict) and "research_report" in insights:
@@ -1619,6 +1637,8 @@ def load_analysis_result(app_id: int) -> Optional[Dict[str, Any]]:
         "reviews": _parse_json_field(row["reviews"], []),
         "research_report": research_report,
         "semantic_status": semantic_status,
+        "semantic_measurement_result": semantic_measurement_result,
+        "unified_research_result": unified_research_result,
         "status": row["status"],
         "error": row["error"],
         "updated_at": _timestamp_to_int(row["updated_at"]) or 0,
@@ -1683,6 +1703,8 @@ def finalize_general_analysis_run(
     counts: Optional[Dict[str, int]] = None,
     research_report: Optional[Dict[str, Any]] = None,
     semantic_status: Optional[Dict[str, Any]] = None,
+    semantic_measurement_result: Optional[Dict[str, Any]] = None,
+    unified_research_result: Optional[Dict[str, Any]] = None,
 ) -> None:
     """Atomically persist an immutable result and advance a general run.
 
@@ -1696,6 +1718,8 @@ def finalize_general_analysis_run(
         "reviews": json.dumps(reviews) if reviews is not None else None,
         "research_report": json.dumps(research_report) if research_report is not None else None,
         "semantic_status": json.dumps(semantic_status) if semantic_status is not None else None,
+        "semantic_measurement_result": json.dumps(semantic_measurement_result) if semantic_measurement_result is not None else None,
+        "unified_research_result": json.dumps(unified_research_result) if unified_research_result is not None else None,
     }
     timestamp = _get_timestamp()
     updated_at_val = datetime.fromtimestamp(timestamp, tz=timezone.utc) if d.is_sqlite() else timestamp
@@ -1723,6 +1747,17 @@ def finalize_general_analysis_run(
             raise ValueError("Immutable results are only supported for general analysis runs")
         if int(run["target_app_id"]) != int(app_id):
             raise ValueError("Result app_id does not match analysis run")
+        existing_result = conn.execute(
+            text("SELECT semantic_measurement_result FROM analysis_run_results WHERE run_id=:run_id"),
+            {"run_id": run_id},
+        ).mappings().fetchone()
+        if existing_result:
+            old_measurement = _parse_json_field(existing_result["semantic_measurement_result"], None)
+            old_fp = (old_measurement or {}).get("semantic_measurement_result_fingerprint")
+            new_fp = (semantic_measurement_result or {}).get("semantic_measurement_result_fingerprint")
+            if old_fp != new_fp:
+                raise ValueError("semantic_measurement_result_conflict")
+            raise ValueError("immutable_analysis_run_result_exists")
         if run["status"] != "running":
             raise ValueError(f"General analysis run is not running: {run['status']}")
 
@@ -1730,25 +1765,27 @@ def finalize_general_analysis_run(
         conn.execute(
             text("""INSERT INTO analysis_run_results
                     (run_id, user_id, app_id, metadata, insights, reviews,
-                     research_report, semantic_status, snapshot_hash, context_hash)
+                     research_report, semantic_status, semantic_measurement_result, unified_research_result, snapshot_hash, context_hash)
                     VALUES (:run_id, :user_id, :app_id, :metadata, :insights,
-                            :reviews, :research_report, :semantic_status,
+                            :reviews, :research_report, :semantic_status, :semantic_measurement_result, :unified_research_result,
                             :snapshot_hash, :context_hash)"""),
             {"run_id": run_id, "user_id": _DEFAULT_USER_ID, "app_id": app_id,
              **payloads, "snapshot_hash": snapshot_hash, "context_hash": context_hash},
         )
         conn.execute(
             text("""INSERT INTO analysis_results
-                    (user_id, app_id, metadata, insights, reviews, research_report, semantic_status, status, error,
+                    (user_id, app_id, metadata, insights, reviews, research_report, semantic_status, semantic_measurement_result, unified_research_result, status, error,
                      updated_at, run_id, snapshot_hash, stale, context_hash, stale_reason)
                     VALUES (:user_id, :app_id, :metadata, :insights, :reviews,
-                            :research_report, :semantic_status,
+                            :research_report, :semantic_status, :semantic_measurement_result, :unified_research_result,
                             'completed', NULL, :updated_at, :run_id, :snapshot_hash,
                             0, :context_hash, NULL)
                     ON CONFLICT(user_id, app_id) DO UPDATE SET
                         metadata=EXCLUDED.metadata, insights=EXCLUDED.insights,
                         research_report=EXCLUDED.research_report,
                         semantic_status=EXCLUDED.semantic_status,
+                        semantic_measurement_result=EXCLUDED.semantic_measurement_result,
+                        unified_research_result=EXCLUDED.unified_research_result,
                         reviews=EXCLUDED.reviews, status=EXCLUDED.status,
                         error=EXCLUDED.error, run_id=EXCLUDED.run_id,
                         snapshot_hash=EXCLUDED.snapshot_hash, stale=EXCLUDED.stale,
@@ -1784,6 +1821,7 @@ def get_analysis_run_result(run_id: str) -> Optional[Dict[str, Any]]:
         row = conn.execute(
             text("""SELECT r.run_id, r.user_id, r.app_id, r.metadata, r.insights,
                           r.reviews, r.research_report, r.semantic_status,
+                          r.semantic_measurement_result, r.unified_research_result,
                           r.snapshot_hash, r.context_hash,
                           r.created_at, r.completed_at
                    FROM analysis_run_results r
@@ -1797,6 +1835,8 @@ def get_analysis_run_result(run_id: str) -> Optional[Dict[str, Any]]:
     insights = _parse_json_field(row["insights"], None)
     research_report = _parse_json_field(row["research_report"], None)
     semantic_status = _parse_json_field(row["semantic_status"], None)
+    semantic_measurement_result = _parse_json_field(row["semantic_measurement_result"], None)
+    unified_research_result = _parse_json_field(row["unified_research_result"], None)
     if research_report is None and isinstance(insights, dict) and "research_report" in insights:
         research_report = insights.get("research_report")
     if semantic_status is None and isinstance(insights, dict) and "semantic_status" in insights:
@@ -1808,6 +1848,8 @@ def get_analysis_run_result(run_id: str) -> Optional[Dict[str, Any]]:
         "reviews": _parse_json_field(row["reviews"], []),
         "research_report": research_report,
         "semantic_status": semantic_status,
+        "semantic_measurement_result": semantic_measurement_result,
+        "unified_research_result": unified_research_result,
         "snapshot_hash": row["snapshot_hash"], "context_hash": row["context_hash"],
         "created_at": _format_ts(row["created_at"]),
         "completed_at": _format_ts(row["completed_at"]),
