@@ -410,6 +410,8 @@ def upsert_review_label(
     original_char_count: Optional[int] = None,
     processed_char_count: Optional[int] = None,
     generated_at: Optional[Any] = None,
+    taxonomy_snapshot_id: Optional[str] = None,
+    taxonomy_fingerprint: Optional[str] = None,
 ) -> None:
     """Insert or update a review label."""
     from . import db as db_module
@@ -423,13 +425,15 @@ def upsert_review_label(
                 INSERT INTO review_labels
                     (review_id, app_id, model, prompt_version, review_hash, payload,
                      updated_at, label_origin, validated, taxonomy_version, provider,
-                     model_id, classification_input_hash, was_truncated,
-                     original_char_count, processed_char_count, generated_at)
+                    model_id, classification_input_hash, was_truncated,
+                     original_char_count, processed_char_count, generated_at,
+                     taxonomy_snapshot_id, taxonomy_fingerprint)
                 VALUES (:review_id, :app_id, :model, :prompt_version, :review_hash,
                         :payload, :updated_at, :label_origin, :validated,
                         :taxonomy_version, :provider, :model_id,
                         :classification_input_hash, :was_truncated,
-                        :original_char_count, :processed_char_count, :generated_at)
+                        :original_char_count, :processed_char_count, :generated_at,
+                        :taxonomy_snapshot_id, :taxonomy_fingerprint)
                 ON CONFLICT(app_id, review_id) DO UPDATE SET
                     model = EXCLUDED.model,
                     prompt_version = EXCLUDED.prompt_version,
@@ -445,6 +449,8 @@ def upsert_review_label(
                     original_char_count = EXCLUDED.original_char_count,
                     processed_char_count = EXCLUDED.processed_char_count,
                     generated_at = EXCLUDED.generated_at,
+                    taxonomy_snapshot_id = EXCLUDED.taxonomy_snapshot_id,
+                    taxonomy_fingerprint = EXCLUDED.taxonomy_fingerprint,
                     updated_at = EXCLUDED.updated_at
             """),
             {
@@ -465,6 +471,8 @@ def upsert_review_label(
                 "original_char_count": original_char_count,
                 "processed_char_count": processed_char_count,
                 "generated_at": generated_at,
+                "taxonomy_snapshot_id": taxonomy_snapshot_id,
+                "taxonomy_fingerprint": taxonomy_fingerprint,
             },
         )
 
@@ -492,12 +500,14 @@ def bulk_upsert_review_labels(items: List[Dict[str, Any]]) -> None:
                         (review_id, app_id, model, prompt_version, review_hash, payload,
                          updated_at, label_origin, validated, taxonomy_version, provider,
                          model_id, classification_input_hash, was_truncated,
-                         original_char_count, processed_char_count, generated_at)
+                         original_char_count, processed_char_count, generated_at,
+                         taxonomy_snapshot_id, taxonomy_fingerprint)
                     VALUES (:review_id, :app_id, :model, :prompt_version, :review_hash,
                             :payload, :updated_at, :label_origin, :validated,
                             :taxonomy_version, :provider, :model_id,
                             :classification_input_hash, :was_truncated,
-                            :original_char_count, :processed_char_count, :generated_at)
+                            :original_char_count, :processed_char_count, :generated_at,
+                            :taxonomy_snapshot_id, :taxonomy_fingerprint)
                     ON CONFLICT(app_id, review_id) DO UPDATE SET
                         model = EXCLUDED.model,
                         prompt_version = EXCLUDED.prompt_version,
@@ -513,6 +523,8 @@ def bulk_upsert_review_labels(items: List[Dict[str, Any]]) -> None:
                         original_char_count = EXCLUDED.original_char_count,
                         processed_char_count = EXCLUDED.processed_char_count,
                         generated_at = EXCLUDED.generated_at,
+                        taxonomy_snapshot_id = EXCLUDED.taxonomy_snapshot_id,
+                        taxonomy_fingerprint = EXCLUDED.taxonomy_fingerprint,
                         updated_at = EXCLUDED.updated_at
                 """),
                 {
@@ -533,6 +545,8 @@ def bulk_upsert_review_labels(items: List[Dict[str, Any]]) -> None:
                     "original_char_count": item.get("original_char_count"),
                     "processed_char_count": item.get("processed_char_count"),
                     "generated_at": item.get("generated_at"),
+                    "taxonomy_snapshot_id": item.get("taxonomy_snapshot_id"),
+                    "taxonomy_fingerprint": item.get("taxonomy_fingerprint"),
                 },
             )
 
@@ -547,7 +561,8 @@ def load_review_labels(app_id: int) -> Dict[str, Dict]:
                 SELECT review_id, model, prompt_version, review_hash, payload,
                        label_origin, validated, taxonomy_version, provider, model_id,
                        classification_input_hash, was_truncated, original_char_count,
-                       processed_char_count, generated_at
+                       processed_char_count, generated_at,
+                       taxonomy_snapshot_id, taxonomy_fingerprint
                 FROM review_labels
                 WHERE app_id = :app_id
             """),
@@ -572,6 +587,8 @@ def load_review_labels(app_id: int) -> Dict[str, Dict]:
             "original_char_count": row[12],
             "processed_char_count": row[13],
             "generated_at": _format_ts(row[14]),
+            "taxonomy_snapshot_id": row[15],
+            "taxonomy_fingerprint": row[16],
         }
     return labels
 

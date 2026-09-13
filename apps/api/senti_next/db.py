@@ -12,7 +12,7 @@ from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.pool import NullPool, StaticPool
 
-from . import label_schema, result_schema, semantic_discovery_materialization_schema, semantic_discovery_schema, semantic_index_schema, semantic_region_interpretation_schema, taxonomy_governance_schema
+from . import classifier_taxonomy_schema, label_schema, result_schema, semantic_discovery_materialization_schema, semantic_discovery_schema, semantic_index_schema, semantic_region_interpretation_schema, taxonomy_governance_schema
 from . import migrations, runtime_state
 
 logger = logging.getLogger(__name__)
@@ -812,6 +812,32 @@ def init_db() -> None:
             from .taxonomy_registry import ensure_baseline_snapshot
             ensure_baseline_snapshot(raw)
             raw.commit()
+
+    # Stage 3E records the exact taxonomy snapshot/fingerprint used to create
+    # each cached label.  The migration is additive and idempotent; legacy v1
+    # rows remain readable with NULL provenance fields.
+    if database in (None, ":memory:"):
+        with get_connection() as conn:
+            raw = conn.connection.driver_connection
+            if migrations.current_version(raw) < classifier_taxonomy_schema.CLASSIFIER_TAXONOMY_MIGRATION_VERSION:
+                classifier_taxonomy_schema.migrate_classifier_taxonomy(raw)
+                migrations.record_version(raw, classifier_taxonomy_schema.CLASSIFIER_TAXONOMY_MIGRATION_VERSION, classifier_taxonomy_schema.DESCRIPTION)
+                raw.commit()
+            else:
+                # A partially upgraded development database may have the
+                # ledger entry but miss one additive column; keep the helper
+                # idempotent without rewriting existing rows.
+                classifier_taxonomy_schema.migrate_classifier_taxonomy(raw)
+                raw.commit()
+    else:
+        classifier_path = Path(database).expanduser().resolve()
+        classifier_backup = classifier_path.with_name(classifier_path.name + ".classifier_taxonomy_v1.bak")
+        migrations.apply_ordered_migrations(
+            classifier_path,
+            [(classifier_taxonomy_schema.CLASSIFIER_TAXONOMY_MIGRATION_VERSION, classifier_taxonomy_schema.DESCRIPTION, classifier_taxonomy_schema.migrate_classifier_taxonomy)],
+            backup_path=classifier_backup,
+            restore_on_error=True,
+        )
 
     with get_connection() as conn:
         run_schema.recover_interrupted_general_runs(conn)

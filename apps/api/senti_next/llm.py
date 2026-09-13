@@ -31,6 +31,14 @@ import requests
 from . import storage
 from . import review_preprocessor
 from . import batch_planner
+from .classifier_taxonomy import (
+    ClassifierTaxonomyContract,
+    allowed_topic_keys,
+    baseline_classifier_taxonomy,
+    build_batch_classification_schema,
+    load_classifier_taxonomy,
+    render_classifier_taxonomy,
+)
 from .providers.errors import ProviderFailure
 
 logger = logging.getLogger(__name__)
@@ -663,12 +671,17 @@ _REVIEW_CLASSIFICATION_SCHEMA: dict = {
 }
 
 
-def _build_batch_json_schema(review_ids: list[str]) -> dict:
+def _build_batch_json_schema(
+    review_ids: list[str],
+    taxonomy_contract: Optional[ClassifierTaxonomyContract] = None,
+) -> dict:
     """Build a JSON schema for batch classification with review IDs as fixed properties.
 
     Uses enum constraints on subcategory fields to prevent models from
     inventing invalid subcategory names.
     """
+    if taxonomy_contract is not None:
+        return build_batch_classification_schema(review_ids, taxonomy_contract)
     return {
         "type": "object",
         "properties": {rid: _REVIEW_CLASSIFICATION_SCHEMA for rid in review_ids},
@@ -975,7 +988,10 @@ _HYBRID_RULES: list[dict[str, Any]] = [
 ]
 
 
-def _rules_score(text: str) -> tuple[dict[str, int], dict[str, list[str]]]:
+def _rules_score(
+    text: str,
+    allowed_keys: Optional[Sequence[str]] = None,
+) -> tuple[dict[str, int], dict[str, list[str]]]:
     scores: dict[str, int] = {}
     evidence: dict[str, list[str]] = {}
 
@@ -990,7 +1006,7 @@ def _rules_score(text: str) -> tuple[dict[str, int], dict[str, list[str]]]:
             weight = int(rule.get("weight") or 0)
         except Exception:
             weight = 0
-        if not key or key not in _ALLOWED_SUBCATEGORY_KEYS or not weight:
+        if not key or key not in (set(allowed_keys) if allowed_keys is not None else _ALLOWED_SUBCATEGORY_KEYS) or not weight:
             continue
 
         matched_sentence = ""
@@ -1021,13 +1037,21 @@ def _rules_score(text: str) -> tuple[dict[str, int], dict[str, list[str]]]:
 def _classify_review_rules(
     review_text: str,
     reviewer_voted_up: bool = True,
+    taxonomy_contract: Optional[ClassifierTaxonomyContract] = None,
 ) -> Optional[Dict[str, Any]]:
     text = (review_text or "").strip()
     if not text:
         return None
 
     truncated = _sanitize_review_text(text)
-    scores, evidence = _rules_score(truncated)
+    if taxonomy_contract is not None and taxonomy_contract.taxonomy_version != TAXONOMY_VERSION:
+        # Stage 3E does not invent rule mappings for newly promoted topics;
+        # explicit non-v1 contracts remain LLM-only until rules are audited.
+        return None
+    scores, evidence = _rules_score(
+        truncated,
+        allowed_topic_keys(taxonomy_contract) if taxonomy_contract is not None else None,
+    )
     if not scores:
         return None
 
@@ -1075,7 +1099,10 @@ def _classify_review_rules(
     return payload
 
 
-def _normalize_subcategory_value(value: Any) -> Optional[str]:
+def _normalize_subcategory_value(
+    value: Any,
+    allowed_keys: Optional[Sequence[str]] = None,
+) -> Optional[str]:
     if isinstance(value, dict):
         main = value.get("main_category") or value.get("main")
         sub = value.get("subcategory") or value.get("sub")
@@ -1100,6 +1127,9 @@ def _normalize_subcategory_value(value: Any) -> Optional[str]:
         token = re.sub(r"_+", "_", token)
         return token.strip("_")
 
+    allowed = set(allowed_keys) if allowed_keys is not None else _ALLOWED_SUBCATEGORY_KEYS
+    dynamic_keys = allowed_keys is not None
+
     for sep in _SUBCATEGORY_SEPARATORS:
         if sep not in raw:
             continue
@@ -1109,11 +1139,31 @@ def _normalize_subcategory_value(value: Any) -> Optional[str]:
 
         for split_index in range(1, len(parts)):
             main_candidate = "_".join(filter(None, (_sanitize_token(part) for part in parts[:split_index])))
-            sub_candidate = "_".join(filter(None, (_sanitize_token(part) for part in parts[split_index:])))
+            sanitized_tail = [
+                _sanitize_token(part) for part in parts[split_index:]
+            ]
+            if dynamic_keys and sep == "/" and len(sanitized_tail) > 1:
+                sub_candidate = "/".join(filter(None, sanitized_tail))
+            else:
+                sub_candidate = "_".join(filter(None, sanitized_tail))
             if not main_candidate or not sub_candidate:
                 continue
 
             main_candidate = _MAIN_CATEGORY_ALIASES.get(main_candidate, main_candidate)
+            if dynamic_keys:
+                candidate = f"{main_candidate}/{sub_candidate}"
+                if candidate in allowed:
+                    return candidate
+                # Aliases are intentionally compatibility-only; they may
+                # resolve a dynamic key only when that exact key is active.
+                if len(parts[split_index:]) == 1:
+                    alias_main = _MAIN_CATEGORY_ALIASES.get(main_candidate, main_candidate)
+                    alias_sub = _SUBCATEGORY_ALIASES.get(alias_main, {}).get(sub_candidate, sub_candidate)
+                    alias_candidate = f"{alias_main}/{alias_sub}"
+                    if alias_candidate in allowed:
+                        return alias_candidate
+                continue
+
             if main_candidate not in _ALLOWED_SUBCATEGORIES:
                 continue
 
@@ -1140,14 +1190,17 @@ def _normalize_subcategory_value(value: Any) -> Optional[str]:
     return None
 
 
-def _parse_subcategory_list(value: Any) -> list[str]:
+def _parse_subcategory_list(
+    value: Any,
+    allowed_keys: Optional[Sequence[str]] = None,
+) -> list[str]:
     results: list[str] = []
     if isinstance(value, dict):
         for main_key, subs in value.items():
             if not isinstance(subs, list):
                 continue
             for sub in subs:
-                normalized = _normalize_subcategory_value(f"{main_key}/{sub}")
+                normalized = _normalize_subcategory_value(f"{main_key}/{sub}", allowed_keys)
                 if normalized and normalized not in results:
                     results.append(normalized)
         return results
@@ -1158,19 +1211,23 @@ def _parse_subcategory_list(value: Any) -> list[str]:
     else:
         return results
     for item in items:
-        normalized = _normalize_subcategory_value(item)
+        normalized = _normalize_subcategory_value(item, allowed_keys)
         if normalized and normalized not in results:
             results.append(normalized)
     return results
 
 
-def _parse_evidence(value: Any, allowed_subcategories: list[str]) -> dict[str, list[str]]:
+def _parse_evidence(
+    value: Any,
+    allowed_subcategories: list[str],
+    allowed_keys: Optional[Sequence[str]] = None,
+) -> dict[str, list[str]]:
     if not isinstance(value, dict):
         return {}
     allowed = set(allowed_subcategories)
     evidence: dict[str, list[str]] = {}
     for raw_key, raw_snippets in value.items():
-        normalized_key = _normalize_subcategory_value(raw_key)
+        normalized_key = _normalize_subcategory_value(raw_key, allowed_keys)
         if not normalized_key or (allowed and normalized_key not in allowed):
             continue
         if isinstance(raw_snippets, list):
@@ -1233,12 +1290,26 @@ def _load_json_mapping(raw: str) -> Dict[str, Any]:
     raise ValueError(f"No JSON object found in LLM response: {raw!r}")
 
 
+def _render_prompt_for_taxonomy(prompt: str, taxonomy_contract: Optional[ClassifierTaxonomyContract]) -> str:
+    """Replace only the taxonomy block for explicit non-v1 contracts.
+
+    Leaving the historical block untouched for the default path preserves the
+    exact v1 prompt bytes and therefore its existing cache identity.
+    """
+    if taxonomy_contract is None or taxonomy_contract.taxonomy_version == TAXONOMY_VERSION:
+        return prompt
+    rendered = render_classifier_taxonomy(taxonomy_contract)
+    pattern = r"TAXONOMY \(use only these [^\n]*\):\n.*?(?=\n\s*(?:REVIEW TEXT|REVIEWS)[^\n]*:)"
+    return re.sub(pattern, rendered, prompt, count=1, flags=re.DOTALL)
+
+
 def _build_prompt(
     review_text: str,
     game_context: Optional[Dict[str, Any]] = None,
     reviewer_playtime: float = 0,
     reviewer_voted_up: bool = True,
     review_language: Optional[str] = None,
+    taxonomy_contract: Optional[ClassifierTaxonomyContract] = None,
 ) -> str:
     truncated = _sanitize_review_text(review_text or "")
 
@@ -1264,7 +1335,7 @@ def _build_prompt(
     playtime_hours = round(reviewer_playtime / 60, 1) if reviewer_playtime else 0
     recommendation = "Positive" if reviewer_voted_up else "Negative"
 
-    return _PROMPT_TEMPLATE.substitute(
+    prompt = _PROMPT_TEMPLATE.substitute(
         review_text=truncated,
         game_name=game_name,
         game_type=game_type,
@@ -1275,6 +1346,7 @@ def _build_prompt(
         reviewer_playtime=playtime_hours,
         reviewer_recommendation=recommendation,
     )
+    return _render_prompt_for_taxonomy(prompt, taxonomy_contract)
 
 
 
@@ -1305,7 +1377,11 @@ def _strip_schema_enums(schema: dict) -> dict:
     return result
 
 
-def _parse_aspects(value: Any, allowed_subcategories: list[str]) -> list[dict[str, Any]]:
+def _parse_aspects(
+    value: Any,
+    allowed_subcategories: list[str],
+    allowed_keys: Optional[Sequence[str]] = None,
+) -> list[dict[str, Any]]:
     """Normalize aspect sentiment without allowing untrusted taxonomy keys through."""
     if not isinstance(value, list):
         return []
@@ -1315,7 +1391,7 @@ def _parse_aspects(value: Any, allowed_subcategories: list[str]) -> list[dict[st
     for item in value:
         if not isinstance(item, Mapping):
             continue
-        aspect = _normalize_subcategory_value(item.get("aspect") or item.get("subcategory"))
+        aspect = _normalize_subcategory_value(item.get("aspect") or item.get("subcategory"), allowed_keys)
         if aspect not in allowed:
             continue
         try:
@@ -1391,7 +1467,7 @@ async def call_llm_with_tools(
 
 def _run_llm(
     prompt: str,
-    response_schema: Optional[type] = None,
+    response_schema: Optional[Any] = None,
     max_tokens: Optional[int] = None,
 ) -> tuple[str, str]:
     """Route through the active provider for general LLM calls."""
@@ -1399,13 +1475,23 @@ def _run_llm(
     provider = get_provider()
     json_schema = None
     if response_schema is not None:
-        json_schema = response_schema.model_json_schema()
+        json_schema = response_schema if isinstance(response_schema, dict) else response_schema.model_json_schema()
     try:
         content = provider.generate(prompt, response_schema=json_schema, max_tokens=max_tokens)
     except TypeError as exc:
         if "max_tokens" not in str(exc):
             raise
         content = provider.generate(prompt, response_schema=json_schema)
+    return content, provider.model_id()
+
+
+def _run_llm_structured(prompt: str, schema: dict[str, Any]) -> tuple[str, str]:
+    """Run an explicit dynamic taxonomy request through provider JSON output."""
+    from .providers import get_provider
+
+    provider = get_provider()
+    value = provider.generate_structured(prompt, schema)
+    content = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
     return content, provider.model_id()
 
 
@@ -1475,22 +1561,31 @@ Text to translate:
     return translated.strip(), model_used
 
 
-def _parse_payload(raw: str) -> Dict[str, Any]:
+def _parse_payload(
+    raw: str,
+    taxonomy_contract: Optional[ClassifierTaxonomyContract] = None,
+) -> Dict[str, Any]:
     if not raw:
         raise ValueError("Empty response from LLM")
 
     payload = _load_json_mapping(raw)
-    return _parse_payload_mapping(payload)
+    return _parse_payload_mapping(payload, taxonomy_contract=taxonomy_contract)
 
 
-def _parse_payload_mapping(payload: Mapping[str, Any]) -> Dict[str, Any]:
+def _parse_payload_mapping(
+    payload: Mapping[str, Any],
+    taxonomy_contract: Optional[ClassifierTaxonomyContract] = None,
+) -> Dict[str, Any]:
     # Multi-label subcategories (canonical format "main/sub").
     # `subcategories[0]` is treated as the primary label; main/sub are derived from it.
-    candidate_subcategories = _parse_subcategory_list(payload.get("subcategories"))
+    allowed_keys = allowed_topic_keys(taxonomy_contract) if taxonomy_contract is not None else None
+    candidate_subcategories = _parse_subcategory_list(payload.get("subcategories"), allowed_keys)
     if not candidate_subcategories:
         main_value = payload.get("main_category") or payload.get("main")
         sub_value = payload.get("subcategory") or payload.get("sub")
-        normalized_primary = _normalize_subcategory_value({"main_category": main_value, "subcategory": sub_value})
+        normalized_primary = _normalize_subcategory_value(
+            {"main_category": main_value, "subcategory": sub_value}, allowed_keys
+        )
         if normalized_primary:
             candidate_subcategories = [normalized_primary]
     if not candidate_subcategories:
@@ -1498,8 +1593,8 @@ def _parse_payload_mapping(payload: Mapping[str, Any]) -> Dict[str, Any]:
     if len(candidate_subcategories) > 6:
         candidate_subcategories = candidate_subcategories[:6]
 
-    issue_subcategories = _parse_subcategory_list(payload.get("issue_subcategories"))
-    request_subcategories = _parse_subcategory_list(payload.get("request_subcategories"))
+    issue_subcategories = _parse_subcategory_list(payload.get("issue_subcategories"), allowed_keys)
+    request_subcategories = _parse_subcategory_list(payload.get("request_subcategories"), allowed_keys)
 
     primary_key = candidate_subcategories[0]
     main_category, subcategory = primary_key.split("/", 1)
@@ -1517,8 +1612,8 @@ def _parse_payload_mapping(payload: Mapping[str, Any]) -> Dict[str, Any]:
     subcategories = candidate_subcategories
     issue_subcategories = [entry for entry in _ordered_unique(issue_subcategories) if entry in subcategories][:6]
     request_subcategories = [entry for entry in _ordered_unique(request_subcategories) if entry in subcategories][:6]
-    evidence = _parse_evidence(payload.get("evidence"), subcategories)
-    aspects = _parse_aspects(payload.get("aspects"), subcategories)
+    evidence = _parse_evidence(payload.get("evidence"), subcategories, allowed_keys)
+    aspects = _parse_aspects(payload.get("aspects"), subcategories, allowed_keys)
 
     return {
         "main_category": main_category,
@@ -1531,7 +1626,10 @@ def _parse_payload_mapping(payload: Mapping[str, Any]) -> Dict[str, Any]:
     }
 
 
-def normalize_taxonomy_payload(payload: Mapping[str, Any]) -> Dict[str, Any]:
+def normalize_taxonomy_payload(
+    payload: Mapping[str, Any],
+    taxonomy_contract: Optional[ClassifierTaxonomyContract] = None,
+) -> Dict[str, Any]:
     """Normalize a stored label payload to the currently supported taxonomy.
 
     This is used to keep older cached labels compatible when subcategory keys are renamed
@@ -1552,11 +1650,12 @@ def normalize_taxonomy_payload(payload: Mapping[str, Any]) -> Dict[str, Any]:
     }
 
     try:
-        normalized = _parse_payload_mapping(proxy)
+        normalized = _parse_payload_mapping(proxy, taxonomy_contract=taxonomy_contract)
     except Exception:
         fallback = _DEFAULT_LABEL.copy()
-        fallback["evidence"] = _parse_evidence(payload.get("evidence"), fallback["subcategories"])
-        fallback["aspects"] = _parse_aspects(payload.get("aspects"), fallback["subcategories"])
+        allowed_keys = allowed_topic_keys(taxonomy_contract) if taxonomy_contract is not None else None
+        fallback["evidence"] = _parse_evidence(payload.get("evidence"), fallback["subcategories"], allowed_keys)
+        fallback["aspects"] = _parse_aspects(payload.get("aspects"), fallback["subcategories"], allowed_keys)
         return fallback
 
     for extra_key in ("_label_source", "_label_model"):
@@ -1587,6 +1686,7 @@ def _build_batch_prompt_legacy(
     items: Sequence[Mapping[str, Any]],
     *,
     game_context: Optional[Dict[str, Any]] = None,
+    taxonomy_contract: Optional[ClassifierTaxonomyContract] = None,
 ) -> str:
     # Build game context strings (same shape as `_build_prompt`, but once per batch).
     if game_context:
@@ -1628,7 +1728,7 @@ def _build_batch_prompt_legacy(
             ).strip()
         )
 
-    return _BATCH_PROMPT_TEMPLATE_LEGACY.substitute(
+    prompt = _BATCH_PROMPT_TEMPLATE_LEGACY.substitute(
         game_name=game_name,
         game_type=game_type,
         game_genres=game_genres,
@@ -1636,10 +1736,13 @@ def _build_batch_prompt_legacy(
         game_description=game_description,
         reviews_text="\n\n".join(blocks),
     )
+    return _render_prompt_for_taxonomy(prompt, taxonomy_contract)
 
 
 def _build_batch_prompt_v3(
     items: Sequence[Mapping[str, Any]],
+    *,
+    taxonomy_contract: Optional[ClassifierTaxonomyContract] = None,
 ) -> str:
     blocks: list[str] = []
     for item in items:
@@ -1653,10 +1756,15 @@ def _build_batch_prompt_v3(
                 <<<END REVIEW>>>"""
             ).strip()
         )
-    return _BATCH_PROMPT_TEMPLATE_V3.substitute(reviews_text="\n\n".join(blocks))
+    prompt = _BATCH_PROMPT_TEMPLATE_V3.substitute(reviews_text="\n\n".join(blocks))
+    return _render_prompt_for_taxonomy(prompt, taxonomy_contract)
 
 
-def _build_batch_prompt_v3_1(items: Sequence[Mapping[str, Any]]) -> str:
+def _build_batch_prompt_v3_1(
+    items: Sequence[Mapping[str, Any]],
+    *,
+    taxonomy_contract: Optional[ClassifierTaxonomyContract] = None,
+) -> str:
     blocks: list[str] = []
     for item in items:
         review_id = str(item.get("review_id") or "")
@@ -1669,19 +1777,21 @@ def _build_batch_prompt_v3_1(items: Sequence[Mapping[str, Any]]) -> str:
                 <<<END REVIEW>>>"""
             ).strip()
         )
-    return _BATCH_PROMPT_TEMPLATE_V3_1.substitute(reviews_text="\n\n".join(blocks))
+    prompt = _BATCH_PROMPT_TEMPLATE_V3_1.substitute(reviews_text="\n\n".join(blocks))
+    return _render_prompt_for_taxonomy(prompt, taxonomy_contract)
 
 
 def _build_batch_prompt(
     items: Sequence[Mapping[str, Any]],
     *,
     game_context: Optional[Dict[str, Any]] = None,
+    taxonomy_contract: Optional[ClassifierTaxonomyContract] = None,
 ) -> str:
     if _classifier_prompt_variant() == "v3_1":
-        return _build_batch_prompt_v3_1(items)
+        return _build_batch_prompt_v3_1(items, taxonomy_contract=taxonomy_contract)
     if _classifier_prompt_variant() == "v3":
-        return _build_batch_prompt_v3(items)
-    return _build_batch_prompt_legacy(items, game_context=game_context)
+        return _build_batch_prompt_v3(items, taxonomy_contract=taxonomy_contract)
+    return _build_batch_prompt_legacy(items, game_context=game_context, taxonomy_contract=taxonomy_contract)
 
 
 def classification_identity(
@@ -1691,13 +1801,17 @@ def classification_identity(
     provider: Optional[str],
     model_id: Optional[str],
     prompt_version: Optional[str] = None,
-    taxonomy_version: str = TAXONOMY_VERSION,
+    taxonomy_version: Optional[str] = None,
+    taxonomy_snapshot_id: Optional[str] = None,
+    taxonomy_fingerprint: Optional[str] = None,
+    taxonomy_contract: Optional[ClassifierTaxonomyContract] = None,
     mode: str = "batch",
     processed_text: Optional[str] = None,
     preprocessor_version: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Build the complete semantic identity of one classifier input."""
     prompt_version = prompt_version or _active_classifier_prompt_version()
+    taxonomy_version = taxonomy_version or TAXONOMY_VERSION
     raw_text = str(review.get("review") or review.get("review_text") or "").strip()
     # The identity must hash exactly the text that the classifier builder will
     # send, including dangerous-string replacement and the 3000-char cap.
@@ -1705,7 +1819,19 @@ def classification_identity(
         raw_text if processed_text is None else str(processed_text)
     )
     context = game_context or {}
-    prompt_variant = "v3" if prompt_version == PROMPT_VERSION_V3 else "legacy"
+    prompt_variant = (
+        "v3_1" if prompt_version == PROMPT_VERSION_V3_1
+        else "v3" if prompt_version == PROMPT_VERSION_V3
+        else "legacy"
+    )
+    if taxonomy_contract is not None:
+        taxonomy_version = taxonomy_contract.taxonomy_version
+        taxonomy_snapshot_id = taxonomy_contract.snapshot_id
+        taxonomy_fingerprint = taxonomy_contract.taxonomy_fingerprint
+    elif taxonomy_version == TAXONOMY_VERSION and taxonomy_snapshot_id is None and taxonomy_fingerprint is None:
+        baseline = baseline_classifier_taxonomy()
+        taxonomy_snapshot_id = baseline.snapshot_id
+        taxonomy_fingerprint = baseline.taxonomy_fingerprint
     semantic_input = {
         "schema_version": CLASSIFICATION_SCHEMA_VERSION,
         "mode": mode,
@@ -1731,6 +1857,8 @@ def classification_identity(
         "review_hash": hashlib.sha256(raw_text.encode("utf-8")).hexdigest(),
         "classification_input_hash": hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
         "taxonomy_version": taxonomy_version,
+        "taxonomy_snapshot_id": taxonomy_snapshot_id,
+        "taxonomy_fingerprint": taxonomy_fingerprint,
         "prompt_version": prompt_version,
         "provider": provider,
         "model_id": model_id,
@@ -1751,6 +1879,18 @@ def label_cache_eligible(label: Mapping[str, Any], current_identity: Mapping[str
         and label.get("prompt_version") == current_identity.get("prompt_version")
         and label.get("provider") == current_identity.get("provider")
         and label.get("model_id") == current_identity.get("model_id")
+        and (
+            (
+                current_identity.get("taxonomy_version") == TAXONOMY_VERSION
+                and label.get("taxonomy_snapshot_id") in (None, current_identity.get("taxonomy_snapshot_id"))
+                and label.get("taxonomy_fingerprint") in (None, current_identity.get("taxonomy_fingerprint"))
+            )
+            or (
+                current_identity.get("taxonomy_version") != TAXONOMY_VERSION
+                and label.get("taxonomy_snapshot_id") == current_identity.get("taxonomy_snapshot_id")
+                and label.get("taxonomy_fingerprint") == current_identity.get("taxonomy_fingerprint")
+            )
+        )
     )
 
 
@@ -1762,6 +1902,8 @@ def label_cache_identity(
     *,
     provider: Optional[str] = None,
     classification_input_hash: Optional[str] = None,
+    taxonomy_snapshot_id: Optional[str] = None,
+    taxonomy_fingerprint: Optional[str] = None,
 ) -> str:
     """Stable public digest for callers that need to inspect cache identity."""
     identity = {
@@ -1771,6 +1913,8 @@ def label_cache_identity(
         "provider": provider,
         "model_id": model_id,
         "classification_input_hash": classification_input_hash,
+        "taxonomy_snapshot_id": taxonomy_snapshot_id,
+        "taxonomy_fingerprint": taxonomy_fingerprint,
     }
     return hashlib.sha256(
         json.dumps(identity, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
@@ -1788,6 +1932,7 @@ def classify_reviews_batch(
     items: Sequence[Mapping[str, Any]],
     *,
     game_context: Optional[Dict[str, Any]] = None,
+    taxonomy_contract: Optional[ClassifierTaxonomyContract] = None,
 ) -> tuple[Dict[str, Dict[str, Any]], str]:
     if not items:
         return {}, _active_model_id()
@@ -1797,8 +1942,13 @@ def classify_reviews_batch(
         raise ValueError("Missing review_id in batch input.")
 
     logger.info(f"Classifying batch of {len(items)} reviews with LLM")
-    prompt = _build_batch_prompt(items, game_context=game_context)
-    raw, model_used = _run_llm(prompt, max_tokens=estimate_batch_output_tokens(len(items)))
+    prompt = _build_batch_prompt(items, game_context=game_context, taxonomy_contract=taxonomy_contract)
+    if taxonomy_contract is not None and taxonomy_contract.taxonomy_version != TAXONOMY_VERSION:
+        raw, model_used = _run_llm_structured(
+            prompt, _build_batch_json_schema(expected_ids, taxonomy_contract),
+        )
+    else:
+        raw, model_used = _run_llm(prompt, max_tokens=estimate_batch_output_tokens(len(items)))
     logger.info(f"LLM batch classification complete: {len(items)} reviews processed")
     payload = _load_json_mapping(raw)
 
@@ -1814,7 +1964,7 @@ def classify_reviews_batch(
             failed_ids.append(review_id)
             continue
         try:
-            results[review_id] = _parse_payload_mapping(entry)
+            results[review_id] = _parse_payload_mapping(entry, taxonomy_contract=taxonomy_contract)
         except ValueError as e:
             logger.warning(f"Failed to parse payload for review_id={review_id}: {e}, using default label")
             results[review_id] = _DEFAULT_LABEL.copy()
@@ -1833,13 +1983,18 @@ def classify_reviews_batch(
     return results, model_used
 
 
-def classify_reviews(items: Sequence[Mapping[str, Any]], *, game_context: Optional[Dict[str, Any]] = None) -> tuple[Dict[str, Dict[str, Any]], str]:
+def classify_reviews(
+    items: Sequence[Mapping[str, Any]],
+    *,
+    game_context: Optional[Dict[str, Any]] = None,
+    taxonomy_contract: Optional[ClassifierTaxonomyContract] = None,
+) -> tuple[Dict[str, Dict[str, Any]], str]:
     """Classify reviews in a batch with fallback to single-review processing on failure."""
     if not items:
         return {}, _active_model_id()
 
     try:
-        return classify_reviews_batch(items, game_context=game_context)
+        return classify_reviews_batch(items, game_context=game_context, taxonomy_contract=taxonomy_contract)
     except Exception as batch_error:
         # Batch failed completely - retry each review individually
         if len(items) == 1:
@@ -1855,7 +2010,9 @@ def classify_reviews(items: Sequence[Mapping[str, Any]], *, game_context: Option
         for item in items:
             review_id = str(item.get("review_id") or "unknown")
             try:
-                single_result, model_used = classify_review_basic_single(item, game_context=game_context)
+                single_result, model_used = classify_review_basic_single(
+                    item, game_context=game_context, taxonomy_contract=taxonomy_contract,
+                )
                 results.update(single_result)
             except Exception as single_error:
                 logger.warning(f"Individual review {review_id} failed: {single_error}, using default label")
@@ -1868,26 +2025,34 @@ def classify_review_basic_single(
     item: Dict[str, Any],
     *,
     game_context: Optional[Dict[str, Any]] = None,
+    taxonomy_contract: Optional[ClassifierTaxonomyContract] = None,
 ) -> Tuple[Dict[str, Any], str]:
     """Run the lightweight first-pass classifier for one retry item."""
     review_id = str(item.get("review_id") or "")
     if not review_id:
         raise ValueError("Missing review_id in single retry input.")
-    prompt = _build_batch_prompt([item], game_context=game_context)
-    raw, model_used = _run_llm(prompt, max_tokens=512)
+    prompt = _build_batch_prompt([item], game_context=game_context, taxonomy_contract=taxonomy_contract)
+    if taxonomy_contract is not None and taxonomy_contract.taxonomy_version != TAXONOMY_VERSION:
+        from .classifier_taxonomy import build_batch_classification_schema
+        raw, model_used = _run_llm_structured(
+            prompt, build_batch_classification_schema([review_id], taxonomy_contract),
+        )
+    else:
+        raw, model_used = _run_llm(prompt, max_tokens=512)
     payload = _load_json_mapping(raw)
     entry = payload.get(review_id)
     if not isinstance(entry, dict):
         raise ValueError(f"Basic classifier response missing review_id={review_id}")
     if entry.get("_batch_missing"):
         raise ValueError(f"Basic classifier returned missing review_id={review_id}")
-    return _parse_payload_mapping(entry), model_used
+    return _parse_payload_mapping(entry, taxonomy_contract=taxonomy_contract), model_used
 
 
 def classify_review_single(
     item: Dict[str, Any],
     *,
     game_context: Optional[Dict[str, Any]] = None,
+    taxonomy_contract: Optional[ClassifierTaxonomyContract] = None,
 ) -> Tuple[Dict[str, Any], str]:
     """Classify a single review using the active provider.
 
@@ -1907,11 +2072,19 @@ def classify_review_single(
         item.get("reviewer_playtime", 0),
         item.get("reviewer_voted_up", True),
         item.get("review_language"),
+        taxonomy_contract=taxonomy_contract,
     )
 
-    raw = provider.generate_with_pydantic(prompt, ReviewClassification)
+    if taxonomy_contract is None:
+        raw = provider.generate_with_pydantic(prompt, ReviewClassification)
+    else:
+        # Explicit snapshots use the dynamic JSON schema; v1 callers retain
+        # the native Pydantic path and its historical provider behavior.
+        from .classifier_taxonomy import build_review_classification_schema
+        raw_value = provider.generate_structured(prompt, build_review_classification_schema(taxonomy_contract))
+        raw = raw_value if isinstance(raw_value, str) else json.dumps(raw_value, ensure_ascii=False)
     payload = _load_json_mapping(raw)
-    validated = _parse_payload_mapping(payload)
+    validated = _parse_payload_mapping(payload, taxonomy_contract=taxonomy_contract)
     logger.debug("Provider %s succeeded for review %s", provider.name, item.get("review_id"))
     return validated, provider.model_id()
 
@@ -1922,6 +2095,7 @@ def classify_review(
     reviewer_playtime: float = 0,
     reviewer_voted_up: bool = True,
     review_language: Optional[str] = None,
+    taxonomy_contract: Optional[ClassifierTaxonomyContract] = None,
 ) -> Tuple[Dict[str, Any], str]:
     """Legacy single-review classification. Delegates to classify_review_single."""
     item = {
@@ -1930,7 +2104,7 @@ def classify_review(
         "reviewer_voted_up": reviewer_voted_up,
         "review_language": review_language,
     }
-    return classify_review_single(item, game_context=game_context)
+    return classify_review_single(item, game_context=game_context, taxonomy_contract=taxonomy_contract)
 
 
 def ensure_review_labels(
@@ -1940,8 +2114,15 @@ def ensure_review_labels(
     progress_callback: Optional[Callable[[int, int], None]] = None,
     game_context: Optional[Dict[str, Any]] = None,
     cache_enabled: bool = True,
+    taxonomy_version: Optional[str] = None,
+    taxonomy_snapshot_id: Optional[str] = None,
 ) -> Dict[str, Dict[str, Any]]:
     from .providers.config import get_active_provider
+
+    if taxonomy_version is not None and taxonomy_snapshot_id is not None:
+        raise ValueError("taxonomy_version_and_snapshot_id_are_mutually_exclusive")
+    taxonomy_contract = load_classifier_taxonomy(taxonomy_version, taxonomy_snapshot_id)
+    explicit_nonbaseline_taxonomy = taxonomy_contract.taxonomy_version != TAXONOMY_VERSION
 
     if not reviews:
         if progress_callback is not None:
@@ -1980,6 +2161,7 @@ def ensure_review_labels(
         identity = classification_identity(
             review, game_context, provider=active_name, model_id=current_model_id,
             prompt_version=active_prompt_version,
+            taxonomy_contract=taxonomy_contract,
             processed_text=(prep_result.processed_text if preprocess_mode == "active" and prep_result else None),
             preprocessor_version=(review_preprocessor.PREPROCESSOR_VERSION if preprocess_mode == "active" else None),
         )
@@ -2004,7 +2186,10 @@ def ensure_review_labels(
                         "empty_review",
                         active_prompt_version,
                         label_origin="rule_fallback", validated=False,
-                        taxonomy_version=TAXONOMY_VERSION, provider=None, model_id=None,
+                        taxonomy_version=taxonomy_contract.taxonomy_version,
+                        taxonomy_snapshot_id=taxonomy_contract.snapshot_id,
+                        taxonomy_fingerprint=taxonomy_contract.taxonomy_fingerprint,
+                        provider=None, model_id=None,
                         classification_input_hash=identity["classification_input_hash"],
                         was_truncated=identity["was_truncated"],
                         original_char_count=identity["original_char_count"],
@@ -2021,7 +2206,7 @@ def ensure_review_labels(
         # classification. Short lexical text remains an LLM candidate.
         if preprocess_mode == "active" and prep_result is not None and prep_result.skip_llm:
             if cached is not None and not needs_refresh:
-                payload = normalize_taxonomy_payload(cached.get("payload") or {})
+                payload = normalize_taxonomy_payload(cached.get("payload") or {}, taxonomy_contract)
             else:
                 payload = _DEFAULT_LABEL.copy()
                 payload["_label_source"] = "nonlexical_skip"
@@ -2031,7 +2216,10 @@ def ensure_review_labels(
                         app_id, review_id, identity["review_hash"], payload,
                         "nonlexical_skip", active_prompt_version,
                         label_origin="rule_fallback", validated=False,
-                        taxonomy_version=TAXONOMY_VERSION, provider=None, model_id=None,
+                        taxonomy_version=taxonomy_contract.taxonomy_version,
+                        taxonomy_snapshot_id=taxonomy_contract.snapshot_id,
+                        taxonomy_fingerprint=taxonomy_contract.taxonomy_fingerprint,
+                        provider=None, model_id=None,
                         classification_input_hash=identity["classification_input_hash"],
                         was_truncated=identity["was_truncated"],
                         original_char_count=identity["original_char_count"],
@@ -2046,7 +2234,7 @@ def ensure_review_labels(
 
         if not needs_refresh:
             cached_payload = cached.get("payload") or {}
-            payload = normalize_taxonomy_payload(cached_payload)
+            payload = normalize_taxonomy_payload(cached_payload, taxonomy_contract)
             payload = {**payload, "_resolution_source": "cache_hit"}
             results[review_id] = payload
             cached_reuse_count += 1
@@ -2211,7 +2399,9 @@ def ensure_review_labels(
                     "prompt_version": active_prompt_version,
                     "label_origin": "llm",
                     "validated": True,
-                    "taxonomy_version": TAXONOMY_VERSION,
+                    "taxonomy_version": taxonomy_contract.taxonomy_version,
+                    "taxonomy_snapshot_id": taxonomy_contract.snapshot_id,
+                    "taxonomy_fingerprint": taxonomy_contract.taxonomy_fingerprint,
                     "provider": str(model_used).split(":", 1)[0] if ":" in str(model_used) else active_name,
                     "model_id": model_used,
                     "generated_at": datetime.now(timezone.utc),
@@ -2260,7 +2450,9 @@ def ensure_review_labels(
                     "prompt_version": active_prompt_version,
                     "label_origin": "rule_fallback",
                     "validated": False,
-                    "taxonomy_version": TAXONOMY_VERSION,
+                    "taxonomy_version": taxonomy_contract.taxonomy_version,
+                    "taxonomy_snapshot_id": taxonomy_contract.snapshot_id,
+                    "taxonomy_fingerprint": taxonomy_contract.taxonomy_fingerprint,
                     "provider": None,
                     "model_id": None,
                     "generated_at": datetime.now(timezone.utc),
@@ -2280,7 +2472,12 @@ def ensure_review_labels(
 
         def _process_batch(batch: List[Dict[str, Any]]) -> Tuple[Dict[str, Dict[str, Any]], str, List[Dict[str, Any]], float]:
             started = time.perf_counter()
-            payloads, model_used = classify_reviews_batch(batch, game_context=game_context)
+            if explicit_nonbaseline_taxonomy:
+                payloads, model_used = classify_reviews_batch(
+                    batch, game_context=game_context, taxonomy_contract=taxonomy_contract,
+                )
+            else:
+                payloads, model_used = classify_reviews_batch(batch, game_context=game_context)
             return payloads, model_used, batch, (time.perf_counter() - started) * 1000
 
         retry_config = batch_planner.BatchPlannerConfig.from_env()
@@ -2298,7 +2495,10 @@ def ensure_review_labels(
             return batch_planner.validate_batch_results(
                 expected_ids,
                 raw_results,
-                parse_result=_parse_payload_mapping,
+                parse_result=(
+                    (lambda value: _parse_payload_mapping(value, taxonomy_contract=taxonomy_contract))
+                    if explicit_nonbaseline_taxonomy else _parse_payload_mapping
+                ),
             )
 
         def _recover_dynamic_batch(batch: list[Dict[str, Any]], *, attempt: int, split_depth: int) -> None:
@@ -2313,7 +2513,14 @@ def ensure_review_labels(
                 retry_items = list(retry_plan.items)
                 started = time.perf_counter()
                 try:
-                    retry_payloads, retry_model = classify_reviews_batch(retry_items, game_context=game_context)
+                    if explicit_nonbaseline_taxonomy:
+                        retry_payloads, retry_model = classify_reviews_batch(
+                            retry_items, game_context=game_context, taxonomy_contract=taxonomy_contract,
+                        )
+                    else:
+                        retry_payloads, retry_model = classify_reviews_batch(
+                            retry_items, game_context=game_context,
+                        )
                 except ProviderFailure as provider_error:
                     error_type = batch_planner.classify_provider_error(provider_error)
                     logger.info("Batch telemetry=%s", batch_planner.batch_telemetry(
@@ -2538,7 +2745,12 @@ def ensure_review_labels(
             for item in selected:
                 rid = str(item["review_id"])
                 try:
-                    enriched, model_used = classify_review_single(item, game_context=game_context)
+                    if explicit_nonbaseline_taxonomy:
+                        enriched, model_used = classify_review_single(
+                            item, game_context=game_context, taxonomy_contract=taxonomy_contract,
+                        )
+                    else:
+                        enriched, model_used = classify_review_single(item, game_context=game_context)
                     enriched["_label_source"] = "llm_enriched"
                     enriched["_label_model"] = model_used
                     enrichment_provider = str(model_used).split(":", 1)[0] if ":" in str(model_used) else active_name
@@ -2547,6 +2759,7 @@ def ensure_review_labels(
                         member_identity = classification_identity(
                             member, game_context, provider=enrichment_provider, model_id=model_used,
                             prompt_version=f"{active_prompt_version}:enriched", mode="single_enrichment",
+                            taxonomy_contract=taxonomy_contract,
                             processed_text=(member.get("review_text") if preprocess_mode == "active" else None),
                             preprocessor_version=(review_preprocessor.PREPROCESSOR_VERSION if preprocess_mode == "active" else None),
                         )
@@ -2559,7 +2772,9 @@ def ensure_review_labels(
                             model_used,
                             f"{active_prompt_version}:enriched",
                             label_origin="llm", validated=True,
-                            taxonomy_version=TAXONOMY_VERSION,
+                            taxonomy_version=taxonomy_contract.taxonomy_version,
+                            taxonomy_snapshot_id=taxonomy_contract.snapshot_id,
+                            taxonomy_fingerprint=taxonomy_contract.taxonomy_fingerprint,
                             provider=enrichment_provider, model_id=model_used,
                             classification_input_hash=member_identity["classification_input_hash"],
                             was_truncated=member_identity["was_truncated"],
