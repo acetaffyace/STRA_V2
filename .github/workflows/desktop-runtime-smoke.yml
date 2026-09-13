@@ -34,6 +34,12 @@ jobs:
             Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '```text'
             Get-Content -Path $log -Tail 160 | Add-Content -Path $env:GITHUB_STEP_SUMMARY
             Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '```'
+            # Surface the tail through check annotations as well.  Public
+            # viewers can inspect these even when raw Actions logs require
+            # authentication; keep the output limited to the final 80 lines.
+            Get-Content -Path $log -Tail 80 | ForEach-Object {
+              Write-Output "::error file=desktop-build.log::$($_)"
+            }
             exit $code
           }
 
