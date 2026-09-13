@@ -48,6 +48,12 @@ def build_dashboard_payload(app_id: int, requested_run_id: Optional[str] = None)
     status = str((result or {}).get("status") or (run or {}).get("status") or "")
     metadata = (effective_result or {}).get("metadata") or {}
     insights = (effective_result or {}).get("insights")
+    research_report = (effective_result or {}).get("research_report")
+    semantic_status = (effective_result or {}).get("semantic_status")
+    if research_report is None and immutable_result:
+        research_report = immutable_result.get("research_report")
+    if semantic_status is None and immutable_result:
+        semantic_status = immutable_result.get("semantic_status")
     if run_id:
         metadata = dict(metadata)
         metadata.setdefault("run_id", run_id)
@@ -80,6 +86,25 @@ def build_dashboard_payload(app_id: int, requested_run_id: Optional[str] = None)
     five_questions = (insights or {}).get("five_questions")
     design = storage.get_analysis_design(run_id) if run_id else None
 
+    report_schema = research_report.get("schema_version") if isinstance(research_report, dict) else None
+    research_ready = bool(
+        status == "completed"
+        and immutable_result
+        and immutable_result.get("run_id") == run_id
+        and report_schema == "research-report-v1"
+    )
+    # Legacy semantic-only rows predate semantic_status. Preserve their
+    # validated dashboard readiness while keeping research_ready false.
+    semantic_state = (semantic_status or {}).get("status") if isinstance(semantic_status, dict) else None
+    semantic_ready = bool(
+        status == "completed"
+        and immutable_result
+        and insights
+        and five_questions
+        and classified_count > 0
+        and (semantic_state in (None, "available"))
+    )
+
     if status == "running":
         state = "ANALYSIS_RUNNING"
     elif status == "failed":
@@ -89,7 +114,7 @@ def build_dashboard_payload(app_id: int, requested_run_id: Optional[str] = None)
     elif status == "completed":
         # A completed compatibility row is not enough.  The semantic layer
         # must have validated classifications attached to the same run.
-        state = "ANALYSIS_READY" if immutable_result and insights and five_questions and classified_count > 0 else "ANALYSIS_INCOMPATIBLE"
+        state = "ANALYSIS_READY" if semantic_ready else "ANALYSIS_INCOMPATIBLE"
     else:
         state = "ANALYSIS_NOT_STARTED" if review_count else "ANALYSIS_INCOMPATIBLE"
 
@@ -103,20 +128,32 @@ def build_dashboard_payload(app_id: int, requested_run_id: Optional[str] = None)
             "run_id": run_id,
             "run_status": status or None,
             "result_available": bool(status == "completed" and insights and immutable_result),
+            "research_result_available": research_ready,
+            "semantic_result_available": semantic_ready,
             "analysis_mode": metadata.get("mode"),
             "result_source": metadata.get("source"),
             "analysis_window": {"start": metadata.get("window_start"), "end": metadata.get("window_end")},
             "analysis_design_available": bool(design),
             "five_questions_available": bool(five_questions),
             "evidence_available": bool(status == "completed" and classified_count),
+            "research_ready": research_ready,
+            "semantic_ready": semantic_ready,
+            "research_engine": {
+                "available": research_ready,
+                "status": "ready" if research_ready else "unavailable",
+                "reason": None if research_ready else "No completed immutable Research Report is attached to this run.",
+            },
             "semantic_engine": {
-                "available": bool(classified_count),
+                "available": semantic_ready,
+                "status": "ready" if semantic_ready else (semantic_state or "unavailable"),
                 "mode": metadata.get("mode"),
-                "reason": None if classified_count else "No validated semantic classifications are attached to this run.",
+                "reason": None if semantic_ready else ((semantic_status or {}).get("reason") if isinstance(semantic_status, dict) else "No validated semantic classifications are attached to this run."),
             },
         },
         "metadata": metadata or None,
         "insights": insights,
+        "research_report": research_report,
+        "semantic_status": semantic_status,
         "reviews": (effective_result or {}).get("reviews") or [],
         "error": (effective_result or {}).get("error"),
     }

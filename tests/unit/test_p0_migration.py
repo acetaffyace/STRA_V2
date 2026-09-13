@@ -139,6 +139,7 @@ def test_application_db_initialization_records_stable_bootstrap_version(monkeypa
             (7, "immutable chat evidence metadata"),
             (8, "durable LLM physical-call cost ledger"),
             (10, "adaptive analysis design snapshots"),
-            (11, "Steam review enrichment canonical fields and raw-payload backfill"),
-            (12, "Web MVP UX population counters and authoritative ETA"),
-                        ]
+                (11, "Steam review enrichment canonical fields and raw-payload backfill"),
+                (12, "Web MVP UX population counters and authoritative ETA"),
+                (13, "first-class Research Core result persistence"),
+                            ]

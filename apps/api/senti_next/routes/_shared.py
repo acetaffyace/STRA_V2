@@ -28,17 +28,25 @@ REVIEW_EXPORT_COLUMNS = [
     "review",
     "language",
     "created_at",
+    "timestamp_created",
+    "timestamp_updated",
     "voted_up",
     "votes_up",
     "votes_funny",
+    "weighted_vote_score",
+    "comment_count",
     "author_num_games_owned",
     "author_num_reviews",
     "author_playtime_forever",
     "author_playtime_last_two_weeks",
+    "author_playtime_at_review",
+    "author_deck_playtime_at_review",
+    "author_last_played",
     "author_playtime_hours",
     "author_recent_playtime_hours",
     "steam_purchase",
     "received_for_free",
+    "written_during_early_access",
     "primarily_steam_deck",
     "developer_response",
     "timestamp_dev_responded",
@@ -63,6 +71,8 @@ class AnalyzeMetadata(BaseModel):
     retrieved: int
     requested_limit: Optional[int] = None
     available_matching_reviews: Optional[int] = None
+    retrieved_reviews: Optional[int] = None
+    population_reviews_after_scope: Optional[int] = None
     retrieved_count: Optional[int] = None
     deduplicated_count: Optional[int] = None
     analysis_population_count: Optional[int] = None
@@ -74,10 +84,24 @@ class AnalyzeMetadata(BaseModel):
     mode: Optional[str] = None
     source: Optional[str] = None
     run_id: Optional[str] = None
+    # ``window_start``/``window_end`` are legacy observed-review date fields.
+    # These explicit fields describe acquisition scope instead.
+    coverage_start_time: Optional[float] = None
+    coverage_end_time: Optional[float] = None
+    coverage_status: Optional[str] = None
+    coverage_end_inclusive: Optional[bool] = None
+    observed_review_start_time: Optional[float] = None
+    observed_review_end_time: Optional[float] = None
     window_start: Optional[str] = None
     window_end: Optional[str] = None
     data_cutoff: Optional[str] = None
     active_filters: Optional[Dict[str, Any]] = None
+    collection_complete: Optional[bool] = None
+    truncated_by_max_reviews: Optional[bool] = None
+    stop_reason: Optional[str] = None
+    language_stats: Optional[Dict[str, Any]] = None
+    sampling_contract: Optional[Dict[str, Any]] = None
+    population_provenance: Optional[Dict[str, Any]] = None
     classification_population: Optional[int] = None
     evidence_population: Optional[int] = None
     header_image: Optional[str] = None
@@ -120,10 +144,21 @@ class DatabaseReviewItem(BaseModel):
     voted_up: bool
     votes_up: int = 0
     votes_funny: int = 0
+    weighted_vote_score: Optional[float] = None
+    comment_count: int = 0
+    timestamp_created: Optional[int] = None
+    timestamp_updated: Optional[int] = None
+    steam_purchase: Optional[bool] = None
+    received_for_free: Optional[bool] = None
+    written_during_early_access: Optional[bool] = None
+    primarily_steam_deck: Optional[bool] = None
     author_num_games_owned: int = 0
     author_num_reviews: int = 0
     author_playtime_forever: int = 0
     author_playtime_last_two_weeks: int = 0
+    author_playtime_at_review: int = 0
+    author_deck_playtime_at_review: int = 0
+    author_last_played: Optional[int] = None
     author_playtime_hours: Optional[float] = None
     author_recent_playtime_hours: Optional[float] = None
     created_at: Optional[str] = None
@@ -226,10 +261,21 @@ def _database_row_to_item(row: Dict[str, Any], games_map: Dict[int, Optional[str
         voted_up=bool(payload.get("voted_up")),
         votes_up=int(payload.get("votes_up") or 0),
         votes_funny=int(payload.get("votes_funny") or 0),
+        weighted_vote_score=float(payload.get("weighted_vote_score")) if payload.get("weighted_vote_score") is not None else None,
+        comment_count=int(payload.get("comment_count") or 0),
+        timestamp_created=int(payload.get("timestamp_created")) if payload.get("timestamp_created") is not None else None,
+        timestamp_updated=int(payload.get("timestamp_updated")) if payload.get("timestamp_updated") is not None else None,
+        steam_purchase=bool(payload.get("steam_purchase")) if payload.get("steam_purchase") is not None else None,
+        received_for_free=bool(payload.get("received_for_free")) if payload.get("received_for_free") is not None else None,
+        written_during_early_access=bool(payload.get("written_during_early_access")) if payload.get("written_during_early_access") is not None else None,
+        primarily_steam_deck=bool(payload.get("primarily_steam_deck")) if payload.get("primarily_steam_deck") is not None else None,
         author_num_games_owned=int(author.get("num_games_owned") or 0),
         author_num_reviews=int(author.get("num_reviews") or 0),
         author_playtime_forever=playtime_forever,
         author_playtime_last_two_weeks=playtime_recent,
+        author_playtime_at_review=int(author.get("playtime_at_review") or 0),
+        author_deck_playtime_at_review=int(author.get("deck_playtime_at_review") or 0),
+        author_last_played=int(author.get("last_played")) if author.get("last_played") is not None else None,
         author_playtime_hours=playtime_forever / 60.0 if playtime_forever else 0.0,
         author_recent_playtime_hours=playtime_recent / 60.0 if playtime_recent else 0.0,
         created_at=created_at,

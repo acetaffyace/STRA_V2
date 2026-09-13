@@ -37,6 +37,176 @@ export interface AnalyzeMetadata {
   is_free?: boolean;
 }
 
+export interface ResearchPopulation {
+  review_count: number;
+  sampling_contract?: SamplingContractSnapshot | null;
+  collection_complete?: boolean | null;
+  truncated_by_max_reviews?: boolean | null;
+  stop_reason?: string | null;
+  coverage_start_time?: number | null;
+  coverage_end_time?: number | null;
+  coverage_status?: string | null;
+  coverage_end_inclusive?: boolean | null;
+}
+
+export interface SamplingContractSnapshot {
+  app_id?: number;
+  start_time?: number | null;
+  end_time?: number | null;
+  languages?: string[];
+  review_type?: "all" | "positive" | "negative" | string;
+  purchase_type?: "all" | "steam" | "non_steam_purchase" | string;
+  collection_order?: "recent" | "updated" | "helpful" | string;
+  include_offtopic_activity?: boolean | null;
+  max_reviews?: number | null;
+}
+
+export interface RecommendationPopulation {
+  valid_n?: number | null;
+  recommended_n?: number | null;
+  not_recommended_n?: number | null;
+  missing_n?: number | null;
+  recommendation_rate?: number | null;
+}
+
+export interface RecommendationInterval {
+  lower?: number | null;
+  upper?: number | null;
+  confidence_level?: number | null;
+  method?: string | null;
+  estimate?: number | null;
+}
+
+export interface RecommendationInferenceValidity {
+  inference_eligibility?: string | null;
+  reason?: string | null;
+  observed_metric_status?: string | null;
+}
+
+export interface RecommendationInferenceReport {
+  population?: RecommendationPopulation | null;
+  model_based_interval?: RecommendationInterval | null;
+  inference_validity?: RecommendationInferenceValidity | null;
+}
+
+export interface ActivityPopulation {
+  raw_review_count?: number | null;
+  unique_review_id_count?: number | null;
+  missing_timestamp_n?: number | null;
+  missing_text_n?: number | null;
+}
+
+export interface ActivityTextRepetition {
+  unique_text_share?: number | null;
+  exact_duplicate_review_count?: number | null;
+  exact_duplicate_share?: number | null;
+  near_copy_additional_review_count?: number | null;
+  near_copy_additional_share?: number | null;
+  coordinated_expression_review_count?: number | null;
+  coordinated_expression_share?: number | null;
+}
+
+export interface ActivitySummary {
+  activity_spike_detected?: boolean | null;
+  coordinated_expression_detected?: boolean | null;
+  coordinated_expression_level?: string | null;
+}
+
+export interface ActivityMethodology {
+  candidate_diagnostics?: { candidate_generation_complete?: boolean | null } | null;
+}
+
+export interface ActivitySpikeReport {
+  spike_bin_count?: number | null;
+  bins?: Array<Record<string, unknown>>;
+}
+
+export interface ReviewActivityReport {
+  population?: ActivityPopulation | null;
+  text_repetition?: ActivityTextRepetition | null;
+  spikes?: ActivitySpikeReport | null;
+  summary?: ActivitySummary | null;
+  methodology?: ActivityMethodology | null;
+  time_series?: { grain?: string; bins?: Array<Record<string, unknown>> } | null;
+}
+
+export interface UnavailableResearchSection {
+  status?: "unavailable" | string;
+  reason?: string | null;
+}
+
+export interface ResearchLimitations {
+  steam_reviewer_selection?: boolean;
+  not_all_players?: boolean;
+  recommendation_is_not_text_sentiment?: boolean;
+  observational_not_causal?: boolean;
+  no_version_change_claim_from_snapshot?: boolean;
+  reviewer_selection_limitation?: string;
+}
+
+export interface ResearchOrchestration {
+  research_core_version?: string;
+  stages_executed?: string[];
+  stages_unavailable?: Record<string, string>;
+  configuration?: {
+    confidence_level?: number | null;
+    requested_standardization_variables?: string[] | null;
+    effective_standardization_variables?: string[] | null;
+    standardization_target?: string | null;
+    windows_days?: number[] | null;
+    activity_grain?: string | null;
+  };
+}
+
+export interface SnapshotResearchReport {
+  schema_version: "research-report-v1";
+  mode: "snapshot";
+  population: ResearchPopulation;
+  recommendation: RecommendationInferenceReport;
+  activity: ReviewActivityReport;
+  comparability: UnavailableResearchSection;
+  standardization: UnavailableResearchSection;
+  window_robustness: UnavailableResearchSection;
+  limitations: ResearchLimitations;
+  orchestration: ResearchOrchestration;
+}
+
+/** Forward-compatible envelope for unknown future Research Report schemas. */
+export interface ResearchReport {
+  schema_version: string;
+  mode: string;
+  population?: ResearchPopulation;
+  recommendation?: RecommendationInferenceReport;
+  activity?: ReviewActivityReport;
+  comparability?: UnavailableResearchSection;
+  standardization?: UnavailableResearchSection;
+  window_robustness?: UnavailableResearchSection;
+  limitations?: ResearchLimitations;
+  orchestration?: ResearchOrchestration;
+}
+
+export type SemanticState = "pending" | "available" | "unavailable" | "failed" | string;
+
+export interface SemanticStatus {
+  status: SemanticState;
+  reason?: string | null;
+  provider?: string | null;
+  model_id?: string | null;
+}
+
+export interface ResearchEngineReadiness {
+  available: boolean;
+  status?: string | null;
+  reason?: string | null;
+}
+
+export interface SemanticEngineReadiness {
+  available: boolean;
+  status?: string | null;
+  mode?: string | null;
+  reason?: string | null;
+}
+
 export interface LogTailResponse {
   log_file: string;
   tail: string;
@@ -362,7 +532,11 @@ export interface ReviewRow {
 export interface AnalyzeResponse {
   metadata: AnalyzeMetadata;
   insights: InsightsResponse | null;
+  research_report?: ResearchReport | null;
+  semantic_status?: SemanticStatus | null;
   reviews: ReviewRow[];
+  stale?: boolean;
+  stale_reason?: string | null;
   label_estimate?: LabelReuseEstimate | null;
   run_id?: string | null;
 }
@@ -393,6 +567,8 @@ export interface AnalysisResultResponse {
   status: AnalysisJobStatus;
   metadata?: AnalyzeMetadata | null;
   insights: InsightsResponse | null;
+  research_report?: ResearchReport | null;
+  semantic_status?: SemanticStatus | null;
   reviews: ReviewRow[];
   error?: string | null;
   run_id?: string | null;
@@ -416,7 +592,7 @@ export interface ProgressStatus {
   processed: number;
   updated_at: string | null;
   active: boolean;
-  phase?: 'fetching' | 'classifying' | 'building_insights' | 'idle';
+  phase?: 'fetching' | 'ingesting' | 'research_core' | 'classifying' | 'building_insights' | 'aggregating' | 'finalizing' | 'idle' | string;
   fetched_count?: number;
   eta_seconds?: number | null;
   run_id?: string | null;

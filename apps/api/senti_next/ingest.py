@@ -75,12 +75,19 @@ def normalize_steam_reviews(app_id: int, reviews: Iterable[dict]) -> List[dict]:
                 engagement={
                     "votes_up": review.get("votes_up"),
                     "votes_funny": review.get("votes_funny"),
+                    "weighted_vote_score": review.get("weighted_vote_score"),
+                    "comment_count": review.get("comment_count"),
                 },
                 url=None,
                 context={
                     "voted_up": review.get("voted_up"),
                     "steam_purchase": review.get("steam_purchase"),
                     "received_for_free": review.get("received_for_free"),
+                    "written_during_early_access": review.get("written_during_early_access"),
+                    "primarily_steam_deck": review.get("primarily_steam_deck"),
+                    "timestamp_created": review.get("timestamp_created"),
+                    "timestamp_updated": review.get("timestamp_updated"),
+                    "author": review.get("author") or {},
                 },
             )
         )

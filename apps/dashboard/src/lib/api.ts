@@ -11,6 +11,10 @@ import {
   DatabaseGameOption,
   ComparisonSummarizeRequest,
   ComparisonSummary,
+  ResearchReport,
+  SemanticStatus,
+  ResearchEngineReadiness,
+  SemanticEngineReadiness,
 } from "@/types";
 
 declare global {
@@ -155,7 +159,7 @@ export interface ProgressStreamEvent {
   active?: boolean;
   status?: string;
   error?: string;
-  phase?: "fetching" | "classifying" | "building_insights" | "idle";
+  phase?: "fetching" | "ingesting" | "research_core" | "classifying" | "building_insights" | "aggregating" | "finalizing" | "idle" | string;
   fetched_count?: number;
   eta_seconds?: number | null;
   run_id?: string | null;
@@ -165,7 +169,7 @@ export interface ProgressStreamEvent {
 }
 
 export interface ProgressStreamCallbacks {
-  onProgress?: (processed: number, total: number, active: boolean, phase?: "fetching" | "classifying" | "building_insights" | "idle", fetchedCount?: number, etaSeconds?: number | null, runStatus?: string, runPhase?: string | null, immutableResultAvailable?: boolean) => void;
+  onProgress?: (processed: number, total: number, active: boolean, phase?: "fetching" | "ingesting" | "research_core" | "classifying" | "building_insights" | "aggregating" | "finalizing" | "idle" | string, fetchedCount?: number, etaSeconds?: number | null, runStatus?: string, runPhase?: string | null, immutableResultAvailable?: boolean) => void;
   onCompleted?: () => void;
   onError?: (error: string) => void;
   onTimeout?: () => void;
@@ -786,20 +790,27 @@ export interface DashboardReadiness {
   run_id?: string | null;
   run_status?: string | null;
   result_available: boolean;
+  research_ready: boolean;
+  semantic_ready: boolean;
+  research_result_available: boolean;
+  semantic_result_available: boolean;
   analysis_mode?: string | null;
   result_source?: string | null;
   analysis_window: { start?: string | null; end?: string | null };
   analysis_design_available: boolean;
   five_questions_available: boolean;
   evidence_available: boolean;
-  semantic_engine: { available: boolean; mode?: string | null; reason?: string | null };
+  research_engine: ResearchEngineReadiness;
+  semantic_engine: SemanticEngineReadiness;
 }
 
 export interface DashboardPayload {
   app_id: number;
   readiness: DashboardReadiness;
   metadata?: AnalyzeMetadata | null;
+  research_report?: ResearchReport | null;
   insights: AnalyzeResponse["insights"];
+  semantic_status?: SemanticStatus | null;
   reviews: AnalyzeResponse["reviews"];
   error?: string | null;
 }
