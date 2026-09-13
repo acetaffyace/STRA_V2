@@ -144,14 +144,20 @@ def persist_semantic_discovery(report: Mapping[str, Any], *, discovery_run_id: s
             strengths = region.get("membership_strength") or {}
             for review_id in region.get("review_ids") or []:
                 role = "representative" if review_id in representatives else ("outlier" if region["discovery_type"] == "outlier" else "core")
-                conn.execute(
-                    text(
-                        "INSERT INTO semantic_discovery_members "
-                        "(discovery_run_id, region_id, review_id, semantic_unit_id, membership_strength, distance_similarity, role) "
-                        "VALUES (:run_id, :region_id, :review_id, NULL, :strength, NULL, :role)"
-                    ),
-                    {"run_id": run_id, "region_id": region["region_id"], "review_id": review_id, "strength": strengths.get(review_id), "role": role},
-                )
+                unit_ids = [
+                    unit_id
+                    for unit_id in (region.get("semantic_unit_ids") or [])
+                    if unit_id == f"{review_id}:0" or unit_id.startswith(f"{review_id}:")
+                ] or [None]
+                for unit_id in unit_ids:
+                    conn.execute(
+                        text(
+                            "INSERT INTO semantic_discovery_members "
+                            "(discovery_run_id, region_id, review_id, semantic_unit_id, membership_strength, distance_similarity, role) "
+                            "VALUES (:run_id, :region_id, :review_id, :unit_id, :strength, NULL, :role)"
+                        ),
+                        {"run_id": run_id, "region_id": region["region_id"], "review_id": review_id, "unit_id": unit_id, "strength": strengths.get(review_id), "role": role},
+                    )
             audit = region.get("taxonomy_audit") or {}
             if audit:
                 conn.execute(
