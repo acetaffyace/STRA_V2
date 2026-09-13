@@ -64,7 +64,7 @@ def ensure_venv(script_dir: Path) -> Path:
     # Always sync requirements (fast no-op when already satisfied)
     print("Installing desktop requirements ...")
     subprocess.run(
-        [str(venv_python), "-m", "pip", "install", "--disable-pip-version-check", "-r", str(requirements)],
+        [str(venv_python), "-m", "pip", "install", "--disable-pip-version-check", "--progress-bar", "off", "-r", str(requirements)],
         check=True,
     )
 

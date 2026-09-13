@@ -40,6 +40,11 @@ jobs:
             Get-Content -Path $log -Tail 80 | ForEach-Object {
               Write-Output "::error file=desktop-build.log::$($_)"
             }
+            Get-Content -Path $log | Where-Object {
+              $_ -match '(?i)(error|exception|traceback|no matching|could not|failed|fatal)'
+            } | Select-Object -Last 40 | ForEach-Object {
+              Write-Output "::error file=desktop-build.log::$($_)"
+            }
             exit $code
           }
 
