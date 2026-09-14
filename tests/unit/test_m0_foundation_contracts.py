@@ -86,6 +86,29 @@ def test_research_run_idempotency_rejects_different_population_and_snapshots_are
             conn.execute(text("UPDATE population_snapshots SET population_hash='tampered' WHERE population_snapshot_id=:id"), {"id": first["population_snapshot_id"]})
 
 
+def test_research_run_reopens_after_restart_without_relative_window_drift(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'canonical-restart.db'}")
+    db.close_engine()
+    db._engine = None
+    db.init_db()
+    created = create_research_run(
+        run_id="run_m0_restart",
+        app_id=10,
+        sampling_contract={"app_id": 10, "languages": ["english"], "relative_days": 7},
+        reviews=_reviews(),
+        anchor_time="2026-09-14T12:00:00Z",
+    )
+    db.close_engine()
+    db._engine = None
+
+    reopened = get_research_run("run_m0_restart")
+    population = get_population_snapshot(created["population_snapshot_id"])
+    assert reopened is not None
+    assert reopened["population_snapshot_id"] == created["population_snapshot_id"]
+    assert population is not None
+    assert population["sampling_contract"]["resolved_window"] == created["sampling_contract"]["resolved_window"]
+
+
 def test_canonical_result_reference_is_attached_and_exact_dashboard_payload_reopens():
     run_id = "run_m0_reopen"
     storage.create_general_analysis_run(
