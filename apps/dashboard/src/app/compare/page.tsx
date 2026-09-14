@@ -485,8 +485,6 @@ export default function ComparePage() {
           <div className="grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             {analyzedGames.map((game) => {
               const isSelected = selectedIds.includes(game.app_id);
-              const previewSample = game.sample ?? [];
-              const previewRecommendation = canonicalSidesByAppId.get(game.app_id)?.quantitative.recommendation_rate ?? null;
               return (
                 <button
                   key={game.app_id}
@@ -508,14 +506,6 @@ export default function ComparePage() {
                   </div>
                   <div className="p-2 sm:p-3 bg-slate-900/90">
                     <p className="text-xs sm:text-sm font-medium text-white truncate">{game.name}</p>
-                    {previewRecommendation != null ? (
-                      <p
-                        className="text-[10px] sm:text-xs mt-0.5"
-                        style={{ color: getRecommendationColor(previewRecommendation) }}
-                      >
-                        {formatPercentage(previewRecommendation)} recommend
-                      </p>
-                    ) : null}
                   </div>
                   {isSelected && (
                     <div className="absolute right-1 top-1 sm:right-2 sm:top-2 rounded-full bg-sky-500 px-1.5 py-0.5 sm:px-2 sm:py-1 text-[10px] sm:text-xs font-bold text-white z-10">
