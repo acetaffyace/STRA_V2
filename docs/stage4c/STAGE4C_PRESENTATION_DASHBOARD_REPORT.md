@@ -54,6 +54,8 @@ The fallback browser renderer exposed one default desktop viewport; it did not e
 
 Deferred work remains Stage 4D: Version / Compare / Agent / Reports convergence.
 
+Remote CI verification for commit `6664525cd1dbea3378b2a0490b5fd26af96049b4`: GitHub Actions run `34798443462` completed successfully; `backend=success`, `frontend=success`, overall workflow `success`.
+
 ## Stage 4C-R1 — Full Product Integration, Sampling UI & Visual Seal
 
 ### Canonical projection repair
