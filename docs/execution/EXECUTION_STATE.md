@@ -13,7 +13,7 @@ Active milestone:
   M2 — Semantic Engine V2 vertical slice
 
 Milestone status:
-  IN_PROGRESS
+  BLOCKED — M2-BENCH-001 prevents §12 gate evaluation and M2 exit
 
 Completed:
   - M0-WP1: canonical ReviewSnapshot, PopulationSnapshot and ResearchRun
