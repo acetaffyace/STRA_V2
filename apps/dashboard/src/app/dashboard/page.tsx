@@ -446,6 +446,23 @@ function normalizeTrendSeries(trend: TrendPoint[] | undefined): TrendSeriesPoint
   return series;
 }
 
+function normalizeDailyProjectionSeries(
+  points: import("@/lib/api").DailyRecommendationRatePoint[],
+): TrendSeriesPoint[] {
+  const normalized: TrendSeriesPoint[] = [];
+  points.forEach((point) => {
+    const date = parseReviewDate(point.period);
+    if (!date) return;
+    normalized.push({
+      label: formatTrendLabel(date),
+      date,
+      recommendation_rate: point.recommendation_rate ?? 0,
+      reviews: Number(point.review_count ?? 0),
+    });
+  });
+  return normalized;
+}
+
 export default function DashboardPage() {
   const { t } = useLanguage();
   return (
@@ -1588,10 +1605,15 @@ function AnalysisResults({
     if (filtersActive) {
       return buildTrendSeriesFromReviews(filteredReviewSample);
     }
+    // The exact-run daily projection is the authoritative trend source. Do
+    // not rebuild it from the review sample when the projection is available.
+    if (dailyProjection?.recommendation.available) {
+      return normalizeDailyProjectionSeries(dailyProjection.recommendation.points);
+    }
     const normalized = normalizeTrendSeries(analysis.insights?.trend);
     if (normalized.length) return normalized;
-    return buildTrendSeriesFromReviews(reviewSample);
-  }, [analysis.insights?.trend, filteredReviewSample, filtersActive, reviewSample]);
+    return dailyProjectionUnavailable ? [] : buildTrendSeriesFromReviews(reviewSample);
+  }, [analysis.insights?.trend, dailyProjection, dailyProjectionUnavailable, filteredReviewSample, filtersActive, reviewSample]);
 
   const latestTrend = trendSeries.length ? trendSeries[trendSeries.length - 1] : null;
   const previousTrend = trendSeries.length > 1 ? trendSeries[trendSeries.length - 2] : null;
@@ -1669,23 +1691,14 @@ function AnalysisResults({
   }, [activeSubcategoryInsights]);
 
   const playerSegments = useMemo(() => {
-    if (!filtersActive && insights?.player_segments) {
-      // Use backend data but supplement with client-side calculations for new segments
-      // that may be missing from older analyses
-      const backendSegments = insights.player_segments;
-      if (!backendSegments.platform || !backendSegments.language) {
-        const clientSegments = buildPlayerSegments(filteredReviewSample);
-        return {
-          ...backendSegments,
-          platform: backendSegments.platform || clientSegments.platform,
-          language: backendSegments.language || clientSegments.language,
-        };
-      }
-      return backendSegments;
-    }
+    // Formal, unfiltered workbench segments must come from the persisted run
+    // result. A capped review sample is not an equivalent denominator.
+    if (!filtersActive) return insights?.player_segments ?? null;
+    // Filtered views are explicitly exploratory and may be calculated from
+    // the visible sample; the UI labels them as filtered below.
     return buildPlayerSegments(filteredReviewSample);
   }, [filteredReviewSample, filtersActive, insights?.player_segments]);
-  const purchaseDataAvailable = Object.values(playerSegments.purchase_type ?? {}).some(
+  const purchaseDataAvailable = Object.values(playerSegments?.purchase_type ?? {}).some(
     (segment) => Number((segment as { count?: number } | undefined)?.count ?? 0) > 0,
   );
   const experienceDataAvailable = filteredReviewSample.some((review) => review.author_num_games_owned != null);
