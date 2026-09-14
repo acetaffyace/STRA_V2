@@ -835,10 +835,10 @@ export interface ResearchComparisonSide {
   scope: Record<string, unknown>;
   quantitative: {
     available: boolean;
-    population_n: number;
-    valid_n: number;
-    recommended_n: number;
-    not_recommended_n: number;
+    population_n: number | null;
+    valid_n: number | null;
+    recommended_n: number | null;
+    not_recommended_n: number | null;
     recommendation_rate: number | null;
     confidence_interval?: unknown;
     scope: Record<string, unknown>;

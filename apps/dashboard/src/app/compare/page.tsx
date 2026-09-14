@@ -33,7 +33,7 @@ import { ComparisonSummaryDisplay } from "@/components/compare/ComparisonSummary
 import { PageTransition } from "@/components/PageTransition";
 import { LANGUAGE_OPTIONS } from "@/lib/languageOptions";
 import { formatTaxonomyLabelZh, MAIN_CATEGORY_LABELS_ZH } from "@/lib/taxonomyLabels";
-import { getMetricObservation, metricValue } from "@/lib/metricProvenance";
+import { getMetricObservation } from "@/lib/metricProvenance";
 
 const MAX_SELECTION = 2;
 
@@ -486,7 +486,7 @@ export default function ComparePage() {
             {analyzedGames.map((game) => {
               const isSelected = selectedIds.includes(game.app_id);
               const previewSample = game.sample ?? [];
-              const previewRecommendation = metricValue(game.insights, "recommendation_rate", game.insights?.recommendation);
+              const previewRecommendation = canonicalSidesByAppId.get(game.app_id)?.quantitative.recommendation_rate ?? null;
               return (
                 <button
                   key={game.app_id}
@@ -677,8 +677,10 @@ function ComparisonDashboard({
       const recommendationObservation = getMetricObservation(game.insights, "recommendation_rate");
       // Official comparison cards are always sourced from the exact-run
       // comparison projection.  Filtered samples remain descriptive only.
-      const recommendation = canonicalSide?.quantitative.recommendation_rate
-        ?? metricValue(game.insights, "recommendation_rate", game.insights?.recommendation) ?? 0;
+      // This value is consumed only by the optional AI summary input.  It is
+      // intentionally nullable: a failed canonical comparison must never
+      // turn a legacy insight into an official comparison fact.
+      const recommendation = canonicalSide?.quantitative.recommendation_rate ?? null;
 
       return {
         appId: game.app_id,

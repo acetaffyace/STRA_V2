@@ -644,7 +644,7 @@ export interface GameComparisonData {
   name: string;
   reviews: any[];
   metrics: {
-    recommendation_rate: number;
+    recommendation_rate: number | null;
     total_reviews: number;
     category_rates?: Record<string, number>;
   };

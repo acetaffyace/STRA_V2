@@ -34,13 +34,21 @@ _IDENTITY_KEYS = (
     "claim_status",
     "validation_status",
 )
+_REQUIRED_IDENTITY_KEYS = _IDENTITY_KEYS
 
 
-def _int(value: Any) -> int:
+def _optional_int(value: Any) -> int | None:
+    if value is None or value == "":
+        return None
     try:
         return int(value)
     except (TypeError, ValueError):
-        return 0
+        return None
+
+
+def _int(value: Any) -> int:
+    """Parse non-contract row counts used for ranking and display."""
+    return _optional_int(value) or 0
 
 
 def _float(value: Any) -> float | None:
@@ -59,10 +67,10 @@ def _quantitative(report: Mapping[str, Any] | None) -> dict[str, Any]:
     sampling = population.get("sampling_contract") or {}
     return {
         "available": bool(report),
-        "population_n": _int(population.get("review_count")),
-        "valid_n": _int(rec_population.get("valid_n")),
-        "recommended_n": _int(rec_population.get("recommended_n")),
-        "not_recommended_n": _int(rec_population.get("not_recommended_n")),
+        "population_n": _optional_int(population.get("review_count")),
+        "valid_n": _optional_int(rec_population.get("valid_n")),
+        "recommended_n": _optional_int(rec_population.get("recommended_n")),
+        "not_recommended_n": _optional_int(rec_population.get("not_recommended_n")),
         "recommendation_rate": rate,
         "confidence_interval": recommendation.get("model_based_interval") or recommendation.get("confidence_interval"),
         "scope": {
@@ -105,7 +113,7 @@ def _semantic(result: Mapping[str, Any] | None, provenance: Mapping[str, Any] | 
 
     identity = {
         "measurement_bundle_id": provenance.get("measurement_bundle_id"),
-        "taxonomy_snapshot_id": provenance.get("taxonomy_snapshot_id") or provenance.get("taxonomy_version"),
+        "taxonomy_snapshot_id": provenance.get("taxonomy_snapshot_id"),
         "taxonomy_fingerprint": provenance.get("taxonomy_fingerprint"),
         "provider": provenance.get("classifier_provider") or provenance.get("provider"),
         "model_id": provenance.get("classifier_model_id") or provenance.get("model_id"),
@@ -117,8 +125,8 @@ def _semantic(result: Mapping[str, Any] | None, provenance: Mapping[str, Any] | 
     }
     return {
         "available": True,
-        "population_n": _int(result.get("population_n")),
-        "classified_n": _int(result.get("classified_n")),
+        "population_n": _optional_int(result.get("population_n")),
+        "classified_n": _optional_int(result.get("classified_n")),
         "coverage": _float(result.get("classification_coverage")),
         "claim_status": result.get("claim_status"),
         "measurement_status": identity["measurement_status"],
@@ -227,6 +235,15 @@ def _semantic_identity(left: Mapping[str, Any], right: Mapping[str, Any]) -> tup
         return False, ["semantic_missing_one_side"]
     left_identity, right_identity = left.get("identity") or {}, right.get("identity") or {}
     reasons: list[str] = []
+    for key in _REQUIRED_IDENTITY_KEYS:
+        if not left_identity.get(key):
+            reasons.append(f"semantic_identity_incomplete_{key}")
+        if not right_identity.get(key):
+            right_reason = f"semantic_identity_incomplete_{key}"
+            if right_reason not in reasons:
+                reasons.append(right_reason)
+    if reasons:
+        return False, reasons
     for key in _IDENTITY_KEYS:
         if left_identity.get(key) != right_identity.get(key):
             reasons.append(f"semantic_{key}_mismatch")
@@ -320,8 +337,12 @@ def build_version_window_comparison(
     stored window metrics into two ``version_window`` sides.
     """
     def side(label: str, value: Mapping[str, Any]) -> dict[str, Any]:
-        reviews = _int(value.get("reviews"))
+        reviews = _optional_int(value.get("reviews"))
         rate = _float(value.get("recommendation_rate"))
+        # Version Review V2 calculates this rate over every persisted review
+        # in the window, so the denominator is exact.  It does not persist
+        # the positive/negative split, which must remain unknown rather than
+        # being reconstructed from a rounded rate.
         report = {
             "population": {
                 "review_count": reviews,
@@ -331,7 +352,7 @@ def build_version_window_comparison(
                 "stop_reason": value.get("stop_reason"),
                 "coverage_status": value.get("coverage_status"),
             },
-            "recommendation": {"population": {"valid_n": reviews, "recommended_n": round(reviews * rate) if rate is not None else 0, "not_recommended_n": round(reviews * (1 - rate)) if rate is not None else 0, "recommendation_rate": rate}},
+            "recommendation": {"population": {"valid_n": reviews, "recommended_n": None, "not_recommended_n": None, "recommendation_rate": rate}},
         }
         return build_comparison_side(source_kind="version_window", source_id=f"{run_id}:{label}", app_id=app_id, research_report=report, provenance={})
 

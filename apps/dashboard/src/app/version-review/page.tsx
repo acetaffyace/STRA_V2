@@ -21,6 +21,7 @@ import {
   type VersionReviewPlanResponse,
   type VersionRunResponse,
   type VersionReviewV2Result,
+  type ResearchComparison,
   fetchVersionPopulationStrip,
   type VersionComparisonPopulationStrip,
 } from '@/lib/api';
@@ -130,6 +131,7 @@ function VersionReviewContent() {
   const [recentVersionReviews, setRecentVersionReviews] = useState<import('@/lib/api').AnalysisHistoryItem[]>([]);
   const [selectedWindow, setSelectedWindow] = useState(7);
   const [v2Comparison, setV2Comparison] = useState<VersionReviewV2Result | null>(null);
+  const [canonicalComparison, setCanonicalComparison] = useState<ResearchComparison | null>(null);
   const [populationStrip, setPopulationStrip] = useState<VersionComparisonPopulationStrip | null>(null);
   // Hide known-invalid historical runs from the user-facing recent list while
   // keeping their immutable database records available for audit/debugging.
@@ -249,13 +251,25 @@ function VersionReviewContent() {
 
   useEffect(() => {
     const embedded = run?.metrics?.version_review_v2;
-    if (!run || !embedded) { setV2Comparison(null); return; }
+    if (!run || !embedded) {
+      setV2Comparison(null);
+      setCanonicalComparison(null);
+      return;
+    }
     // Always read the shared comparison projection, including when the
     // embedded compatibility payload already uses the selected window.  The
     // endpoint attaches research-comparison-v1 and owns official deltas.
     fetchVersionComparison(run.run_id, selectedWindow)
-      .then((response) => setV2Comparison(response.comparison))
-      .catch(() => setV2Comparison(embedded));
+      .then((response) => {
+        setV2Comparison(response.comparison);
+        setCanonicalComparison(response.comparison.canonical_comparison ?? null);
+      })
+      .catch(() => {
+        // Keep version-specific descriptive V2 content usable, but never
+        // present it as the canonical comparison projection.
+        setV2Comparison(embedded);
+        setCanonicalComparison(null);
+      });
   }, [run, selectedWindow]);
 
   useEffect(() => {
@@ -269,7 +283,6 @@ function VersionReviewContent() {
   const metrics = run?.metrics;
   const analysisGoal = String((run?.config?.analysis as { analysis_goal?: unknown } | undefined)?.analysis_goal || '');
   const v2 = analysisGoal === 'version_comparison' ? (v2Comparison || metrics?.version_review_v2) : undefined;
-  const canonicalComparison = v2?.canonical_comparison;
   const canonicalLeft = canonicalComparison?.left.quantitative;
   const canonicalRight = canonicalComparison?.right.quantitative;
   const semanticDeltaAllowed = Boolean(canonicalComparison?.compatibility.semantic_delta_comparable);
@@ -460,13 +473,14 @@ function VersionReviewContent() {
                     <div><p className="text-xs uppercase tracking-[0.2em] text-cyan-300">{gameLabel} · Version Review V2</p><h2 className="mt-2 text-2xl font-semibold text-white">{versionReviewDateA} / {versionReviewDateB}</h2><p className="mt-1 text-sm text-slate-400">同一生命周期年龄的可比窗口；先通过覆盖门槛，再解释差异。</p></div>
                     <div className="flex gap-2">{[3, 7, 14].map((days) => <Button key={days} size="sm" variant={selectedWindow === days ? 'primary' : 'secondary'} onClick={() => setSelectedWindow(days)}>{days}天</Button>)}</div>
                   </div>
+                  {!canonicalComparison && <div className="mt-5 rounded-lg border border-amber-300/30 bg-amber-300/10 p-4 text-sm text-amber-100">无法读取这次分析的正式对比结果。推荐率、评论数量和变化仅在正式对比结果可用时显示；窗口观察仍可继续查看。</div>}
                   {v2.comparison_status !== 'READY' && <div className="mt-5 rounded-lg border border-amber-300/30 bg-amber-300/10 p-4 text-sm text-amber-100">{displayZh(zhComparisonStatus, v2.comparison_status)}：A/B 生命周期窗口尚未同时通过覆盖校验。A：{displayZh(zhCoverageStatus, v2.a_coverage_status)} · B：{displayZh(zhCoverageStatus, v2.b_coverage_status)}。{v2.coverage_gate?.reason || '请先补抓历史评论，或切换到更宽窗口。'}</div>}
                 </Card>
 
                 <Card>
                   <h2 className="text-lg font-semibold text-white">样本与核心指标</h2>
                   <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-5">
-                  {[['原始评论', countDisplay(canonicalLeft?.population_n ?? v2.raw_metrics_a.reviews), countDisplay(canonicalRight?.population_n ?? v2.raw_metrics_b.reviews)], ['评论量 / day', v2.raw_metrics_a.reviews_per_day.toFixed(1), v2.raw_metrics_b.reviews_per_day.toFixed(1)], ['推荐率', percent(canonicalLeft?.recommendation_rate ?? v2.raw_metrics_a.recommendation_rate), percent(canonicalRight?.recommendation_rate ?? v2.raw_metrics_b.recommendation_rate)], ['语义样本', countDisplay(v2.a_semantic_sample_count), countDisplay(v2.b_semantic_sample_count)], ['成功分类', trustworthyClassifiedDisplay(v2.a_classified_count), trustworthyClassifiedDisplay(v2.b_classified_count)]].map(([label, a, b]) => <div key={label} className="rounded-lg border border-white/10 bg-black/20 p-3"><p className="text-xs text-slate-500">{label}</p><div className="mt-2 grid grid-cols-2 gap-2 text-lg font-semibold"><span className="text-slate-200">{a}</span><span className="text-slate-400">{b}</span></div><div className="mt-1 grid grid-cols-2 text-[10px] text-slate-600"><span>{versionReviewDateA}</span><span>{versionReviewDateB}</span></div></div>)}
+                  {[['原始评论', countDisplay(canonicalLeft?.population_n), countDisplay(canonicalRight?.population_n)], ['评论量 / day', v2.raw_metrics_a.reviews_per_day.toFixed(1), v2.raw_metrics_b.reviews_per_day.toFixed(1)], ['推荐率', percent(canonicalLeft?.recommendation_rate), percent(canonicalRight?.recommendation_rate)], ['语义样本', countDisplay(v2.a_semantic_sample_count), countDisplay(v2.b_semantic_sample_count)], ['成功分类', trustworthyClassifiedDisplay(v2.a_classified_count), trustworthyClassifiedDisplay(v2.b_classified_count)]].map(([label, a, b]) => <div key={label} className="rounded-lg border border-white/10 bg-black/20 p-3"><p className="text-xs text-slate-500">{label}</p><div className="mt-2 grid grid-cols-2 gap-2 text-lg font-semibold"><span className="text-slate-200">{a}</span><span className="text-slate-400">{b}</span></div><div className="mt-1 grid grid-cols-2 text-[10px] text-slate-600"><span>{versionReviewDateA}</span><span>{versionReviewDateB}</span></div></div>)}
                 </div>
                 <p className="mt-4 text-sm text-slate-400">评论量变化：{v2.raw_metric_deltas.reviews_per_day >= 0 ? '+' : ''}{v2.raw_metric_deltas.reviews_per_day.toFixed(1)} / day · 推荐率变化：{canonicalComparison?.quantitative.recommendation_rate_delta_pp == null ? '—' : `${canonicalComparison.quantitative.recommendation_rate_delta_pp >= 0 ? '+' : ''}${canonicalComparison.quantitative.recommendation_rate_delta_pp.toFixed(1)}pp`}</p>
                 {canonicalComparison && !semanticDeltaAllowed && canonicalComparison.compatibility.semantic_side_by_side_available && <p className="mt-2 text-xs text-amber-200/80">两次分析使用的语义标准不同，因此这里只分别展示结果，不直接计算语义变化。</p>}

@@ -37,7 +37,7 @@ def _report(rate: float, population: int, *, languages=None, review_type="all", 
     }
 
 
-def _semantic(*, bundle="bundle-1", taxonomy="tax-fp", provider="deepseek", model="model-1", prompt="prompt-1", schema="schema-1", claim="PROVISIONAL"):
+def _semantic(*, bundle="bundle-1", snapshot="snapshot-1", taxonomy="tax-fp", provider="deepseek", model="model-1", prompt="prompt-1", schema="schema-1", claim="PROVISIONAL"):
     return {
         "claim_status": claim,
         "population_n": 100,
@@ -45,6 +45,7 @@ def _semantic(*, bundle="bundle-1", taxonomy="tax-fp", provider="deepseek", mode
         "classification_coverage": 0.8,
         "provenance": {
             "measurement_bundle_id": bundle,
+            "taxonomy_snapshot_id": snapshot,
             "taxonomy_fingerprint": taxonomy,
             "classifier_provider": provider,
             "classifier_model_id": model,
@@ -150,7 +151,77 @@ def test_version_window_adapter_uses_persisted_values_and_shared_shape():
     )
     assert result["schema_version"] == "research-comparison-v1"
     assert result["left"]["source_kind"] == "version_window"
+    assert result["left"]["quantitative"]["population_n"] == 100
+    assert result["left"]["quantitative"]["valid_n"] == 100
+    assert result["left"]["quantitative"]["recommended_n"] is None
+    assert result["left"]["quantitative"]["not_recommended_n"] is None
     assert result["quantitative"]["recommendation_rate_delta_pp"] == 5.0
+
+
+def test_version_window_does_not_infer_exact_counts_from_rounded_rate():
+    result = build_version_window_comparison(
+        run_id="version-run",
+        app_id=42,
+        left={"reviews": 3, "recommendation_rate": 0.666667},
+        right={"reviews": 3, "recommendation_rate": 0.666667},
+    )
+    quantitative = result["left"]["quantitative"]
+    assert quantitative["population_n"] == 3
+    assert quantitative["recommendation_rate"] == 0.666667
+    assert quantitative["recommended_n"] is None
+    assert quantitative["not_recommended_n"] is None
+
+
+def test_missing_optional_exact_count_is_null_not_zero():
+    report = _report(0.75, 100)
+    del report["recommendation"]["population"]["recommended_n"]
+    result = build_comparison_side(
+        source_kind="analysis_run",
+        source_id="run",
+        app_id=42,
+        research_report=report,
+    )
+    assert result["quantitative"]["recommended_n"] is None
+
+
+def test_analysis_run_preserves_exact_research_core_counts():
+    report = _report(73 / 98, 100)
+    report["recommendation"]["population"].update({
+        "valid_n": 98,
+        "recommended_n": 73,
+        "not_recommended_n": 25,
+    })
+    result = build_comparison_side(
+        source_kind="analysis_run",
+        source_id="run",
+        app_id=42,
+        research_report=report,
+    )
+    assert result["quantitative"]["valid_n"] == 98
+    assert result["quantitative"]["recommended_n"] == 73
+    assert result["quantitative"]["not_recommended_n"] == 25
+
+
+def test_missing_semantic_identity_never_establishes_compatibility():
+    for field in ("measurement_bundle_id", "taxonomy_snapshot_id", "taxonomy_fingerprint", "provider", "model_id", "prompt_version", "schema_version", "measurement_status", "claim_status", "validation_status"):
+        left = _semantic()
+        right = _semantic()
+        if field == "claim_status":
+            left[field] = None
+            right[field] = None
+        else:
+            provenance_key = {
+                "provider": "classifier_provider",
+                "model_id": "classifier_model_id",
+                "prompt_version": "classifier_prompt_version",
+                "schema_version": "classifier_schema_version",
+            }.get(field, field)
+            left["provenance"][provenance_key] = None
+            right["provenance"][provenance_key] = None
+        result = build_research_comparison(_side("a", 0.7, semantic=left), _side("b", 0.75, semantic=right))
+        assert result["compatibility"]["semantic_delta_comparable"] is False
+        assert result["semantic"]["delta"] is None
+        assert f"semantic_identity_incomplete_{field}" in result["compatibility"]["reasons"]
 
 
 def test_exact_run_side_isolation_never_reads_latest_mutable_result(monkeypatch):
