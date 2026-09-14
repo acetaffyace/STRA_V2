@@ -9,6 +9,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
 from . import db
+from .embedding_backend import FakeEmbeddingBackend, LocalONNXEmbeddingBackend
 from .research_contracts import (
     SEMANTIC_CONFIG_VERSION,
     SEMANTIC_RUN_SCHEMA_VERSION,
@@ -18,6 +19,8 @@ from .research_contracts import (
 )
 from .taxonomy_v2 import CORE_TAXONOMY_VERSION, core_taxonomy_fingerprint
 from .semantic_adjudication import validate_adjudication_output
+from .semantic_prototypes import build_core_prototypes, match_texts
+from .taxonomy_v2 import load_core_taxonomy_v2
 from .research_run_store import (
     get_job,
     get_population_snapshot,
@@ -500,6 +503,60 @@ def get_semantic_rollups(semantic_run_id: str) -> dict[str, Any]:
     }
 
 
+def _prototype_assignments(config: Mapping[str, Any], texts: list[str]) -> tuple[list[dict[str, Any]], str | None]:
+    """Build local prototype assignments when the run explicitly enables them.
+
+    The default remains fixture-only so offline jobs never pretend that a
+    model is installed. A requested local backend is identity-checked against
+    the immutable run config; unavailable/unpinned artifacts are surfaced as
+    an explicit partial reason and leave reviews unresolved.
+    """
+    options = config.get("prototype_matching")
+    if not isinstance(options, Mapping) or not options.get("enabled"):
+        return [{} for _ in texts], None
+    backend_name = str(options.get("backend") or "local_onnx").strip().lower()
+    try:
+        if backend_name == "fake":
+            backend = FakeEmbeddingBackend(
+                dimensions=int(options.get("dimensions") or 384),
+                model_revision=str(options.get("model_revision") or "fake-semantic-v2"),
+            )
+        elif backend_name == "local_onnx":
+            artifact_hash = str(config.get("embedding_artifact_hash") or "").strip()
+            if not artifact_hash or artifact_hash == "unresolved":
+                raise ValueError("embedding_artifact_hash_required")
+            backend = LocalONNXEmbeddingBackend(
+                model_dir=str(options.get("model_dir") or ""),
+                model_revision=str(config.get("embedding_model_version") or ""),
+                artifact_sha256=artifact_hash,
+            )
+        else:
+            raise ValueError("prototype_backend_unsupported")
+        prototypes = build_core_prototypes(
+            load_core_taxonomy_v2(),
+            prototype_version=str(options.get("prototype_version") or "core-prototypes-v1"),
+        )
+        matches = match_texts(
+            texts,
+            prototypes=prototypes,
+            backend=backend,
+            high_threshold=float(options.get("high_threshold", 0.82)),
+            medium_threshold=float(options.get("medium_threshold", 0.68)),
+        )
+        return [
+            {
+                "core_topic_id": match.topic_key,
+                "similarity_score": match.similarity_score,
+                "decision_band": match.decision_band,
+                "assignment_source": match.assignment_source,
+                "prototype_version": match.prototype_version,
+            }
+            for match in matches
+        ], None
+    except (FileNotFoundError, RuntimeError, ValueError, TypeError) as exc:
+        return [{} for _ in texts], f"{backend_name}:{exc}"
+
+
 def execute_semantic_run_job(semantic_run_id: str, job_id: str) -> dict[str, Any]:
     """Run the deterministic evidence stage behind a durable semantic Job.
 
@@ -526,10 +583,11 @@ def execute_semantic_run_job(semantic_run_id: str, job_id: str) -> dict[str, Any
     transition_semantic_run(semantic_run_id, "GENERATING", eligible_review_count=len(eligible))
     config = semantic_run.get("semantic_config_json") or {}
     fixture_mentions = config.get("fixture_mentions") or {}
+    prototype_assignments, prototype_error = _prototype_assignments(config, [str(review["content_text"]) for review in eligible])
     unresolved = 0
     processed = 0
     try:
-        for review in eligible:
+        for review_index, review in enumerate(eligible):
             current_job = get_job(job_id) or {}
             if current_job.get("cancel_requested_at") or current_job.get("status") == "CANCELLED":
                 transition_semantic_run(semantic_run_id, "CANCELLED", processed_review_count=processed, unresolved_review_count=unresolved)
@@ -545,7 +603,11 @@ def execute_semantic_run_job(semantic_run_id: str, job_id: str) -> dict[str, Any
                 segmentation_version=semantic_run["segmentation_version"],
                 text_snapshot=content,
             )
-            assignment = fixture_mentions.get(str(review.get("steam_review_id"))) or review.get("payload", {}).get("semantic_mention") or {}
+            assignment = (
+                fixture_mentions.get(str(review.get("steam_review_id")))
+                or review.get("payload", {}).get("semantic_mention")
+                or prototype_assignments[review_index]
+            )
             try:
                 assignment = validate_adjudication_output(assignment) if assignment else {}
             except ValueError:
@@ -576,6 +638,7 @@ def execute_semantic_run_job(semantic_run_id: str, job_id: str) -> dict[str, Any
                 processed_review_count=processed,
                 unresolved_review_count=unresolved,
                 semantic_coverage=(processed / len(eligible)) if eligible else 1.0,
+                cost_summary={"prototype_backend_error": prototype_error} if prototype_error else None,
             )
         materialized_rollups = materialize_semantic_rollups(semantic_run_id)
         final_status = "PARTIAL" if unresolved or processed != len(eligible) else "READY"
@@ -585,6 +648,7 @@ def execute_semantic_run_job(semantic_run_id: str, job_id: str) -> dict[str, Any
             processed_review_count=processed,
             unresolved_review_count=unresolved,
             semantic_coverage=(processed / len(eligible)) if eligible else 1.0,
+            cost_summary={"prototype_backend_error": prototype_error} if prototype_error else None,
             result_ref=f"semantic_results:{semantic_run_id}",
         )
         result["rollups"] = materialized_rollups

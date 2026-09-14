@@ -13,6 +13,9 @@ from apps.api.senti_next.semantic_run_store import (
     execute_semantic_run_job,
     get_semantic_rollups,
 )
+from apps.api.senti_next import semantic_run_store
+from apps.api.senti_next.embedding_backend import FakeEmbeddingBackend
+from apps.api.senti_next.semantic_prototypes import SemanticMatch
 from apps.api.senti_next.routes.research_runs import SemanticRunCreateRequest, create_snapshot_semantic_run
 
 
@@ -226,6 +229,35 @@ def test_semantic_generation_job_is_durable_and_marks_unresolved_reviews_partial
     assert partial["status"] == "PARTIAL"
     assert partial["unresolved_review_count"] == 1
     assert get_job(unresolved_job["job_id"])["status"] == "PARTIAL"
+
+
+def test_semantic_generation_can_persist_local_prototype_assignment(monkeypatch):
+    research, _ = _context()
+    semantic = create_semantic_run(
+        research_run_id=research["run_id"],
+        semantic_config={
+            "segmentation_version": "segmentation-v1",
+            "prototype_matching": {"enabled": True, "backend": "fake"},
+        },
+    )
+    job = create_job(
+        job_type="semantic_v2_generation",
+        target_resource_type="semantic_run",
+        target_resource_id=semantic["semantic_run_id"],
+        idempotency_key="semantic-job-m2-prototype",
+        retryable=True,
+    )
+    identity = FakeEmbeddingBackend().identity
+    monkeypatch.setattr(
+        semantic_run_store,
+        "match_texts",
+        lambda texts, **kwargs: [SemanticMatch("technical/bugs", 0.91, "HIGH", "prototype", "core-prototypes-v1", identity) for _ in texts],
+    )
+    result = execute_semantic_run_job(semantic["semantic_run_id"], job["job_id"])
+    assert result["status"] == "READY"
+    with db.get_connection() as conn:
+        row = conn.execute(text("SELECT core_topic_id, decision_band, assignment_source FROM semantic_mentions WHERE semantic_run_id=:id"), {"id": semantic["semantic_run_id"]}).mappings().one()
+    assert dict(row) == {"core_topic_id": "technical/bugs", "decision_band": "HIGH", "assignment_source": "prototype"}
 
 
 def test_semantic_run_resource_endpoint_is_idempotent_and_schedules_durable_job():
