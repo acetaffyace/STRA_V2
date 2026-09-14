@@ -152,5 +152,7 @@ def test_application_db_initialization_records_stable_bootstrap_version(monkeypa
                     (21, "classifier validation execution provenance hardening"),
                                             (22, "frozen classification materializations"),
                                             (23, "canonical semantic measurement and unified research result"),
-                                            (24, "immutable research population snapshots"),
+                                            (24, "immutable research population snapshots and canonical M0 identity graph"),
+                                            (25, "immutable SemanticRun configuration identity"),
+                                            (26, "immutable SemanticUnit and SemanticMention evidence identity"),
                                             ]

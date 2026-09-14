@@ -6,6 +6,7 @@ import pytest
 from sqlalchemy import text
 
 from apps.api.senti_next import db
+from apps.api.senti_next.providers import config as provider_config
 from apps.api.senti_next import semantic_measurement_bundle as bundle_module
 from apps.api.senti_next import semantic_measurement_runtime as runtime
 from apps.api.senti_next.classifier_taxonomy import baseline_classifier_taxonomy
@@ -16,7 +17,11 @@ os.environ["DATABASE_URL"] = "sqlite://"
 
 
 @pytest.fixture(autouse=True)
-def isolated_db():
+def isolated_db(monkeypatch, tmp_path):
+    # Keep this identity-rotation contract independent of a developer's saved
+    # provider selection in data/llm_config.json.
+    monkeypatch.setattr(provider_config, "_CONFIG_FILE", tmp_path / "llm_config.json")
+    monkeypatch.setattr(provider_config, "_API_KEYS_FILE", tmp_path / "api_keys.json")
     db.close_engine()
     db._engine = None
     db.init_db()
