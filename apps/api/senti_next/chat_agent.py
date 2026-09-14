@@ -399,6 +399,9 @@ class AgentContext:
     conversation_history: List[Dict[str, Any]] = field(default_factory=list)
     tool_results: List[Dict[str, Any]] = field(default_factory=list)
     game_names: Dict[int, str] = field(default_factory=dict)  # app_id -> name mapping
+    # Exact completed run pinned for this turn.  The mapping is deliberately
+    # kept in memory; it is not a new persistence contract.
+    run_ids_by_app: Dict[int, str] = field(default_factory=dict)
 
     # Session-level context (persisted across turns)
     session_context: SessionContext = field(default_factory=SessionContext)
@@ -422,7 +425,16 @@ class AgentResult:
     error: Optional[str] = None
 
 
-AGENT_SYSTEM_PROMPT = """You are a Steam game review analyst for SENTINEXT. Analyze player feedback to provide actionable insights.
+AGENT_SYSTEM_PROMPT = """You are a Steam game review analyst for STRA. Analyze player feedback to provide actionable insights.
+
+Canonical research rules:
+- Official recommendation, population, scope, topics, issues and requests come only from the pinned exact run and its persisted Research Core / 3F result.
+- Semantic shares use classified reviews as their denominator, never players or an inferred total.
+- PROVISIONAL is not VALIDATED; preserve that qualification in answers.
+- Discovery signals are auxiliary and never prevalence.
+- A source review is not a verified evidence quote unless the evidence contract says it is verified.
+- Never reconstruct missing counts or rates, and never silently fall back to mutable or legacy metrics.
+- Comparison deltas are allowed only when the canonical comparison compatibility gate allows them.
 
 ## CORE RULE
 **ALWAYS end with final_answer** - Every response must call final_answer to complete.

@@ -76,6 +76,7 @@ class SimpleChatRequest(BaseModel):
     date_filter: str = Field("all", description="Date filter: 30d, 90d, 365d, or all")
     max_reviews_per_game: int = Field(50, ge=1, le=50, description="Max reviews per game")
     language: Optional[str] = Field(None, description="Preferred language for responses")
+    run_id: Optional[str] = Field(None, description="Optional exact completed general-analysis run to pin for this turn")
 
 
 class ChatCitationItem(BaseModel):
@@ -218,7 +219,7 @@ async def simple_chat(request: SimpleChatRequest) -> SimpleChatResponse:
             # Offline fixture mode is a hard contract: it must never enter the
             # provider/tool-calling loop.  Resolve the immutable result first
             # and answer through deterministic evidence lookup.
-            if len(app_ids) == 1:
+            if len(app_ids) == 1 and not request.run_id:
                 offline_result = storage.load_analysis_result(app_ids[0])
                 offline_metadata = (offline_result or {}).get("metadata") or {}
                 if offline_metadata.get("mode") == "codex_offline_fixture":
@@ -263,6 +264,13 @@ async def simple_chat(request: SimpleChatRequest) -> SimpleChatResponse:
             game_metadata = storage.load_game_metadata_for_chat(app_ids)
             game_names = {g["app_id"]: g["name"] for g in game_metadata}
 
+            run_ids_by_app: Dict[int, str] = {}
+            from ..canonical_agent_reports import resolve_completed_general_run
+            for app_id in app_ids:
+                resolved = resolve_completed_general_run(app_id, request.run_id if len(app_ids) == 1 else None)
+                if resolved:
+                    run_ids_by_app[int(app_id)] = resolved
+
             agent_context = chat_agent.AgentContext(
                 session_id=session_id,
                 app_ids=app_ids,
@@ -274,6 +282,7 @@ async def simple_chat(request: SimpleChatRequest) -> SimpleChatResponse:
                     for msg in history
                 ],
                 game_names=game_names,
+                run_ids_by_app=run_ids_by_app,
             )
 
             with llm.llm_usage_context(

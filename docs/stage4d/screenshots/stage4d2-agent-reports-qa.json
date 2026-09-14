@@ -1,0 +1,90 @@
+{
+  "runId": "b92ba25b9f9b4230945d8eb6f92126ff",
+  "results": [
+    {
+      "name": "chat",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "screenshot": "D:\\project\\STRA_V2\\docs\\stage4d\\screenshots\\stage4d2-chat-1440x900.png",
+      "expected": true,
+      "rendered": true,
+      "noHorizontalOverflow": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedResponses": []
+    },
+    {
+      "name": "reports",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "screenshot": "D:\\project\\STRA_V2\\docs\\stage4d\\screenshots\\stage4d2-reports-1440x900.png",
+      "expected": true,
+      "rendered": true,
+      "noHorizontalOverflow": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedResponses": []
+    },
+    {
+      "name": "chat",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "screenshot": "D:\\project\\STRA_V2\\docs\\stage4d\\screenshots\\stage4d2-chat-1366x768.png",
+      "expected": true,
+      "rendered": true,
+      "noHorizontalOverflow": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedResponses": []
+    },
+    {
+      "name": "reports",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "screenshot": "D:\\project\\STRA_V2\\docs\\stage4d\\screenshots\\stage4d2-reports-1366x768.png",
+      "expected": true,
+      "rendered": true,
+      "noHorizontalOverflow": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedResponses": []
+    },
+    {
+      "name": "chat",
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "screenshot": "D:\\project\\STRA_V2\\docs\\stage4d\\screenshots\\stage4d2-chat-1024x768.png",
+      "expected": true,
+      "rendered": true,
+      "noHorizontalOverflow": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedResponses": []
+    },
+    {
+      "name": "reports",
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "screenshot": "D:\\project\\STRA_V2\\docs\\stage4d\\screenshots\\stage4d2-reports-1024x768.png",
+      "expected": true,
+      "rendered": true,
+      "noHorizontalOverflow": true,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedResponses": []
+    }
+  ],
+  "failed": false
+}

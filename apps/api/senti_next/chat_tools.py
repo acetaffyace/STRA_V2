@@ -612,8 +612,12 @@ def execute_tool(tool_name: str, params: Dict[str, Any], context: "AgentContext"
     # Check cache for cacheable tools
     cache_key = None
     if tool_name in CACHEABLE_TOOLS:
-        # Build context key from app_ids
-        context_key = f"local:{','.join(map(str, context.app_ids))}"
+        # Include the pinned exact run in the cache identity.  App-level cache
+        # keys are unsafe because a later turn may select another run.
+        pinned = getattr(context, "run_ids_by_app", {}) or {}
+        context_key = "local:" + ",".join(
+            f"{app_id}:{pinned.get(int(app_id), '')}" for app_id in context.app_ids
+        )
         cache_params = dict(params)
         if tool_name in DATE_FILTER_SENSITIVE_TOOLS and "date_filter" not in cache_params:
             cache_params["_date_filter"] = getattr(context, "date_filter", "all") or "all"
@@ -714,6 +718,21 @@ def execute_tool(tool_name: str, params: Dict[str, Any], context: "AgentContext"
         ).to_dict()
 
 
+def _exact_context_for_app(params: Dict[str, Any], context: "AgentContext") -> tuple[int, dict[str, Any] | None]:
+    """Resolve the app and exact run pinned for the current Agent turn."""
+    from .canonical_agent_reports import load_exact_run
+
+    app_id = params.get("app_id")
+    if not app_id and context.app_ids:
+        app_id = context.app_ids[0]
+    if not app_id:
+        raise ValueError("no_game_context")
+    app_id = int(app_id)
+    pinned = (getattr(context, "run_ids_by_app", {}) or {}).get(app_id)
+    requested = params.get("run_id") or pinned
+    return app_id, load_exact_run(app_id, requested)
+
+
 def _execute_suggest_search_game(params: Dict[str, Any], context: "AgentContext") -> Dict[str, Any]:
     """Execute suggest_search_game tool - suggests user to search for a game."""
     game_name = params.get("game_name", "the game")
@@ -726,9 +745,77 @@ def _execute_suggest_search_game(params: Dict[str, Any], context: "AgentContext"
     }
 
 
+def _canonical_semantic_rows(params: Dict[str, Any], context: "AgentContext") -> tuple[int, dict[str, Any] | None, list[dict[str, Any]] | None]:
+    """Return exact-run semantic rows or an explicit unavailable result."""
+    app_id, exact = _exact_context_for_app(params, context)
+    if exact is None:
+        return app_id, None, None
+    from .canonical_agent_reports import semantic_rows
+    return app_id, exact, semantic_rows(exact)
+
+
+def _semantic_unavailable(app_id: int, exact: dict[str, Any] | None) -> ToolResult:
+    return ToolResult(data={
+        "app_id": app_id,
+        "run_id": (exact or {}).get("run_id"),
+        "available": False,
+        "semantic_available": False,
+        "message": "Semantic measurement is unavailable for the pinned exact run.",
+    })
+
+
+def _semantic_context(exact: dict[str, Any]) -> dict[str, Any]:
+    result = exact["result"].get("semantic_measurement_result") or {}
+    provenance = result.get("provenance") or {}
+    return {
+        "population_n": result.get("population_n"),
+        "classified_n": result.get("classified_n"),
+        "classification_coverage": result.get("classification_coverage"),
+        "claim_status": result.get("claim_status"),
+        "measurement_status": provenance.get("measurement_status"),
+        "validation_status": provenance.get("validation_status"),
+        "denominator": "classified reviews",
+    }
+
+
 def _execute_get_game_overview(params: Dict[str, Any], context: "AgentContext") -> ToolResult:
     """Execute get_game_overview tool - returns overall game stats."""
     from . import storage
+
+    try:
+        app_id, exact = _exact_context_for_app(params, context)
+    except ValueError:
+        return _make_error(ToolErrorCode.NO_GAME_CONTEXT, "No game context is available.", retryable=False)
+    game_name = context.game_names.get(app_id, f"Game {app_id}")
+    if exact is None:
+        return _make_error(
+            ToolErrorCode.NO_ANALYSIS,
+            "No completed exact research run is available for this game.",
+            retryable=False,
+            game_name=game_name,
+            app_id=app_id,
+        )
+    from .canonical_agent_reports import build_exact_presentation
+    snapshot = build_exact_presentation(exact)["research_snapshot"]
+    return ToolResult(data={
+        "game_name": game_name,
+        "app_id": app_id,
+        "run_id": exact["run_id"],
+        "source_contract": "research-report-v1",
+        "population_n": snapshot.get("population_n"),
+        "valid_n": snapshot.get("valid_n"),
+        "recommended_n": snapshot.get("recommended_n"),
+        "not_recommended_n": snapshot.get("not_recommended_n"),
+        "total_reviews": snapshot.get("population_n"),
+        "recommendation_rate": snapshot.get("recommendation_rate"),
+        "positive_reviews": snapshot.get("recommended_n"),
+        "negative_reviews": snapshot.get("not_recommended_n"),
+        "scope": snapshot.get("collection_scope"),
+        "collection_complete": snapshot.get("collection_complete"),
+        "truncated_by_max_reviews": snapshot.get("truncated_by_max_reviews"),
+        "stop_reason": snapshot.get("stop_reason"),
+        "semantic_available": bool((exact.get("result") or {}).get("semantic_measurement_result")),
+    })
 
     app_id = params.get("app_id")
     if not app_id:
@@ -817,6 +904,29 @@ def _execute_get_game_overview(params: Dict[str, Any], context: "AgentContext") 
 def _execute_search_reviews(params: Dict[str, Any], context: "AgentContext") -> ToolResult:
     """Execute search_reviews tool with subcategory disambiguation."""
     from . import storage
+
+    try:
+        app_id, exact = _exact_context_for_app(params, context)
+    except ValueError:
+        return _make_error(ToolErrorCode.NO_GAME_CONTEXT, "No game context is available.", retryable=False)
+    if exact is None:
+        return _make_error(ToolErrorCode.NO_ANALYSIS, "No completed exact research run is available for this game.", retryable=False, app_id=app_id)
+    from .canonical_agent_reports import canonical_review_search
+    requested_limit = params.get("limit", 10)
+    try:
+        requested_limit = int(requested_limit)
+    except (TypeError, ValueError):
+        requested_limit = 10
+    return ToolResult(data=canonical_review_search(
+        exact,
+        query=str(params.get("query") or ""),
+        subcategory=params.get("subcategory"),
+        metric_type=str(params.get("metric_type") or "topic"),
+        sentiment=params.get("sentiment"),
+        language=params.get("language"),
+        limit=requested_limit,
+        offset=int(params.get("offset") or 0),
+    ))
 
     app_id = params.get("app_id")
     if not app_id:
@@ -981,6 +1091,35 @@ def _execute_get_subcategory_stats(params: Dict[str, Any], context: "AgentContex
     """Execute get_subcategory_stats tool with subcategory disambiguation."""
     from . import storage
 
+    try:
+        app_id, exact, rows = _canonical_semantic_rows(params, context)
+    except ValueError:
+        return _make_error(ToolErrorCode.NO_GAME_CONTEXT, "No game context is available.", retryable=False)
+    if exact is None:
+        return _make_error(ToolErrorCode.NO_ANALYSIS, "No completed exact research run is available for this game.", retryable=False, app_id=app_id)
+    if rows is None:
+        return _semantic_unavailable(app_id, exact)
+    requested = str(params.get("subcategory") or "").strip().lower()
+    if not requested:
+        return _make_error(ToolErrorCode.INVALID_PARAMS, "subcategory is required.", retryable=False)
+    matches = [row for row in rows if str(row.get("taxonomy_key") or "").lower() == requested]
+    if not matches:
+        matches = [row for row in rows if str(row.get("taxonomy_key") or "").lower().endswith("/" + requested)]
+    if len(matches) != 1:
+        if len(matches) > 1:
+            return ToolResult(data={"needs_clarification": True, "options": [r.get("taxonomy_key") for r in matches]})
+        return _make_error(ToolErrorCode.DATA_NOT_FOUND, f"Subcategory '{requested}' was not present in the exact semantic result.", retryable=False, app_id=app_id)
+    row = matches[0]
+    semantic = _semantic_context(exact)
+    return ToolResult(data={
+        "app_id": app_id, "run_id": exact["run_id"], "source_contract": "semantic-measurement-result-v1",
+        "subcategory": row.get("taxonomy_key"), "count": row.get("topic_n"),
+        "share": row.get("topic_share"), "recommendation_rate": None,
+        "issue_count": row.get("issue_n"), "issue_share": row.get("issue_share"),
+        "request_count": row.get("request_n"), "request_share": row.get("request_share"),
+        **semantic,
+    })
+
     app_id = params.get("app_id")
     if not app_id and context.app_ids:
         app_id = context.app_ids[0]
@@ -1130,6 +1269,25 @@ def _execute_get_top_issues(params: Dict[str, Any], context: "AgentContext") -> 
     """Execute get_top_issues tool."""
     from . import storage
 
+    try:
+        app_id, exact, rows = _canonical_semantic_rows(params, context)
+    except ValueError:
+        return _make_error(ToolErrorCode.NO_GAME_CONTEXT, "No game context is available.", retryable=False)
+    if exact is None:
+        return _make_error(ToolErrorCode.NO_ANALYSIS, "No completed exact research run is available for this game.", retryable=False, app_id=app_id)
+    if rows is None:
+        return _semantic_unavailable(app_id, exact)
+    limit = max(1, min(int(params.get("limit") or 10), 50))
+    category = str(params.get("category") or "").lower()
+    filtered = [r for r in rows if (r.get("issue_n") or 0) > 0 and (not category or str(r.get("taxonomy_key") or "").lower().startswith(category + "/"))]
+    filtered.sort(key=lambda r: (-(float(r.get("issue_share") or 0)), str(r.get("taxonomy_key") or "")))
+    semantic = _semantic_context(exact)
+    return ToolResult(data={
+        "app_id": app_id, "run_id": exact["run_id"], "source_contract": "semantic-measurement-result-v1",
+        "issues": [{"rank": i + 1, "subcategory": r.get("taxonomy_key"), "complaint_count": r.get("issue_n"), "share": r.get("issue_share"), "validation": r.get("issue_validation")} for i, r in enumerate(filtered[:limit])],
+        "denominator": "classified reviews", **semantic,
+    })
+
     app_id = params.get("app_id")
     if not app_id and context.app_ids:
         app_id = context.app_ids[0]
@@ -1269,6 +1427,25 @@ def _execute_get_feature_requests(params: Dict[str, Any], context: "AgentContext
     """Execute get_feature_requests tool."""
     from . import storage
 
+    try:
+        app_id, exact, rows = _canonical_semantic_rows(params, context)
+    except ValueError:
+        return _make_error(ToolErrorCode.NO_GAME_CONTEXT, "No game context is available.", retryable=False)
+    if exact is None:
+        return _make_error(ToolErrorCode.NO_ANALYSIS, "No completed exact research run is available for this game.", retryable=False, app_id=app_id)
+    if rows is None:
+        return _semantic_unavailable(app_id, exact)
+    limit = max(1, min(int(params.get("limit") or 10), 50))
+    category = str(params.get("category") or "").lower()
+    filtered = [r for r in rows if (r.get("request_n") or 0) > 0 and (not category or str(r.get("taxonomy_key") or "").lower().startswith(category + "/"))]
+    filtered.sort(key=lambda r: (-(float(r.get("request_share") or 0)), str(r.get("taxonomy_key") or "")))
+    semantic = _semantic_context(exact)
+    return ToolResult(data={
+        "app_id": app_id, "run_id": exact["run_id"], "source_contract": "semantic-measurement-result-v1",
+        "feature_requests": [{"subcategory": r.get("taxonomy_key"), "request_count": r.get("request_n"), "share": r.get("request_share"), "validation": r.get("request_validation")} for r in filtered[:limit]],
+        "denominator": "classified reviews", **semantic,
+    })
+
     app_id = params.get("app_id")
     if not app_id and context.app_ids:
         app_id = context.app_ids[0]
@@ -1399,6 +1576,25 @@ def _execute_get_feature_requests(params: Dict[str, Any], context: "AgentContext
 def _execute_list_available_topics(params: Dict[str, Any], context: "AgentContext") -> ToolResult:
     """Execute list_available_topics tool - list subcategories present in analysis."""
     from . import storage
+
+    try:
+        app_id, exact, rows = _canonical_semantic_rows(params, context)
+    except ValueError:
+        return _make_error(ToolErrorCode.NO_GAME_CONTEXT, "No game context is available.", retryable=False)
+    if exact is None:
+        return _make_error(ToolErrorCode.NO_ANALYSIS, "No completed exact research run is available for this game.", retryable=False, app_id=app_id)
+    if rows is None:
+        return _semantic_unavailable(app_id, exact)
+    limit = max(1, min(int(params.get("limit") or 20), 100))
+    category = str(params.get("category") or "").lower()
+    rows = [r for r in rows if not category or str(r.get("taxonomy_key") or "").lower().startswith(category + "/")]
+    rows.sort(key=lambda r: (-(float(r.get("topic_share") or 0)), str(r.get("taxonomy_key") or "")))
+    semantic = _semantic_context(exact)
+    return ToolResult(data={
+        "app_id": app_id, "run_id": exact["run_id"], "source_contract": "semantic-measurement-result-v1",
+        "topics": [{"subcategory": r.get("taxonomy_key"), "count": r.get("topic_n"), "share": r.get("topic_share"), "validation": r.get("topic_validation")} for r in rows[:limit]],
+        "total_topics": len(rows), "denominator": "classified reviews", **semantic,
+    })
 
     app_id = params.get("app_id")
     if not app_id and context.app_ids:
@@ -1540,6 +1736,26 @@ def _execute_list_available_topics(params: Dict[str, Any], context: "AgentContex
 def _execute_get_top_praises(params: Dict[str, Any], context: "AgentContext") -> ToolResult:
     """Execute get_top_praises tool - most common positive themes."""
     from . import storage
+
+    try:
+        app_id, exact, rows = _canonical_semantic_rows(params, context)
+    except ValueError:
+        return _make_error(ToolErrorCode.NO_GAME_CONTEXT, "No game context is available.", retryable=False)
+    if exact is None:
+        return _make_error(ToolErrorCode.NO_ANALYSIS, "No completed exact research run is available for this game.", retryable=False, app_id=app_id)
+    if rows is None:
+        return _semantic_unavailable(app_id, exact)
+    limit = max(1, min(int(params.get("limit") or 10), 50))
+    # 3F does not own a separate praise metric.  Expose topic rows as the
+    # measured positive-theme proxy without inventing a new official metric.
+    rows = [r for r in rows if (r.get("topic_n") or 0) > 0 and not str(r.get("taxonomy_key") or "").startswith("other/")]
+    rows.sort(key=lambda r: (-(float(r.get("topic_share") or 0)), str(r.get("taxonomy_key") or "")))
+    return ToolResult(data={
+        "app_id": app_id, "run_id": exact["run_id"], "source_contract": "semantic-measurement-result-v1",
+        "praises": [{"subcategory": r.get("taxonomy_key"), "count": r.get("topic_n"), "share": r.get("topic_share"), "validation": r.get("topic_validation")} for r in rows[:limit]],
+        "denominator": "classified reviews", "note": "3F provides measured topics; a separate praise metric is unavailable.",
+        **_semantic_context(exact),
+    })
 
     app_id = params.get("app_id")
     if not app_id and context.app_ids:
@@ -2069,6 +2285,48 @@ def _execute_get_sentiment_trend(params: Dict[str, Any], context: "AgentContext"
 def _execute_compare_games(params: Dict[str, Any], context: "AgentContext") -> ToolResult:
     """Execute compare_games tool."""
     from . import storage
+
+    app_id_1 = params.get("app_id_1")
+    app_id_2 = params.get("app_id_2")
+    metric = str(params.get("metric") or "sentiment").lower()
+    if not app_id_1 or not app_id_2:
+        return _make_error(ToolErrorCode.INVALID_PARAMS, "Both app_id_1 and app_id_2 are required for comparison.", retryable=False)
+    from .canonical_agent_reports import resolve_completed_general_run
+    run_1 = resolve_completed_general_run(int(app_id_1), params.get("run_id_1") or (getattr(context, "run_ids_by_app", {}) or {}).get(int(app_id_1)))
+    run_2 = resolve_completed_general_run(int(app_id_2), params.get("run_id_2") or (getattr(context, "run_ids_by_app", {}) or {}).get(int(app_id_2)))
+    if not run_1 or not run_2:
+        return _make_error(ToolErrorCode.NO_ANALYSIS, "Both games need completed exact research runs for canonical comparison.", retryable=False)
+    try:
+        from .research_comparison import build_research_comparison_for_runs
+        comparison = build_research_comparison_for_runs(run_1, run_2)
+    except ValueError as exc:
+        return _make_error(ToolErrorCode.DATA_NOT_FOUND, str(exc), retryable=False)
+    left = comparison.get("left") or {}
+    right = comparison.get("right") or {}
+    data: dict[str, Any] = {"source_contract": "research-comparison-v1", "left_run_id": run_1, "right_run_id": run_2, "comparison": comparison}
+    if metric in {"sentiment", "recommendation", "overview"}:
+        lq, rq = left.get("quantitative") or {}, right.get("quantitative") or {}
+        data["official"] = {
+            "metric": "recommendation_rate",
+            "game_1": {"app_id": left.get("app_id"), "recommendation_rate": lq.get("recommendation_rate"), "population_n": lq.get("population_n")},
+            "game_2": {"app_id": right.get("app_id"), "recommendation_rate": rq.get("recommendation_rate"), "population_n": rq.get("population_n")},
+            "delta_pp": (comparison.get("quantitative") or {}).get("recommendation_rate_delta_pp"),
+        }
+    elif metric in {"issues", "features", "requests", "topics", "subcategory"}:
+        ls, rs = left.get("semantic") or {}, right.get("semantic") or {}
+        key = "requests" if metric in {"features", "requests"} else "issues" if metric == "issues" else "topics"
+        if metric == "subcategory":
+            wanted = str(params.get("subcategory") or "")
+            lrows = [r for r in ls.get(key) or [] if r.get("taxonomy_key") == wanted]
+            rrows = [r for r in rs.get(key) or [] if r.get("taxonomy_key") == wanted]
+        else:
+            lrows, rrows = ls.get(key) or [], rs.get(key) or []
+        data["official"] = {
+            "metric": key, "left": lrows[:10], "right": rrows[:10],
+            "delta": ((comparison.get("semantic") or {}).get("delta") or {}).get(key) if (comparison.get("compatibility") or {}).get("semantic_delta_comparable") else None,
+            "semantic_delta_comparable": (comparison.get("compatibility") or {}).get("semantic_delta_comparable", False),
+        }
+    return ToolResult(data=data)
 
     app_id_1 = params.get("app_id_1")
     app_id_2 = params.get("app_id_2")

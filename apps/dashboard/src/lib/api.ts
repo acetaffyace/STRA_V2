@@ -506,6 +506,8 @@ export interface EnhancedChatPayload {
   max_reviews_per_game?: number;
   /** Preferred language for chatbot responses: "zh", "en", or "ja" */
   language?: string;
+  /** Exact completed analysis run to pin for this conversation turn. */
+  run_id?: string;
 }
 
 export interface ChatCitationItem {
@@ -1320,6 +1322,46 @@ export interface ReportMonthsResponse {
   months: ReportMonth[];
 }
 
+export interface CanonicalReportProjection {
+  schema_version: string;
+  available: boolean;
+  run: { run_id: string; app_id: number; status: string; created_at?: string | null; completed_at?: string | null };
+  research_snapshot: {
+    population_n: number | null;
+    valid_n: number | null;
+    recommended_n: number | null;
+    not_recommended_n: number | null;
+    recommendation_rate: number | null;
+    collection_scope?: Record<string, unknown>;
+    collection_complete?: boolean | null;
+    truncated_by_max_reviews?: boolean | null;
+    stop_reason?: string | null;
+  };
+  semantic: {
+    available: boolean;
+    claim_status?: string | null;
+    classified_n?: number | null;
+    population_n?: number | null;
+    classification_coverage?: number | null;
+    limitations?: string[];
+  };
+  player_voice: {
+    actionable_topics: { items: Array<Record<string, unknown>> };
+    issues: { items: Array<Record<string, unknown>> };
+    requests: { items: Array<Record<string, unknown>> };
+    context_topics: { items: Array<Record<string, unknown>> };
+  };
+  evidence: { source_review_count: number; verified_evidence_count: number };
+  limitations: string[];
+}
+
+export async function fetchCanonicalReport(appId: number, runId?: string): Promise<CanonicalReportProjection> {
+  const url = new URL(apiUrl(`/reports/executive-summary/${appId}`), window.location.origin);
+  url.searchParams.set("format", "json");
+  if (runId) url.searchParams.set("run", runId);
+  return handleResponse<CanonicalReportProjection>(await apiFetch(url.toString(), { cache: "no-store" }));
+}
+
 /**
  * Fetch available months with review data for a game.
  */
@@ -1337,7 +1379,8 @@ export async function downloadExecutiveSummary(
   appId: number,
   year: number,
   month: number,
-  outputLanguage: "zh" | "en" | "ja" = "zh"
+  outputLanguage: "zh" | "en" | "ja" = "zh",
+  runId?: string,
 ): Promise<void> {
   if (typeof window === "undefined") return;
 
@@ -1346,6 +1389,7 @@ export async function downloadExecutiveSummary(
   url.searchParams.set("month", String(month));
   url.searchParams.set("format", "pdf");
   url.searchParams.set("output_language", outputLanguage);
+  if (runId) url.searchParams.set("run", runId);
 
   const response = await apiFetch(url.toString(), { cache: "no-store" });
   if (!response.ok) {
@@ -1367,6 +1411,21 @@ export async function downloadExecutiveSummary(
   link.click();
   link.remove();
   window.URL.revokeObjectURL(objectUrl);
+}
+
+export async function downloadCanonicalReport(appId: number, runId: string): Promise<void> {
+  if (typeof window === "undefined") return;
+  const url = new URL(apiUrl(`/reports/executive-summary/${appId}`), window.location.origin);
+  url.searchParams.set("format", "pdf");
+  url.searchParams.set("run", runId);
+  const response = await apiFetch(url.toString(), { cache: "no-store" });
+  if (!response.ok) throw new Error((await response.text()) || `Failed to generate report (status ${response.status})`);
+  const blob = await response.blob();
+  const objectUrl = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = parseContentDispositionFilename(response.headers.get("content-disposition")) || `STRA_${runId.slice(0, 8)}_research-report.pdf`;
+  document.body.appendChild(link); link.click(); link.remove(); window.URL.revokeObjectURL(objectUrl);
 }
 
 // ============================================================================

@@ -142,11 +142,12 @@ def get_report_months(app_id: int):
 @router.get("/reports/executive-summary/{app_id}")
 def generate_executive_summary(
     app_id: int,
-    year: int,
-    month: int,
+    year: Optional[int] = None,
+    month: Optional[int] = None,
     format: str = "pdf",
     include_llm_summary: bool = True,
     output_language: str = "zh",
+    run: Optional[str] = None,
 ):
 
     from ..reports import (
@@ -157,6 +158,33 @@ def generate_executive_summary(
         create_pdf_report,
     )
 
+    # Canonical exact-run report path.  It is deterministic and never falls
+    # back to the mutable monthly DataFrame when a run is requested.
+    if run or format == "json":
+        from ..reports import build_canonical_report, create_canonical_report_html, create_canonical_report_pdf
+        from ..canonical_agent_reports import resolve_completed_general_run
+        resolved = run or resolve_completed_general_run(app_id)
+        if not resolved:
+            raise HTTPException(status_code=404, detail="Canonical completed run is unavailable.")
+        try:
+            canonical = build_canonical_report(resolved)
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        if format == "json":
+            return canonical
+        game_context = fetch_app_details(app_id) or {}
+        game_name = game_context.get("name", f"App {app_id}")
+        if format == "html":
+            return StreamingResponse(iter([create_canonical_report_html(canonical, game_name).encode("utf-8")]), media_type="text/html; charset=utf-8")
+        if format == "pdf":
+            pdf_bytes = create_canonical_report_pdf(canonical, game_name)
+            safe_game_name = "".join(c if c.isalnum() or c in (' ', '-', '_') else '' for c in game_name).replace(' ', '_')[:40]
+            filename = f"STRA_{safe_game_name}_{str(resolved)[:8]}_research-report.pdf"
+            return StreamingResponse(iter([pdf_bytes]), media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+        raise HTTPException(status_code=400, detail="Canonical report format must be 'json', 'html', or 'pdf'.")
+
+    if year is None or month is None:
+        raise HTTPException(status_code=400, detail="year and month are required for descriptive monthly reports")
     if not (1 <= month <= 12):
         raise HTTPException(status_code=400, detail="Month must be between 1 and 12")
     if not (2000 <= year <= 2100):

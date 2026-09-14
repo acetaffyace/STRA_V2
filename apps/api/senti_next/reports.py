@@ -6,7 +6,8 @@ import logging
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Mapping
+from html import escape
 
 import pandas as pd
 from jinja2 import Environment, FileSystemLoader
@@ -27,6 +28,180 @@ from .analysis import summarize_playtime
 from .evidence import build_evidence
 
 logger = logging.getLogger(__name__)
+
+
+CANONICAL_REPORT_SCHEMA_VERSION = "report-presentation-v1"
+
+
+def build_canonical_report(run_id: str) -> Dict[str, Any]:
+    """Build the deterministic report projection for one exact general run."""
+    from .canonical_agent_reports import build_exact_presentation, load_exact_run
+
+    exact = load_exact_run(0, run_id)
+    if exact is None:
+        # ``load_exact_run`` validates app identity; resolve the run directly so
+        # a historical report remains exact without an app-level fallback.
+        from . import storage
+        run = storage.get_analysis_run(str(run_id))
+        if not run or run.get("run_type") != "general_analysis" or run.get("status") != "completed":
+            raise ValueError("canonical_report_run_unavailable")
+        exact = load_exact_run(int(run["target_app_id"]), str(run_id))
+    if exact is None:
+        raise ValueError("canonical_report_run_unavailable")
+    presentation = build_exact_presentation(exact)
+    population = exact.get("population") or {}
+    result = exact["result"]
+    materialization = exact.get("materialization") or {}
+    items = materialization.get("items") or []
+    verified_count = 0
+    for item in items:
+        payload = item.get("payload") or {}
+        evidence = payload.get("evidence") or payload.get("subcategory_evidence") or {}
+        if isinstance(evidence, Mapping) and any(evidence.values()):
+            verified_count += 1
+    projection = {
+        "schema_version": CANONICAL_REPORT_SCHEMA_VERSION,
+        "available": True,
+        "run": presentation["run"],
+        "research_snapshot": presentation["research_snapshot"],
+        "semantic": presentation["semantic"],
+        "player_voice": presentation["player_voice"],
+        "evidence": {
+            "run_id": exact["run_id"],
+            "source_review_count": len(population.get("reviews") or []),
+            "verified_evidence_count": verified_count,
+            "source": "exact_frozen_research_population",
+        },
+        "discovery": presentation["discovery"],
+        "provenance": presentation["provenance"],
+        "limitations": presentation["limitations"],
+    }
+    # Keep the full canonical structured payload deterministic and auditable;
+    # do not include raw review text in the report projection.
+    projection["quantitative"] = (result.get("unified_research_result") or {}).get("quantitative") or presentation["research_snapshot"]
+    return projection
+
+
+def create_canonical_report_html(report: Mapping[str, Any], game_name: str = "STRA Research Report") -> str:
+    """Render a canonical exact-run report without legacy monthly formulas."""
+    snapshot = report.get("research_snapshot") or {}
+    semantic = report.get("semantic") or {}
+    voice = report.get("player_voice") or {}
+    run = report.get("run") or {}
+    scope = snapshot.get("collection_scope") or {}
+    def pct(value: Any) -> str:
+        return "—" if value is None else f"{float(value) * 100:.1f}%"
+    def rows(section: str, count_key: str = "n", share_key: str = "share") -> str:
+        items = ((voice.get(section) or {}).get("items") or [])[:10]
+        if not items:
+            return "<p>Unavailable</p>"
+        return "<ul>" + "".join(
+            f"<li><b>{escape(str(item.get('taxonomy_key') or ''))}</b> — {escape(str(item.get(count_key) if item.get(count_key) is not None else '—'))} reviews, {pct(item.get(share_key))}</li>"
+            for item in items
+        ) + "</ul>"
+    limited = snapshot.get("truncated_by_max_reviews") is True
+    limitation = "Limited by the configured review maximum." if limited else ""
+    qualification_badge = "<span class='badge'>PROVISIONAL</span>" if semantic.get("claim_status") == "PROVISIONAL" else ""
+    return f"""<!doctype html><html><head><meta charset='utf-8'><style>
+body{{font-family:Arial,sans-serif;color:#172033;margin:42px;line-height:1.45}}h1{{margin-bottom:4px}}h2{{border-bottom:1px solid #dbe3ef;padding-bottom:6px;margin-top:28px}}.grid{{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}}.metric{{border:1px solid #dbe3ef;border-radius:8px;padding:12px}}.value{{font-size:22px;font-weight:700}}.muted{{color:#5d6b82}}.badge{{display:inline-block;padding:3px 8px;border-radius:999px;background:#fff3cd;color:#775500;font-weight:700}}li{{margin:5px 0}}small{{color:#5d6b82}}
+</style></head><body>
+<h1>{escape(game_name)}</h1><p class='muted'>Exact analysis run: {escape(str(run.get('run_id') or 'Unavailable'))}</p>
+<div class='grid'><div class='metric'><small>Recommendation rate</small><div class='value'>{pct(snapshot.get('recommendation_rate'))}</div></div><div class='metric'><small>Population</small><div class='value'>{snapshot.get('population_n') if snapshot.get('population_n') is not None else '—'}</div></div><div class='metric'><small>Recommended</small><div class='value'>{snapshot.get('recommended_n') if snapshot.get('recommended_n') is not None else '—'}</div></div><div class='metric'><small>Semantic status</small><div class='value'>{escape(str(semantic.get('claim_status') or 'Unavailable'))}</div></div></div>
+<h2>Scope and limitations</h2><p>{escape(', '.join(str(x) for x in scope.get('languages') or []) or 'All languages')} · {escape(str(scope.get('collection_order') or 'Unknown'))} · maximum {escape(str(scope.get('max_reviews') if scope.get('max_reviews') is not None else 'Unknown'))} reviews.</p><p>{escape(limitation)}</p><p>Semantic coverage: <b>{semantic.get('classified_n') if semantic.get('classified_n') is not None else '—'} / {semantic.get('population_n') if semantic.get('population_n') is not None else '—'} classified reviews</b>. {qualification_badge}</p>
+<h2>Actionable topics</h2>{rows('actionable_topics')}
+<h2>Issues</h2>{rows('issues', 'n', 'share')}
+<h2>Requests</h2>{rows('requests', 'n', 'share')}
+<h2>Context / Other</h2>{rows('context_topics')}
+<h2>Evidence and provenance</h2><p>{report.get('evidence', {}).get('source_review_count', 0)} exact-run source reviews; {report.get('evidence', {}).get('verified_evidence_count', 0)} with verified evidence.</p><p class='muted'>Population fingerprint: {escape(str((report.get('provenance') or {}).get('population_fingerprint') or 'Unavailable'))}</p>
+</body></html>"""
+
+
+def create_canonical_report_pdf(report: Mapping[str, Any], game_name: str = "STRA Research Report") -> bytes:
+    """Create a PDF from the exact canonical report projection."""
+    html = create_canonical_report_html(report, game_name)
+    try:
+        from weasyprint import HTML
+        return HTML(string=html).write_pdf()
+    except Exception as exc:
+        logger.warning("Canonical PDF renderer unavailable: %s", exc)
+        # Keep a deterministic fallback that still renders the canonical
+        # projection.  The legacy monthly renderer is intentionally not used:
+        # it cannot express semantic qualification, scope, or classified
+        # denominators and would make a canonical report look complete when it
+        # is not.
+        snapshot = report.get("research_snapshot") or {}
+        semantic = report.get("semantic") or {}
+        voice = report.get("player_voice") or {}
+        scope = snapshot.get("collection_scope") or {}
+
+        def value_text(value: Any, suffix: str = "") -> str:
+            return "Unavailable" if value is None else f"{escape(str(value))}{suffix}"
+
+        def percent_text(value: Any) -> str:
+            return "Unavailable" if value is None else f"{float(value) * 100:.1f}%"
+
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle("CanonicalTitle", parent=styles["Title"], fontSize=18, leading=22, spaceAfter=8)
+        heading_style = ParagraphStyle("CanonicalHeading", parent=styles["Heading2"], fontSize=12, leading=15, spaceBefore=12, spaceAfter=6)
+        body_style = ParagraphStyle("CanonicalBody", parent=styles["BodyText"], fontSize=9, leading=12)
+        muted_style = ParagraphStyle("CanonicalMuted", parent=body_style, textColor=colors.HexColor("#5d6b82"))
+
+        buffer = io.BytesIO()
+        document = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=0.55 * inch, leftMargin=0.55 * inch, topMargin=0.5 * inch, bottomMargin=0.5 * inch)
+        story = [
+            Paragraph(escape(game_name), title_style),
+            Paragraph(f"Exact analysis run: {escape(str((report.get('run') or {}).get('run_id') or 'Unavailable'))}", muted_style),
+            Spacer(1, 8),
+        ]
+        metrics = [
+            [Paragraph("Metric", body_style), Paragraph("Value", body_style)],
+            [Paragraph("Recommendation rate", body_style), Paragraph(percent_text(snapshot.get("recommendation_rate")), body_style)],
+            [Paragraph("Population", body_style), Paragraph(value_text(snapshot.get("population_n")), body_style)],
+            [Paragraph("Classified", body_style), Paragraph(f"{value_text(semantic.get('classified_n'))} / {value_text(semantic.get('population_n'))}", body_style)],
+            [Paragraph("Semantic qualification", body_style), Paragraph(value_text(semantic.get("claim_status") or "Unavailable"), body_style)],
+        ]
+        metric_table = Table(metrics, colWidths=[2.8 * inch, 3.9 * inch])
+        metric_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#36465f")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor("#edf2f8")),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#9aa8ba")),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("TOPPADDING", (0, 0), (-1, -1), 7),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+        ]))
+        story.append(metric_table)
+        story.append(Paragraph("Scope and limitations", heading_style))
+        languages = ", ".join(str(item) for item in scope.get("languages") or []) or "All languages"
+        order = scope.get("collection_order") or "Unknown order"
+        maximum = scope.get("max_reviews") if scope.get("max_reviews") is not None else "Unknown maximum"
+        story.append(Paragraph(escape(f"{languages} · {order} · maximum {maximum} reviews."), body_style))
+        if snapshot.get("truncated_by_max_reviews") is True:
+            story.append(Paragraph("Limited by the configured review maximum.", body_style))
+        story.append(Paragraph(escape(f"Semantic coverage: {semantic.get('classified_n') if semantic.get('classified_n') is not None else 'Unavailable'} / {semantic.get('population_n') if semantic.get('population_n') is not None else 'Unavailable'} classified reviews."), body_style))
+
+        def add_rows(title: str, section: str) -> None:
+            items = ((voice.get(section) or {}).get("items") or [])[:10]
+            story.append(Paragraph(title, heading_style))
+            if not items:
+                story.append(Paragraph("Unavailable", body_style))
+                return
+            for item in items:
+                label = escape(str(item.get("taxonomy_key") or "Unavailable"))
+                count = escape(str(item.get("n") if item.get("n") is not None else "Unavailable"))
+                share = percent_text(item.get("share"))
+                story.append(Paragraph(f"{label}: {count} reviews ({share})", body_style))
+
+        add_rows("Actionable topics", "actionable_topics")
+        add_rows("Issues", "issues")
+        add_rows("Requests", "requests")
+        add_rows("Context / Other", "context_topics")
+        story.append(Paragraph("Evidence and provenance", heading_style))
+        evidence = report.get("evidence") or {}
+        story.append(Paragraph(escape(f"{evidence.get('source_review_count', 0)} exact-run source reviews; {evidence.get('verified_evidence_count', 0)} with verified evidence."), body_style))
+        story.append(Paragraph(escape(f"Population fingerprint: {(report.get('provenance') or {}).get('population_fingerprint') or 'Unavailable'}"), muted_style))
+        document.build(story)
+        return buffer.getvalue()
 
 # Template directory
 TEMPLATES_DIR = Path(__file__).parent / "templates"

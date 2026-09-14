@@ -175,20 +175,23 @@ export default function ChatPage() {
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [selectedGames, setSelectedGames] = useState<number[]>([]);
+  const [pinnedRunId, setPinnedRunId] = useState<string | null>(null);
 
   // Game context state (Chat with Your Data)
   // Filter to only games with analysis (insights not null)
   const starredGames = useMemo(() => {
     return allStarredGames
-      .filter((g) => g.insights !== null)
+      // An exact canonical run is sufficient context even when the legacy
+      // app-level insights payload is unavailable.
+      .filter((g) => g.insights !== null || (pinnedRunId && selectedGames.includes(g.app_id)))
       .map((g) => ({
         app_id: g.app_id,
         name: g.name,
         metadata: g.metadata,
         hasAnalysis: true,
       }));
-  }, [allStarredGames]);
-  const [selectedGames, setSelectedGames] = useState<number[]>([]);
+  }, [allStarredGames, pinnedRunId, selectedGames]);
   const [chatStatus, setChatStatus] = useState<string | null>(null);
   const [showSources, setShowSources] = useState(false);
   const [copyToast, setCopyToast] = useState<string | null>(null);
@@ -202,6 +205,17 @@ export default function ChatPage() {
   const chatLocked = selectedGames.length === 0 && messages.length === 0;
   const suggestedPrompts = language === "zh" ? SUGGESTED_PROMPTS_ZH : SUGGESTED_PROMPTS;
   const compareSuggestedPrompts = language === "zh" ? COMPARE_SUGGESTED_PROMPTS_ZH : COMPARE_SUGGESTED_PROMPTS;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const game = Number(params.get("game"));
+    const run = params.get("run");
+    if (Number.isFinite(game) && game > 0) {
+      setSelectedGames([game]);
+      setPinnedRunId(run);
+    }
+  }, []);
 
 
   const scrollToBottom = () => {
@@ -421,6 +435,7 @@ export default function ChatPage() {
         message,
         session_id: sessionId,
         app_ids: selectedGames.length > 0 ? selectedGames : undefined,
+        run_id: pinnedRunId || undefined,
         max_reviews_per_game: 50,
         language: language,
       });

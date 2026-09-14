@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { fetchReportMonths, downloadExecutiveSummary, fetchAnalysisResult, type ReportMonth } from '@/lib/api';
+import { fetchReportMonths, downloadExecutiveSummary, downloadCanonicalReport, fetchCanonicalReport, fetchAnalysisResult, type ReportMonth, type CanonicalReportProjection } from '@/lib/api';
 import type { StarredGameDTO, RiskMetrics, AnalysisResultResponse } from '@/types';
 import { AppLayout } from '@/components/AppLayout';
 import { Card } from '@/components/ui/card';
@@ -29,14 +29,29 @@ export default function ReportsPage() {
   const [analysisResult, setAnalysisResult] = useState<AnalysisResultResponse | null>(null);
   const [riskLoading, setRiskLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [pinnedRunId, setPinnedRunId] = useState<string | null>(null);
+  const [pinnedAppId, setPinnedAppId] = useState<number | null>(null);
+  const [canonicalReport, setCanonicalReport] = useState<CanonicalReportProjection | null>(null);
+  const [canonicalLoading, setCanonicalLoading] = useState(false);
 
   useEffect(() => {
     setMounted(true);
+    if (typeof window !== 'undefined') {
+      setPinnedRunId(new URLSearchParams(window.location.search).get('run'));
+      const appId = Number(new URLSearchParams(window.location.search).get('game'));
+      if (Number.isFinite(appId) && appId > 0) setPinnedAppId(appId);
+    }
   }, []);
+
+  useEffect(() => {
+    if (!selectedGame && pinnedAppId && starredGames.length > 0) {
+      setSelectedGame(starredGames.find((game) => game.app_id === pinnedAppId) ?? null);
+    }
+  }, [pinnedAppId, selectedGame, starredGames]);
 
   // Load risk metrics when game is selected
   useEffect(() => {
-    if (!selectedGame) {
+    if (!selectedGame || pinnedRunId) {
       setRiskMetrics(null);
       setAnalysisResult(null);
       return;
@@ -52,7 +67,22 @@ export default function ReportsPage() {
         setRiskMetrics(null);
       })
       .finally(() => setRiskLoading(false));
-  }, [selectedGame]);
+  }, [selectedGame, pinnedRunId]);
+
+  useEffect(() => {
+    if (!selectedGame || !pinnedRunId) {
+      setCanonicalReport(null);
+      return;
+    }
+    setCanonicalLoading(true);
+    fetchCanonicalReport(selectedGame.app_id, pinnedRunId)
+      .then(setCanonicalReport)
+      .catch((err) => {
+        console.error('Failed to load canonical report:', err);
+        setCanonicalReport(null);
+      })
+      .finally(() => setCanonicalLoading(false));
+  }, [selectedGame, pinnedRunId]);
 
   // Load available months when game is selected
   useEffect(() => {
@@ -98,12 +128,16 @@ export default function ReportsPage() {
   };
 
   const handleDownload = async () => {
-    if (!selectedGame || !selectedMonth) return;
+    if (!selectedGame || (!selectedMonth && !pinnedRunId)) return;
 
     setDownloadLoading(true);
     setError(null);
     try {
-      await downloadExecutiveSummary(selectedGame.app_id, selectedMonth.year, selectedMonth.month, language);
+      if (pinnedRunId) {
+        await downloadCanonicalReport(selectedGame.app_id, pinnedRunId);
+      } else if (selectedMonth) {
+        await downloadExecutiveSummary(selectedGame.app_id, selectedMonth.year, selectedMonth.month, language);
+      }
       setLastGeneratedAt(new Date());
     } catch (err) {
       console.error('Failed to download report:', err);
@@ -251,8 +285,44 @@ export default function ReportsPage() {
           </Card>
         )}
 
+        {selectedGame && pinnedRunId && (
+          <Card variant="glass" className="p-6 space-y-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.25em] text-cyan-300">Canonical research report</p>
+                <h2 className="mt-1 text-xl font-semibold text-white">Exact run report</h2>
+                <p className="mt-1 text-xs text-slate-400">Official metrics below come from this pinned analysis run.</p>
+              </div>
+              <span className="rounded-full border border-amber-400/40 bg-amber-400/10 px-3 py-1 text-xs font-semibold text-amber-200">
+                {canonicalReport?.semantic?.claim_status === 'PROVISIONAL' ? 'PROVISIONAL' : canonicalReport?.semantic?.available ? 'SEMANTIC RESULT' : 'SEMANTIC UNAVAILABLE'}
+              </span>
+            </div>
+            {canonicalLoading ? <div className="h-24 animate-pulse rounded-lg bg-white/5" /> : canonicalReport ? (
+              <>
+                <div className="grid gap-3 sm:grid-cols-4">
+                  <div className="rounded-lg border border-white/10 bg-white/5 p-3"><p className="text-xs text-slate-400">Recommendation rate</p><p className="mt-1 text-2xl font-semibold text-white">{canonicalReport.research_snapshot.recommendation_rate == null ? '—' : `${(canonicalReport.research_snapshot.recommendation_rate * 100).toFixed(1)}%`}</p></div>
+                  <div className="rounded-lg border border-white/10 bg-white/5 p-3"><p className="text-xs text-slate-400">Population</p><p className="mt-1 text-2xl font-semibold text-white">{canonicalReport.research_snapshot.population_n ?? '—'}</p></div>
+                  <div className="rounded-lg border border-white/10 bg-white/5 p-3"><p className="text-xs text-slate-400">Classified</p><p className="mt-1 text-2xl font-semibold text-white">{canonicalReport.semantic.available ? `${canonicalReport.semantic.classified_n ?? '—'} / ${canonicalReport.semantic.population_n ?? '—'}` : '—'}</p></div>
+                  <div className="rounded-lg border border-white/10 bg-white/5 p-3"><p className="text-xs text-slate-400">Run</p><p className="mt-1 truncate text-sm text-slate-200" title={pinnedRunId}>{pinnedRunId.slice(0, 12)}…</p></div>
+                </div>
+                <div className="grid gap-4 md:grid-cols-3">
+                  {(['actionable_topics', 'issues', 'requests'] as const).map((section) => (
+                    <div key={section} className="rounded-lg border border-white/10 bg-white/5 p-4">
+                      <h3 className="text-sm font-semibold text-white">{section === 'actionable_topics' ? 'Topics' : section === 'issues' ? 'Issues' : 'Requests'}</h3>
+                      <ul className="mt-2 space-y-1 text-sm text-slate-300">
+                        {(canonicalReport.player_voice[section]?.items ?? []).slice(0, 3).map((item, index) => <li key={`${String(item.taxonomy_key)}-${index}`} className="flex justify-between gap-2"><span className="truncate">{String(item.taxonomy_key ?? '—')}</span><span className="shrink-0 text-slate-400">{String(item.n ?? '—')}</span></li>)}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-slate-400">{canonicalReport.research_snapshot.truncated_by_max_reviews ? 'This report is limited by the configured review maximum.' : ''}</p>
+              </>
+            ) : <p className="text-sm text-slate-400">Canonical report unavailable for this historical run.</p>}
+          </Card>
+        )}
+
         {/* Report Configuration Card */}
-          {selectedGame && (
+          {selectedGame && !pinnedRunId && (
             <Card variant="glass" className={`p-6 space-y-5 ${mounted ? 'animate-fade-slide-up animation-delay-100' : 'opacity-0'}`}>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
@@ -283,7 +353,7 @@ export default function ReportsPage() {
               <div className="flex flex-wrap items-center gap-4">
                 <Button
                   onClick={handleDownload}
-                  disabled={!selectedMonth || downloadLoading}
+                  disabled={(!selectedMonth && !pinnedRunId) || downloadLoading}
                   variant="primary"
                 >
                   {downloadLoading ? (
@@ -306,7 +376,7 @@ export default function ReportsPage() {
                           d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                         />
                       </svg>
-                      {language === 'zh' ? '下载 PDF' : 'Download PDF'}
+                      {pinnedRunId ? (language === 'zh' ? '下载正式研究报告' : 'Download canonical report') : (language === 'zh' ? '下载 PDF' : 'Download PDF')}
                     </>
                   )}
                 </Button>
@@ -320,7 +390,7 @@ export default function ReportsPage() {
           )}
 
           {/* Game Context Panel - Achievements, Players, News */}
-          {selectedGame && (
+          {selectedGame && !pinnedRunId && (
             <div className="grid gap-6 lg:grid-cols-2">
               {/* Achievements Widget */}
               <Card variant="glass" className={`p-4 sm:p-6 ${mounted ? 'animate-fade-slide-up animation-delay-200' : 'opacity-0'}`}>
