@@ -463,6 +463,39 @@ def get_semantic_mention(mention_id: str) -> dict[str, Any] | None:
     return _semantic_mention_row(row) if row else None
 
 
+def list_semantic_evidence(
+    semantic_run_id: str,
+    *,
+    core_topic_id: str | None = None,
+    signal_type: str | None = None,
+    limit: int = 100,
+) -> list[dict[str, Any]]:
+    """Return exact immutable evidence links for a SemanticRun."""
+    if not get_semantic_run(semantic_run_id):
+        raise KeyError(f"semantic_run_not_found:{semantic_run_id}")
+    bounded_limit = max(1, min(int(limit), 500))
+    clauses = ["m.semantic_run_id=:semantic_run_id"]
+    params: dict[str, Any] = {"semantic_run_id": str(semantic_run_id), "limit": bounded_limit}
+    if core_topic_id:
+        clauses.append("m.core_topic_id=:core_topic_id")
+        params["core_topic_id"] = str(core_topic_id)
+    if signal_type:
+        clauses.append("m.signal_type=:signal_type")
+        params["signal_type"] = str(signal_type)
+    with db.get_connection() as conn:
+        rows = conn.execute(text(f"""SELECT m.mention_id, m.semantic_run_id, m.semantic_unit_id,
+                u.review_snapshot_id, u.source_content_hash, u.start_byte_offset,
+                u.end_byte_offset, u.text_snapshot, m.core_topic_id,
+                m.secondary_topic_id, m.signal_type, m.assignment_source,
+                m.similarity_score, m.calibrated_confidence, m.decision_band,
+                m.prototype_version, m.adjudication_ref
+            FROM semantic_mentions m JOIN semantic_units u ON u.semantic_unit_id=m.semantic_unit_id
+            WHERE {' AND '.join(clauses)}
+            ORDER BY u.review_snapshot_id, u.start_byte_offset, m.mention_id
+            LIMIT :limit"""), params).mappings().all()
+    return [dict(row) for row in rows]
+
+
 def materialize_semantic_rollups(semantic_run_id: str) -> dict[str, Any]:
     """Materialize review-level unique topic/signal keys from immutable mentions."""
     if not get_semantic_run(semantic_run_id):
@@ -665,7 +698,7 @@ def execute_semantic_run_job(semantic_run_id: str, job_id: str) -> dict[str, Any
 
 __all__ = [
     "canonical_semantic_config", "create_semantic_mention", "create_semantic_run", "create_semantic_unit",
-    "execute_semantic_run_job", "get_semantic_mention", "get_semantic_rollups", "get_semantic_run", "get_semantic_unit",
+    "execute_semantic_run_job", "get_semantic_mention", "get_semantic_rollups", "get_semantic_run", "get_semantic_unit", "list_semantic_evidence",
     "materialize_semantic_rollups",
     "list_semantic_runs", "semantic_config_hash", "semantic_run_id_for", "transition_semantic_run",
 ]

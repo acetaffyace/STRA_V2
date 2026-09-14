@@ -21,6 +21,7 @@ from ..semantic_run_store import (
     execute_semantic_run_job,
     get_semantic_run,
     get_semantic_rollups,
+    list_semantic_evidence,
     list_semantic_runs,
     semantic_config_hash,
     semantic_run_id_for,
@@ -157,7 +158,7 @@ def read_snapshot_semantic_run(semantic_run_id: str) -> dict[str, Any]:
     if result is None:
         raise HTTPException(status_code=404, detail="semantic_run_not_found")
     job = get_job(result["created_by_job_id"]) if result.get("created_by_job_id") else None
-    return {"semantic_run": result, "job": job, "rollups": get_semantic_rollups(semantic_run_id)}
+    return {"semantic_run": result, "job": job, "rollups": get_semantic_rollups(semantic_run_id), "evidence": list_semantic_evidence(semantic_run_id)}
 
 
 @router.get("/population-snapshots/{population_snapshot_id}")

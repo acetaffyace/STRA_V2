@@ -1151,6 +1151,20 @@ function DashboardContent() {
               </div>
               <p className="mt-3 text-sm text-slate-400">Job {semanticRunResource.job?.stage ?? "未连接"} · {semanticRunResource.semantic_run.processed_review_count.toLocaleString()} / {semanticRunResource.semantic_run.eligible_review_count.toLocaleString()} 条 · 未解析 {semanticRunResource.semantic_run.unresolved_review_count.toLocaleString()} 条</p>
               <p className="mt-1 text-xs text-slate-500">该状态来自持久化 semantic_run_id，可在刷新或重启后恢复；不会按 app_id 静默切换到其他语义运行。</p>
+              {semanticRunResource.evidence.length > 0 && (
+                <div className="mt-4 border-t border-cyan-300/10 pt-4">
+                  <p className="text-xs uppercase tracking-widest text-cyan-200/70">Signals / Evidence</p>
+                  <div className="mt-2 space-y-2">
+                    {semanticRunResource.evidence.slice(0, 5).map((item) => (
+                      <div key={item.mention_id} className="rounded border border-slate-700/70 bg-slate-950/30 p-2 text-xs text-slate-300">
+                        <div className="flex flex-wrap gap-x-3 gap-y-1 text-cyan-100"><span>{item.core_topic_id}</span><span>{item.signal_type ?? "no signal"}</span><span>{item.decision_band}</span></div>
+                        <p className="mt-1 text-slate-400">{item.text_snapshot}</p>
+                        <p className="mt-1 text-slate-600">{item.review_snapshot_id} · bytes {item.start_byte_offset}–{item.end_byte_offset} · {item.assignment_source}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </Card>
           </div>
         )}

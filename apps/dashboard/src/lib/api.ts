@@ -1134,6 +1134,19 @@ export interface SemanticRunResource {
     error_code?: string | null;
     error_detail?: string | null;
   } | null;
+  evidence: Array<{
+    mention_id: string;
+    semantic_unit_id: string;
+    review_snapshot_id: string;
+    text_snapshot: string;
+    core_topic_id: string;
+    signal_type: string | null;
+    decision_band: string;
+    assignment_source: string;
+    start_byte_offset: number;
+    end_byte_offset: number;
+    [key: string]: unknown;
+  }>;
 }
 
 export async function fetchSemanticRun(semanticRunId: string): Promise<SemanticRunResource> {

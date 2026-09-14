@@ -12,6 +12,7 @@ from apps.api.senti_next.semantic_run_store import (
     create_semantic_unit,
     execute_semantic_run_job,
     get_semantic_rollups,
+    list_semantic_evidence,
 )
 from apps.api.senti_next import semantic_run_store
 from apps.api.senti_next.embedding_backend import FakeEmbeddingBackend
@@ -206,6 +207,10 @@ def test_semantic_generation_job_is_durable_and_marks_unresolved_reviews_partial
     rollups = get_semantic_rollups(semantic["semantic_run_id"])
     assert rollups["topic_rollup_count"] == 1
     assert rollups["signal_rollup_count"] == 1
+    evidence = list_semantic_evidence(semantic["semantic_run_id"], core_topic_id="technical/crash", signal_type="issue")
+    assert len(evidence) == 1
+    assert evidence[0]["text_snapshot"] == "修复 crash 🔧"
+    assert evidence[0]["start_byte_offset"] == 0
 
     unresolved_research = create_research_run(
         run_id="run_m2_unresolved",
