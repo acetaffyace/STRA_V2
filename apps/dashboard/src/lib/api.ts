@@ -977,6 +977,7 @@ export interface RunReviewsResponse {
   app_id: number;
   metric_type?: string | null;
   taxonomy_key?: string | null;
+  semantic_available?: boolean;
   matched_review_count: number;
   page_size: number;
   offset: number;

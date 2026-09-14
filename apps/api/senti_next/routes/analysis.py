@@ -1492,9 +1492,12 @@ def get_run_reviews(
         raise HTTPException(status_code=404, detail="The requested analysis run is not available for this app.")
     population = get_analysis_run_population(run)
     materialization = get_materialization_for_run(run)
-    if population is None or materialization is None:
+    if population is None:
         raise HTTPException(status_code=409, detail="research_population_snapshot_unavailable")
-    labels_by_id = {str(item.get("review_id")): item for item in materialization.get("items") or []}
+    # A quantitative-only run still owns an exact, immutable review population.
+    # Keep that population browsable while making the absence of semantic labels
+    # explicit instead of falling back to mutable app-level reviews.
+    labels_by_id = {str(item.get("review_id")): item for item in (materialization or {}).get("items") or []}
     matches: list[dict[str, Any]] = []
     for review in population.get("reviews") or []:
         review_id = str(review.get("review_id") or review.get("recommendationid") or "")
@@ -1515,6 +1518,7 @@ def get_run_reviews(
     safe_offset = max(0, int(offset))
     return {
         "run_id": run, "app_id": app_id, "metric_type": metric_type, "taxonomy_key": taxonomy_key,
+        "semantic_available": materialization is not None,
         "matched_review_count": len(matches), "page_size": safe_limit, "offset": safe_offset,
         "items": matches[safe_offset:safe_offset + safe_limit],
     }

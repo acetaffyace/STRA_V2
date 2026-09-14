@@ -25,18 +25,21 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 1366, height: 768
   const dashboardText = await page.locator('body').innerText();
   const structural = {
     hasGame: dashboardText.includes('HELLDIVERS 2'),
-    hasProvisional: dashboardText.includes('PROVISIONAL'),
+    hasProvisional: dashboardText.includes('暂定结果'),
     hasCoverage: dashboardText.includes('80 / 80'),
-    hasTopics: dashboardText.includes('Actionable Topics') || dashboardText.includes('玩家关注主题'),
-    hasIssues: dashboardText.includes('Issues') || dashboardText.includes('主要问题'),
-    hasRequests: dashboardText.includes('Requests') || dashboardText.includes('玩家诉求'),
-    hasContext: dashboardText.includes('Context / Other') || dashboardText.includes('其他 / 语境'),
+    hasTopics: dashboardText.includes('主要讨论内容') || dashboardText.includes('玩家关注'),
+    hasIssues: dashboardText.includes('主要问题'),
+    hasRequests: dashboardText.includes('玩家需求'),
+    hasContext: dashboardText.includes('其他内容'),
+    hidesTechnicalTerms: !dashboardText.includes('ClassificationMaterialization') && !dashboardText.includes('Semantic geometry') && !dashboardText.includes('Details & provenance'),
   };
 
+  await page.locator('[data-testid="canonical-dashboard"]').scrollIntoViewIfNeeded();
+  await page.waitForTimeout(200);
   await page.screenshot({ path: `${out}/loop2-dashboard-${suffix}.png`, fullPage: true });
-  const hierarchy = { provisionalIndex: dashboardText.indexOf('PROVISIONAL'), topicIndex: Math.min(dashboardText.indexOf('Actionable Topics'), dashboardText.indexOf('玩家关注主题')) };
+  const hierarchy = { provisionalIndex: dashboardText.indexOf('暂定结果'), topicIndex: Math.max(dashboardText.indexOf('主要讨论内容'), dashboardText.indexOf('玩家关注')) };
 
-  const setupButton = page.getByRole('button', { name: 'Analysis setup' });
+  const setupButton = page.getByRole('button', { name: /更新分析|分析设置/ }).first();
   if (await setupButton.count()) {
     await setupButton.click();
     await page.waitForTimeout(250);
@@ -49,6 +52,15 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 1366, height: 768
     await reviewsLink.click();
     await page.waitForTimeout(2500);
     await page.screenshot({ path: `${out}/loop3-reviews-${suffix}.png`, fullPage: true });
+    const reviewText = await page.locator('body').innerText();
+    const pagination = reviewText.includes('上一页') && reviewText.includes('下一页');
+    const reviewLink = page.locator('button').filter({ hasText: '下一页' }).first();
+    if (await reviewLink.count() && await reviewLink.isEnabled()) {
+      await reviewLink.click();
+      await page.waitForTimeout(500);
+      await page.screenshot({ path: `${out}/loop3-reviews-page2-${suffix}.png`, fullPage: true });
+    }
+    results.push({ viewport, reviewUrl: page.url(), pagination });
   }
   results.push({ viewport, structural, hierarchy, consoleErrors, pageErrors, failedResponses, url: page.url() });
   await page.close();

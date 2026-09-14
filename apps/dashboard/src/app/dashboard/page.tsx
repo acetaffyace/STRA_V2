@@ -74,7 +74,6 @@ import { formatSavedLabel } from "@/utils/format";
 import { REVIEW_COUNT_OPTIONS } from "@/lib/analysisDefaults";
 import { formatTaxonomyLabelZh, MAIN_CATEGORY_LABELS_ZH } from "@/lib/taxonomyLabels";
 import { getMetricObservation, metricSecondaryLabel, metricValue } from "@/lib/metricProvenance";
-import { ResearchOverview } from "@/components/research/ResearchOverview";
 import { CanonicalDashboard } from "@/components/research/CanonicalDashboard";
 
 ChartJS.register(
@@ -479,7 +478,11 @@ function DashboardContent() {
   const [pendingAnalyzeGame, setPendingAnalyzeGame] = useState<SearchResult | null>(null);
   const [setupGame, setSetupGame] = useState<SearchResult | null>(null);
   const [setupMaxReviews, setSetupMaxReviews] = useState<number>(1000);
+  const [setupCustomMaxReviews, setSetupCustomMaxReviews] = useState<number>(1000);
   const [setupLanguages, setSetupLanguages] = useState<string[]>(["english"]);
+  const [setupTimeScope, setSetupTimeScope] = useState<"all" | "7d" | "30d" | "90d" | "custom">("all");
+  const [setupStartTime, setSetupStartTime] = useState<number | null>(null);
+  const [setupEndTime, setSetupEndTime] = useState<number | null>(null);
   const [setupReviewType, setSetupReviewType] = useState<"all" | "positive" | "negative">("all");
   const [setupPurchaseType, setSetupPurchaseType] = useState<"all" | "steam" | "non_steam_purchase">("all");
   const [setupOrder, setSetupOrder] = useState<"recent" | "updated" | "helpful">("recent");
@@ -666,10 +669,40 @@ function DashboardContent() {
     }
   }
 
-  async function handleAnalyze(game: SearchResult, reviewCount: number) {
+  function openSamplingSetup(game: SearchResult, inherited?: Record<string, unknown> | null) {
+    const scope = inherited || dashboardPresentation?.research_snapshot.collection_scope || null;
+    const max = typeof scope?.max_reviews === "number" ? Number(scope.max_reviews) : 1000;
+    setSetupMaxReviews([100, 500, 1000, 5000, 0].includes(max) ? max : -1);
+    setSetupCustomMaxReviews(max > 0 ? max : 1000);
+    const languages = Array.isArray(scope?.languages) ? scope.languages.filter((value): value is string => typeof value === "string") : [];
+    setSetupLanguages(languages.length ? languages : ["all"]);
+    const reviewType = scope?.review_type;
+    setSetupReviewType(reviewType === "positive" || reviewType === "negative" ? reviewType : "all");
+    const purchaseType = scope?.purchase_type;
+    setSetupPurchaseType(purchaseType === "steam" || purchaseType === "non_steam_purchase" ? purchaseType : "all");
+    const order = scope?.collection_order;
+    setSetupOrder(order === "updated" || order === "helpful" ? order : "recent");
+    setSetupOfftopic(scope?.include_offtopic_activity === true);
+    const startValue = scope?.start_time;
+    const endValue = scope?.end_time;
+    const start = typeof startValue === "number" ? startValue : typeof startValue === "string" && Number.isFinite(Number(startValue)) ? Number(startValue) : null;
+    const end = typeof endValue === "number" ? endValue : typeof endValue === "string" && Number.isFinite(Number(endValue)) ? Number(endValue) : null;
+    setSetupStartTime(start);
+    setSetupEndTime(end);
+    if (start || end) setSetupTimeScope("custom");
+    else setSetupTimeScope("all");
+    setSetupGame(game);
+  }
+
+  async function handleAnalyze(game: SearchResult, requestedReviewCount: number) {
     setPendingAnalyzeGame(null);
     setError(null);
     setTemporaryGame(game);
+
+    const reviewCount = requestedReviewCount === -1 ? Math.max(1, setupCustomMaxReviews) : requestedReviewCount;
+    const timeRange = setupTimeScope === "7d" || setupTimeScope === "30d" || setupTimeScope === "90d"
+      ? (() => { const end = new Date(); const start = new Date(end); start.setDate(start.getDate() - Number(setupTimeScope.replace("d", ""))); return { start_time: Math.floor(start.getTime() / 1000), end_time: Math.floor(end.getTime() / 1000) }; })()
+      : { start_time: setupTimeScope === "custom" ? setupStartTime : null, end_time: setupTimeScope === "custom" ? setupEndTime : null };
 
     try {
       await startAnalysis(game, {
@@ -681,8 +714,8 @@ function DashboardContent() {
         output_language: "zh",
         sampling: {
           app_id: game.appid,
-          start_time: null,
-          end_time: null,
+          start_time: timeRange.start_time,
+          end_time: timeRange.end_time,
           languages: setupLanguages.length ? setupLanguages : ["all"],
           review_type: setupReviewType,
           purchase_type: setupPurchaseType,
@@ -753,17 +786,19 @@ function DashboardContent() {
       {setupGame && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true" aria-labelledby="analysis-setup-title">
           <div className="w-full max-w-2xl rounded-lg border border-white/10 bg-slate-900 p-5 shadow-2xl">
-            <div className="flex items-start justify-between gap-4"><div><p className="text-xs uppercase tracking-widest text-slate-500">Analysis setup</p><h2 id="analysis-setup-title" className="mt-1 text-xl font-semibold text-white">Sampling contract</h2><p className="mt-1 text-sm text-slate-400">范围基于评论的 timestamp_created；提交后使用现有 Analysis Queue。</p></div><button className="text-slate-400 hover:text-white" aria-label="Close" onClick={() => setSetupGame(null)}>×</button></div>
+            <div className="flex items-start justify-between gap-4"><div><p className="text-xs uppercase tracking-widest text-slate-500">分析设置</p><h2 id="analysis-setup-title" className="mt-1 text-xl font-semibold text-white">采集评论</h2><p className="mt-1 text-sm text-slate-400">时间范围基于评论发布时间；提交后会进入现有分析队列。</p></div><button className="text-slate-400 hover:text-white" aria-label="Close" onClick={() => setSetupGame(null)}>×</button></div>
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
-              <label className="text-sm text-slate-300">Maximum reviews<select className="mt-1 w-full rounded border border-white/10 bg-slate-950 p-2" value={setupMaxReviews} onChange={(e) => setSetupMaxReviews(Number(e.target.value))}><option value={100}>100</option><option value={500}>500</option><option value={1000}>1,000</option><option value={5000}>5,000</option><option value={0}>Unlimited</option></select></label>
-              <label className="text-sm text-slate-300">Languages<select className="mt-1 w-full rounded border border-white/10 bg-slate-950 p-2" value={setupLanguages[0] || "all"} onChange={(e) => setSetupLanguages([e.target.value])}><option value="all">All languages</option><option value="english">English</option><option value="schinese">Simplified Chinese</option><option value="tchinese">Traditional Chinese</option><option value="japanese">Japanese</option><option value="koreana">Korean</option></select></label>
-              <label className="text-sm text-slate-300">Review type<select className="mt-1 w-full rounded border border-white/10 bg-slate-950 p-2" value={setupReviewType} onChange={(e) => setSetupReviewType(e.target.value as typeof setupReviewType)}><option value="all">All</option><option value="positive">Recommended</option><option value="negative">Not recommended</option></select></label>
-              <label className="text-sm text-slate-300">Purchase type<select className="mt-1 w-full rounded border border-white/10 bg-slate-950 p-2" value={setupPurchaseType} onChange={(e) => setSetupPurchaseType(e.target.value as typeof setupPurchaseType)}><option value="all">All</option><option value="steam">Steam purchase</option><option value="non_steam_purchase">Non-Steam purchase</option></select></label>
-              <label className="text-sm text-slate-300">Collection order<select className="mt-1 w-full rounded border border-white/10 bg-slate-950 p-2" value={setupOrder} onChange={(e) => setSetupOrder(e.target.value as typeof setupOrder)}><option value="recent">Recent</option><option value="updated">Updated</option><option value="helpful">Helpful</option></select></label>
-              <label className="flex items-center gap-2 self-end text-sm text-slate-300"><input type="checkbox" checked={setupOfftopic} onChange={(e) => setSetupOfftopic(e.target.checked)} /> Include off-topic activity</label>
+              <label className="text-sm text-slate-300">评论数量<select className="mt-1 w-full rounded border border-white/10 bg-slate-950 p-2" value={setupMaxReviews} onChange={(e) => setSetupMaxReviews(Number(e.target.value))}><option value={100}>100</option><option value={500}>500</option><option value={1000}>1,000</option><option value={5000}>5,000</option><option value={0}>不限</option><option value={-1}>自定义</option></select>{setupMaxReviews === -1 && <input aria-label="自定义评论数量" type="number" min={1} value={setupCustomMaxReviews} onChange={(e) => setSetupCustomMaxReviews(Number(e.target.value))} className="mt-2 w-full rounded border border-white/10 bg-slate-950 p-2" />}</label>
+              <fieldset className="text-sm text-slate-300"><legend>语言（可多选）</legend><div className="mt-1 grid grid-cols-2 gap-2 rounded border border-white/10 bg-slate-950 p-2">{[{ value: "all", label: "全部语言" }, { value: "english", label: "English" }, { value: "schinese", label: "简体中文" }, { value: "tchinese", label: "繁體中文" }, { value: "japanese", label: "日本語" }, { value: "koreana", label: "한국어" }].map((option) => <label key={option.value} className="flex items-center gap-2"><input type="checkbox" checked={setupLanguages.includes(option.value)} onChange={(e) => { if (option.value === "all") setSetupLanguages(e.target.checked ? ["all"] : []); else setSetupLanguages(e.target.checked ? [...setupLanguages.filter((value) => value !== "all"), option.value] : setupLanguages.filter((value) => value !== option.value)); }} />{option.label}</label>)}</div></fieldset>
+              <label className="text-sm text-slate-300">时间范围<select className="mt-1 w-full rounded border border-white/10 bg-slate-950 p-2" value={setupTimeScope} onChange={(e) => setSetupTimeScope(e.target.value as typeof setupTimeScope)}><option value="all">全部时间</option><option value="7d">最近 7 天</option><option value="30d">最近 30 天</option><option value="90d">最近 90 天</option><option value="custom">自定义</option></select></label>
+              <label className="text-sm text-slate-300">推荐状态<select className="mt-1 w-full rounded border border-white/10 bg-slate-950 p-2" value={setupReviewType} onChange={(e) => setSetupReviewType(e.target.value as typeof setupReviewType)}><option value="all">全部评论</option><option value="positive">推荐</option><option value="negative">不推荐</option></select></label>
+              <label className="text-sm text-slate-300">购买来源<select className="mt-1 w-full rounded border border-white/10 bg-slate-950 p-2" value={setupPurchaseType} onChange={(e) => setSetupPurchaseType(e.target.value as typeof setupPurchaseType)}><option value="all">全部</option><option value="steam">Steam 购买</option><option value="non_steam_purchase">非 Steam 购买</option></select></label>
+              <label className="text-sm text-slate-300">排序方式<select className="mt-1 w-full rounded border border-white/10 bg-slate-950 p-2" value={setupOrder} onChange={(e) => setSetupOrder(e.target.value as typeof setupOrder)}><option value="recent">最新发布</option><option value="updated">最近更新</option><option value="helpful">最有帮助</option></select></label>
+              <label className="flex items-center gap-2 self-end text-sm text-slate-300"><input type="checkbox" checked={setupOfftopic} onChange={(e) => setSetupOfftopic(e.target.checked)} /> 包含与当前游戏无关的评论活动</label>
             </div>
-            <div className="mt-5 rounded border border-white/10 bg-white/[0.03] p-3 text-sm text-slate-300"><p className="font-medium text-white">Research population preview</p><p className="mt-1">{setupLanguages.join(" + ")} · {setupOrder} · {setupReviewType} · {setupPurchaseType} · maximum {setupMaxReviews || "unlimited"} reviews · off-topic {setupOfftopic ? "included" : "excluded"}</p></div>
-            <div className="mt-5 flex justify-end gap-2"><Button variant="secondary" onClick={() => setSetupGame(null)}>Cancel</Button><Button variant="primary" onClick={() => { const game = setupGame; setSetupGame(null); setPendingAnalyzeGame(null); void handleAnalyze(game, setupMaxReviews); }}>Start analysis</Button></div>
+            {setupTimeScope === "custom" && <div className="mt-3 grid gap-3 sm:grid-cols-2"><label className="text-sm text-slate-300">开始日期<input type="date" value={setupStartTime == null ? "" : new Date(setupStartTime * 1000).toISOString().slice(0, 10)} onChange={(e) => setSetupStartTime(e.target.value ? Math.floor(new Date(`${e.target.value}T00:00:00Z`).getTime() / 1000) : null)} className="mt-1 w-full rounded border border-white/10 bg-slate-950 p-2" /></label><label className="text-sm text-slate-300">结束日期<input type="date" value={setupEndTime == null ? "" : new Date(setupEndTime * 1000).toISOString().slice(0, 10)} onChange={(e) => setSetupEndTime(e.target.value ? Math.floor(new Date(`${e.target.value}T23:59:59Z`).getTime() / 1000) : null)} className="mt-1 w-full rounded border border-white/10 bg-slate-950 p-2" /></label></div>}
+            <div className="mt-5 rounded border border-white/10 bg-white/[0.03] p-3 text-sm text-slate-300"><p className="font-medium text-white">预计采集范围</p><p className="mt-1">{setupTimeScope === "all" ? "全部时间" : setupTimeScope === "custom" ? `${setupStartTime == null ? "未设置" : new Date(setupStartTime * 1000).toISOString().slice(0, 10)} → ${setupEndTime == null ? "未设置" : new Date(setupEndTime * 1000).toISOString().slice(0, 10)}` : `最近 ${setupTimeScope.replace("d", "")} 天`} · {setupLanguages.includes("all") || !setupLanguages.length ? "全部语言" : setupLanguages.join(" + ")} · {setupReviewType === "all" ? "全部评论" : setupReviewType === "positive" ? "推荐" : "不推荐"} · 最多 {setupMaxReviews === 0 ? "不限" : setupMaxReviews === -1 ? setupCustomMaxReviews : setupMaxReviews} 条{setupOfftopic ? " · 包含非主题活动" : ""}</p></div>
+            <div className="mt-5 flex justify-end gap-2"><Button variant="secondary" onClick={() => setSetupGame(null)}>取消</Button><Button variant="primary" onClick={() => { const game = setupGame; setSetupGame(null); setPendingAnalyzeGame(null); void handleAnalyze(game, setupMaxReviews); }}>开始分析</Button></div>
           </div>
         </div>
       )}
@@ -1079,17 +1114,7 @@ function DashboardContent() {
         )}
 
         {dashboardPresentation && selectedGame && !isAnalyzing && (
-          <CanonicalDashboard presentation={dashboardPresentation} appName={selectedGame.name} appId={selectedGame.appid} showHeader={false} onConfigureSampling={() => setSetupGame(selectedGame)} />
-        )}
-
-        {dashboardPresentation && analysis?.research_report && !isAnalyzing && (
-          <ResearchOverview
-            report={analysis.research_report}
-            semanticStatus={analysis.semantic_status}
-            readiness={dashboardReadiness}
-            stale={analysis.stale}
-            staleReason={analysis.stale_reason}
-          />
+          <CanonicalDashboard presentation={dashboardPresentation} appName={selectedGame.name} appId={selectedGame.appid} showHeader={false} onConfigureSampling={() => openSamplingSetup(selectedGame)} />
         )}
 
         {analysis && analysis.insights && (!dashboardReadiness || dashboardReadiness.semantic_ready || (!dashboardReadiness.research_ready && dashboardReadiness.state === "ANALYSIS_READY")) && (
@@ -1113,8 +1138,7 @@ function DashboardContent() {
 
               setError(null);
               setUpdateSuccess(null);
-              setSetupMaxReviews(analysis.metadata.requested ?? 1000);
-              setSetupGame(selectedGame);
+              openSamplingSetup(selectedGame, dashboardPresentation?.research_snapshot.collection_scope || null);
               }}
             />
           </>

@@ -83,6 +83,10 @@ function ReviewsContent() {
   const [runReviews, setRunReviews] = useState<RunReviewItem[] | null>(null);
   const [runReviewCount, setRunReviewCount] = useState<number | null>(null);
   const [runReviewsError, setRunReviewsError] = useState<string | null>(null);
+  const [runReviewsLoading, setRunReviewsLoading] = useState(false);
+  const [runSemanticAvailable, setRunSemanticAvailable] = useState<boolean | null>(null);
+  const [runPage, setRunPage] = useState(0);
+  const runPageSize = 50;
   const hasActiveFilters =
     quickSentiment !== "all" || quickType !== "all" || !!filterType || !!filterValue;
 
@@ -102,11 +106,20 @@ function ReviewsContent() {
 
   useEffect(() => {
     if (!runId || !appId) return;
+    setRunReviewsLoading(true);
+    setRunReviews(null);
     setRunReviewsError(null);
-    fetchRunReviews(appId, runId, metricType, taxonomyKey, 100)
-      .then((payload) => { setRunReviews(payload.items); setRunReviewCount(payload.matched_review_count); })
-      .catch(() => setRunReviewsError("This historical run's frozen reviews are unavailable."));
-  }, [appId, runId, metricType, taxonomyKey]);
+    fetchRunReviews(appId, runId, metricType, taxonomyKey, runPageSize, runPage * runPageSize)
+      .then((payload) => {
+        setRunReviews(payload.items);
+        setRunReviewCount(payload.matched_review_count);
+        setRunSemanticAvailable(payload.semantic_available ?? null);
+      })
+      .catch(() => setRunReviewsError("这次历史分析的原评论数据不可用。"))
+      .finally(() => setRunReviewsLoading(false));
+  }, [appId, runId, metricType, taxonomyKey, runPage]);
+
+  useEffect(() => { setRunPage(0); }, [runId, metricType, taxonomyKey]);
 
   useEffect(() => {
     if (!appId) {
@@ -126,8 +139,8 @@ function ReviewsContent() {
 
   const compact = density === "compact";
 
-  const sample: any[] = runReviews
-    ? runReviews.map((review) => ({
+  const sample: any[] = runId
+    ? (runReviews || []).map((review) => ({
         ...review,
         review: review.review || "",
         llm_subcategories: review.labels?.topics || [],
@@ -254,7 +267,7 @@ function ReviewsContent() {
     <AppLayout>
       <PageTransition>
         <div className="mx-auto max-w-7xl space-y-8 sm:space-y-6 px-4 py-10">
-          {runId && <div className="rounded-lg border border-sky-400/20 bg-sky-400/5 px-4 py-3 text-sm text-slate-300"><div className="flex flex-wrap items-center justify-between gap-3"><span>Frozen run <code className="text-sky-200">{runId}</code>{taxonomyKey ? ` · ${formatTaxonomyLabel(taxonomyKey)}` : ""}{metricType ? ` · ${metricType} reviews` : ""}</span><Button onClick={() => router.push(`/dashboard?game=${appId}&run=${encodeURIComponent(runId)}`)} variant="secondary" size="sm">← Back to Dashboard</Button></div>{runReviewsError && <p className="mt-2 text-amber-200">{runReviewsError}</p>}</div>}
+          {runId && <div className="rounded-lg border border-sky-400/20 bg-sky-400/5 px-4 py-3 text-sm text-slate-300"><div className="flex flex-wrap items-center justify-between gap-3"><span>历史分析{taxonomyKey ? ` · ${formatTaxonomyLabel(taxonomyKey)}` : ""}{metricType ? ` · ${metricType === "topic" ? "关注" : metricType === "issue" ? "问题" : "需求"}评论` : ""}</span><Button onClick={() => router.push(`/dashboard?game=${appId}&run=${encodeURIComponent(runId)}`)} variant="secondary" size="sm">← 返回分析页</Button></div>{runSemanticAvailable === false && <p className="mt-2 text-slate-400">这次分析没有可用的语义标签，但原评论仍可查看。</p>}</div>}
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h1 className="text-3xl font-bold">
@@ -263,7 +276,7 @@ function ReviewsContent() {
                 </span>
               </h1>
               <p className="mt-1 text-sm text-slate-400">
-                {runId ? `${runReviewCount ?? sample.length} frozen reviews`
+                {runId ? `${runReviewCount ?? sample.length} 条原评论`
                   : hasActiveFilters
                   ? `Filtered reviews: ${scopedReviews.length} / ${(game.sample || []).length}`
                   : `${(game.sample || []).length} reviews`}{" "}
@@ -330,7 +343,11 @@ function ReviewsContent() {
             </div>
 
             <div className="mt-4 flex-1 overflow-auto pr-1">
-              {quickFilteredReviews.length === 0 ? (
+              {runId && runReviewsLoading ? (
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center text-sm text-slate-400">正在加载这次分析的原评论…</div>
+              ) : runId && runReviewsError ? (
+                <div className="rounded-2xl border border-amber-400/20 bg-amber-400/5 p-6 text-center text-sm text-amber-100">这次历史分析的原评论数据不可用。<div className="mt-4"><Button onClick={() => router.push(`/dashboard?game=${appId}&run=${encodeURIComponent(runId)}`)} variant="secondary" size="sm">返回分析页</Button></div></div>
+              ) : quickFilteredReviews.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-white/10 bg-white/5 p-6 text-center text-sm text-slate-400">
                   没有符合筛选条件的评论，请清除或调整上方筛选条件。
                 </div>
@@ -391,6 +408,15 @@ function ReviewsContent() {
                 </div>
               )}
             </div>
+            {runId && !runReviewsLoading && !runReviewsError && runReviewCount !== null && (
+              <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-3 text-xs text-slate-400">
+                <span>{runReviewCount === 0 ? "0 条评论" : `${runPage * runPageSize + 1}–${Math.min((runPage + 1) * runPageSize, runReviewCount)} / ${runReviewCount}`}</span>
+                <div className="flex gap-2">
+                  <Button variant="secondary" size="sm" disabled={runPage === 0} onClick={() => setRunPage((page) => Math.max(0, page - 1))}>上一页</Button>
+                  <Button variant="secondary" size="sm" disabled={(runPage + 1) * runPageSize >= runReviewCount} onClick={() => setRunPage((page) => page + 1)}>下一页</Button>
+                </div>
+              </div>
+            )}
           </Card>
 
           <Card variant="glass" className="flex flex-col p-6">
@@ -472,8 +498,8 @@ function ReviewsContent() {
                   </div>
                 </div>
 
-                <div className="mt-4 rounded-2xl border border-white/10 bg-slate-950/30 p-4">
-                  <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Evidence</p>
+                {selectedReview.llm_subcategory_evidence && Object.keys(selectedReview.llm_subcategory_evidence).length > 0 && <div className="mt-4 rounded-2xl border border-white/10 bg-slate-950/30 p-4">
+                  <p className="text-xs uppercase tracking-[0.25em] text-slate-500">分析依据</p>
                   {selectedReview.llm_subcategory_evidence && Object.keys(selectedReview.llm_subcategory_evidence).length ? (
                     <div className="mt-3 space-y-3 text-sm text-slate-200">
                       {Object.entries(selectedReview.llm_subcategory_evidence as Record<string, string[]>).map(([subcategory, snippets]) => (
@@ -489,10 +515,9 @@ function ReviewsContent() {
                         </div>
                       ))}
                     </div>
-                  ) : (
-                    <p className="mt-2 text-sm text-slate-500">No evidence snippets saved for this review.</p>
-                  )}
+                  ) : null}
                 </div>
+                }
               </>
             ) : (
               <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-sm text-slate-400">

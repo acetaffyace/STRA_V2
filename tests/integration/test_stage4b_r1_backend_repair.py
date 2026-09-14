@@ -25,6 +25,7 @@ from apps.api.senti_next.semantic_measurement_bundle import (
     activate_measurement_bundle,
     bootstrap_baseline_measurement_bundle,
 )
+from apps.api.senti_next.routes import analysis as analysis_routes
 
 
 os.environ["DATABASE_URL"] = "sqlite://"
@@ -116,6 +117,30 @@ def test_snapshot_fingerprint_is_shared_with_materialization_contract():
     assert compute_population_fingerprint(rows) == materialization_population_fingerprint(rows)
     assert compute_population_fingerprint(rows) != compute_population_fingerprint(_reviews("changed", "another text"))
     assert compute_population_fingerprint(rows) != compute_population_fingerprint([{"review_id": "different", "review": "same text"}, rows[1]])
+
+
+def test_quantitative_only_run_reviews_are_exact_and_paginated(monkeypatch):
+    reviews = _reviews(*[f"review {index}" for index in range(235)])
+    monkeypatch.setattr(analysis_routes.storage, "get_analysis_run", lambda run_id: {"target_app_id": 553850})
+    monkeypatch.setattr(analysis_routes, "get_analysis_run_population", lambda run_id: {
+        "run_id": run_id,
+        "population_n": len(reviews),
+        "reviews": reviews,
+    })
+    monkeypatch.setattr(analysis_routes, "get_materialization_for_run", lambda run_id: None)
+
+    first = analysis_routes.get_run_reviews(553850, "quant-only", limit=100, offset=0)
+    second = analysis_routes.get_run_reviews(553850, "quant-only", limit=100, offset=100)
+    third = analysis_routes.get_run_reviews(553850, "quant-only", limit=100, offset=200)
+
+    assert first["semantic_available"] is False
+    assert first["matched_review_count"] == 235
+    assert len(first["items"]) == 100
+    assert len(second["items"]) == 100
+    assert len(third["items"]) == 35
+    assert first["items"][0]["review_id"] == "r-1"
+    assert third["items"][-1]["review_id"] == "r-235"
+    assert all(item["labels"] == {"topics": [], "issues": [], "requests": []} for item in third["items"])
 
 
 def test_snapshot_restart_persistence(tmp_path, monkeypatch):

@@ -86,3 +86,40 @@ The authorized local Playwright/Chromium path was used after the primary browser
 The browser console and page-error audit returned zero errors, and the recorded responses had no 404/500 failures. The exact-run Review Explorer returned 11 frozen topic reviews for the synthetic acceptance fixture and displayed the raw review and frozen labels; source review evidence remained separate and empty rather than being mislabeled as verified evidence. Opening the dashboard caused only read-side requests; the analysis modal was not submitted during QA, so no classification/research/discovery side effect was triggered.
 
 The local acceptance fixture is synthetic and untracked; it preserves the reviewed aggregate acceptance values (80 population, 70/10 recommendation split, 87.5%, 80/80 semantic coverage, Context / Other 23 and 15) without committing real Steam text or credentials.
+
+## Stage 4C-R2 — User-facing Product Simplification & Interaction Seal
+
+### Product-facing projection
+
+The existing dashboard endpoint remains the only presentation endpoint and Migration remains 24. The primary dashboard now uses ordinary user language: 评论概览, 分析状态, 玩家关注, 主要问题, 玩家需求, and 其他内容. Technical research terms, run UUIDs, provider/model identity, taxonomy version, fingerprints, methodology copy, and provenance IDs are no longer rendered in the normal dashboard. The persisted API projection still carries the technical provenance needed by Settings/diagnostics and exact historical reads; no canonical metric ownership or calculation was moved into React.
+
+The duplicate ResearchOverview block was removed from the canonical dashboard path while the existing Health Overview, trend, segmentation, review drill-down, navigation, reports, compare, Version Review, database, and Settings capabilities remain available through the existing AnalysisResults and global navigation. Discovery is now hidden unless a stable user-relevant potential-gap signal exists; a provider timeout is therefore nonblocking and does not create a technical card for ordinary users.
+
+### Sampling Setup
+
+The existing Analysis Queue is reused. The user-facing 采集评论 dialog now supports custom/max review counts, all/7/30/90-day/custom time scope, true multi-language checkbox selection, recommendation status, purchase source, collection order, and off-topic activity. The preview is written as 预计采集范围, and the exact `sampling` contract is submitted with `start_time`, `end_time`, `languages`, `review_type`, `purchase_type`, `collection_order`, `include_offtopic_activity`, and `max_reviews`. Update Analysis opens the same dialog with the current Run scope inherited; the browser check verified a 30-day + English/Japanese + custom 80-review state without submitting a new run.
+
+### Exact historical Review Explorer
+
+`GET /analysis/{app_id}/reviews?run=...` remains exact-run and now permits quantitative-only runs to browse the frozen population with empty semantic labels and an explicit `semantic_available=false`. It never falls back to `game.sample` or the mutable latest cache. The frontend has loading, exact success, and friendly error states, and uses 50-review pages with previous/next controls; the regression test covers 235 reviews as 1–100, 101–200, and 201–235. Topic, issue, request, and other-content links retain metric-specific filtering. Empty evidence no longer renders a misleading empty evidence block; available snippets are labelled 分析依据 while the underlying review remains 原评论.
+
+### Visual QA and browser acceptance
+
+Three fresh real-Chromium QA loops were completed after the R2 polish:
+
+1. Simplification — confirmed ordinary user labels, no primary Methodology/Provenance block, no technical IDs, no duplicated canonical ResearchOverview metrics, and visible scope/暂定结果/80 of 80 coverage.
+2. Operation — opened the existing Update Analysis control, exercised multi-language, time scope, custom count preview, exact-run topic navigation, back navigation, and review pagination without submitting an analysis or triggering a research-side effect.
+3. Polish — inspected 1440×900, 1366×768, and 1024×768 Dashboard/Reviews renders plus the Sampling Setup modal; fixed the remaining internal `tracked` label and removed empty no-evidence UI. The historical unavailable state was also rendered and confirmed fail-closed with no sample fallback.
+
+Final screenshots are in `docs/stage4c/screenshots/r2/`: Dashboard at 1440×900, 1366×768, and 1024×768; Sampling Setup; Reviews; and historical Reviews unavailable. Main acceptance routes reported zero console errors, page errors, and 4xx/5xx responses. The intentionally missing historical-run route returns the expected 404 API response and shows the user-facing unavailable state.
+
+### Verification
+
+- Backend: `pytest -v --basetemp .pytest_stage4c_full4` — 525 passed, 2 skipped, 47 warnings; the two pre-existing test logging paths were temporarily redirected to a workspace-local log file for collection and restored afterward.
+- Frontend: `npm ci`, `npm run typecheck`, and `npm run build` — passed. `npm ci` reported existing dependency audit findings (16 vulnerabilities); dependency versions were not changed.
+- Browser: real Chromium Playwright runner, three viewports, three loops, exact-run pagination, Sampling Setup interaction, and historical unavailable state — passed with no main-path console/page errors.
+- Migration: still 24; no schema changes.
+
+Known limitations: the dedicated Developer Mode toggle is not introduced in this pass; technical provenance remains available through the read-side presentation contract and existing Settings diagnostics rather than the ordinary Dashboard. The screenshots use the existing local synthetic fixture for review text, while reviewed aggregate values remain 80 reviews, 87.50% recommendation rate, 80/80 semantic coverage, and other/meme 23/80 / other/general 15/80.
+
+Deferred work remains Stage 4D: Version / Compare / Agent / Reports convergence.
