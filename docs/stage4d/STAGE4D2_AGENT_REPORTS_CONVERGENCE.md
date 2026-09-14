@@ -3,6 +3,7 @@
 ## Baseline and scope
 
 - Baseline: `b4079ff8634ae6005a5701a18e2852e171f52e42`
+- Implementation final SHA: `3f0bc6a520effcd13e246ba026d7f04d4efcddf6`
 - Branch: `integration/research-pipeline-v1`
 - Migration: `24`; no schema change was required.
 - Scope: downstream read-side convergence for Game Agent and Reports only. Research Core, 3F, Discovery, comparison, Dashboard, Version Review, and Compare remain upstream sealed contracts.
