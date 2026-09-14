@@ -10,7 +10,7 @@ Baseline:
   main @ f56dacfc... (working checkout: integration/research-pipeline-v1 @ 2705e81)
 
 Active milestone:
-  M0 — Foundation Seal
+  M1 — Canonical Research Workbench
 
 Milestone status:
   IN_PROGRESS
@@ -26,15 +26,22 @@ Completed:
   - M0-WP4: deterministic population reuse compatibility returns EXACT,
     SAFE_SUBSET, or INCOMPATIBLE with machine-readable reasons; offline
     fixtures now freeze canonical runs before finalization.
+  - M0-WP5: exact-run dashboard URL restoration is protected from newer
+    in-memory task state; canonical completion references the insert-once
+    immutable analysis result row.
+  - M0-WP6: canonical restart/window-stability, duplicate-submit, job
+    recovery, and legacy 23-to-24 migration evidence pass.
 
 Current work item:
-  - implement exact-run URL restoration and complete M0 fixture/recovery
-    acceptance evidence
+  - reconcile the M1 canonical workbench projections with the dashboard's
+    remaining page-local segment/trend fallbacks
 
 Next:
-  - validate frontend exact-run restoration against canonical resource IDs
-  - wire canonical run finalization to immutable Research Core result refs
-  - add representative legacy migration/restart fixture coverage
+  - expose deterministic Overview/Segments/Trends projections from exact
+    persisted Research Core results
+  - bind dashboard segment/trend views to those projections without using
+    StarredGame samples for formal runs
+  - add frontend contract evidence for Scenario A navigation and evidence
 
 Release blockers:
   - none identified yet
@@ -43,8 +50,20 @@ Required items:
   - none waived
 
 Last verified commit:
-  - b22210b — population reuse compatibility and deterministic fixture bridge
+  - cf3a1ea — canonical restart/window stability evidence
 
 Last validation:
-  - 5 M0 contract tests plus 29 compatibility/sampling tests passed after the
-    latest implementation commit.
+  - 21 focused M0/migration tests passed; dashboard typecheck passed; lint
+    passed with five pre-existing warnings and no errors.
+
+M0 exit evidence:
+  - deterministic canonical ResearchRun reopens to the same ordered
+    PopulationSnapshot after engine restart;
+  - anchored relative windows remain byte-for-byte stable on reopen;
+  - duplicate ResearchRun and Job submissions resolve to one formal resource;
+  - retryable interrupted jobs requeue and non-retryable jobs fail explicitly;
+  - migration 23-to-24 is additive/idempotent and creates all canonical M0
+    tables while retaining legacy rows;
+  - dashboard exact-run links preserve the requested run against later task
+    completion, and finalized runs reference
+    `analysis_run_results:<run_id>`.

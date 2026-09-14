@@ -22,3 +22,14 @@
   provenance cannot be inferred; new general runs are bridged when their
   population is frozen.
 - Commit: recorded in `EXECUTION_STATE.md` after verification.
+
+## 2026-09-14 — Point canonical completion at the immutable result row
+
+- Decision: after the legacy `analysis_run_results` insert commits, finalize
+  the bridged canonical ResearchRun with
+  `immutable_result_ref=analysis_run_results:<run_id>`.
+- Reason: the canonical run must identify the exact persisted Research Core
+  result without duplicating or rewriting the analytical payload. The legacy
+  result table remains the compatibility storage boundary during M1.
+- Affected contracts/files: `research_run_store.py` and `storage.py`.
+- Commit: `d7ce72f`.
