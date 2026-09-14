@@ -69,33 +69,40 @@ Completed:
   - M2-WP10: SemanticRun resources now expose exact topic/signal evidence
     links with immutable ReviewSnapshot IDs, source hashes, UTF-8 byte ranges
     and text snapshots; the Dashboard renders the persisted evidence directly.
+  - M2-WP11: HUMAN-IN-THE-LOOP §12 preparation tooling now defines separate
+    Boundary Suite and Evaluation Holdout record schemas/manifests, exact
+    provenance and unresolved semantics, canonical signals/secondary labels,
+    holdout calibration isolation, strict cross-asset duplicate detection, and
+    deterministic UNLABELED candidate export from real review data.
 
 Current work item:
-  - obtain and validate the required human-labeled Semantic V2 boundary suite
-    and disjoint evaluation holdout, then run the declared local-model and
-    adjudication evaluation against the §12 gates
+  - human review and finalization of the V2 Boundary Suite and independent
+    Evaluation Holdout
 
 Next:
-  - after the benchmark assets are supplied, produce the versioned §12 report
-    and resolve any failed product gate through defensible tuning or an
-    explicit Master Spec decision; continue non-gate integration work safely
-    while the asset blocker remains open
+  - after human review/finalization, validate both separate manifests together,
+    produce the versioned §12 report, and resolve any failed product gate
+    through defensible tuning or an explicit Master Spec decision; do not use
+    the holdout for calibration or training
 
 Release blockers:
-  - M2-BENCH-001: the required V2 human-labeled boundary regression suite and
-    disjoint holdout are not present; see `docs/execution/BLOCKERS.md`.
+  - M2-BENCH-001: human review and finalization of the V2 Boundary Suite and
+    independent Evaluation Holdout; see `docs/execution/BLOCKERS.md`.
 
 Required items:
   - none waived
 
 Last verified commit:
-  - b54ae00 — expose semantic evidence links
+  - 77bb1ca — prepare human Semantic V2 benchmark assets
+
+Last verified timestamp:
+  - 2026-09-14T19:35:43+08:00
 
 Last validation:
-  - full pytest passed at `b54ae00` (with two expected skips); benchmark,
-    evaluation-report, Discovery Pool, adjudication and evidence-link tests
-    passed; Dashboard typecheck and elevated production build passed; lint
-    passed with five pre-existing warnings and no errors.
+  - full pytest and Dashboard validation passed at `a232a87`; benchmark
+    preparation tests passed (8 tests); schema JSON parsed successfully; the
+    example manifests fail closed because final human assets are intentionally
+    absent.
 
 M1 exit evidence:
   - quantitative-only Research Reports now carry exact language and

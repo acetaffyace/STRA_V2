@@ -21,7 +21,7 @@
 - Migration impact: no legacy rows are backfilled because exact canonical
   provenance cannot be inferred; new general runs are bridged when their
   population is frozen.
-- Commit: recorded in `EXECUTION_STATE.md` after verification.
+- Commit: `77bb1ca`.
 
 ## 2026-09-14 — Point canonical completion at the immutable result row
 
@@ -172,3 +172,17 @@
 - Affected contracts/files: `semantic_run_store.py`, `research_runs.py`,
   Dashboard API/types/rendering and evidence tests.
 - Commit: `b54ae00`.
+
+## 2026-09-14 — Separate human benchmark production from benchmark evaluation
+
+- Decision: define separate Boundary Suite and Evaluation Holdout record
+  schemas/manifests; export only deterministic `UNLABELED` candidates from
+  real review data; require human first-pass/final provenance and reject model
+  generated labels and holdout calibration/training use.
+- Reason: §12 uses the Boundary Suite for repeatable development regression but
+  requires the Holdout to remain independent for final gates. Gold labels must
+  come from the human workflow, never from a model or legacy taxonomy remap.
+- Affected contracts/files: `tooling/evals/semantic_v2/schemas/`, separate
+  manifest examples, `validate_assets.py`, `export_candidates.py`, README and
+  benchmark tests.
+- Commit: recorded in `EXECUTION_STATE.md` after verification.
