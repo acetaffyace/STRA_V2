@@ -20,6 +20,7 @@ from .adaptive_analysis import (
 )
 from .offline_chat import answer_offline_question
 from .insights import prepare_insights
+from .research_run_store import create_research_run
 
 OFFLINE_ORIGIN = "codex_offline_fixture"
 OFFLINE_LABEL_ORIGIN = "offline_fixture"
@@ -108,6 +109,26 @@ def run_offline_fixture(
     )
     storage.transition_general_analysis_run(run_id, "running", phase="offline_fixture")
     storage.upsert_reviews(app_id, reviews)
+    # The deterministic fixture is also the M0 offline acceptance path: freeze
+    # its exact population before computing Research Core so restart/reopen
+    # tests exercise the canonical identity graph, not latest app rows.
+    canonical_run = create_research_run(
+        run_id=run_id,
+        app_id=app_id,
+        sampling_contract={
+            "app_id": app_id,
+            "languages": sorted({str(r.get("language") or "english") for r in reviews}),
+            "review_type": "all",
+            "purchase_type": "all",
+            "collection_order": "recent",
+            "include_offtopic_activity": False,
+            "max_reviews": 0,
+        },
+        reviews=reviews,
+        acquisition_provenance={"source": OFFLINE_ORIGIN, "collection_complete": True, "truncated_by_max_reviews": False},
+        config={"mode": OFFLINE_ORIGIN},
+        status="RUNNING",
+    )
 
     profile = infer_game_profile(game_context or {}, reviews)
     event: dict[str, Any] = {}
@@ -203,6 +224,8 @@ def run_offline_fixture(
             "classified_count": len(reviews), "fallback_count": 0, "unavailable_count": 0,
         },
     }
+    metadata["population_snapshot_id"] = canonical_run["population_snapshot_id"]
+    metadata["population_hash"] = canonical_run["population_hash"]
     snapshot_hash = hashlib.sha256(",".join(sorted(str(r["recommendationid"]) for r in reviews)).encode()).hexdigest()[:16]
     storage.finalize_general_analysis_run(
         run_id, app_id, metadata, insights, reviews,

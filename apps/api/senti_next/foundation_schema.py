@@ -40,6 +40,7 @@ def migrate_foundation_contracts(conn) -> None:
             app_id INTEGER NOT NULL,
             sampling_contract_json TEXT NOT NULL,
             sampling_contract_hash TEXT NOT NULL,
+            acquisition_provenance_json TEXT NOT NULL DEFAULT '{}',
             membership_count INTEGER NOT NULL CHECK (membership_count >= 0),
             population_hash TEXT NOT NULL,
             anchor_time TEXT NOT NULL,
@@ -158,3 +159,8 @@ def migrate_foundation_contracts(conn) -> None:
     ]
     for statement in statements:
         conn.execute(statement)
+    # Development databases may have created the first M0 table shape before
+    # provenance was added.  This additive check keeps that upgrade safe.
+    population_columns = {str(row[1]) for row in conn.execute("PRAGMA table_info(population_snapshots)").fetchall()}
+    if "acquisition_provenance_json" not in population_columns:
+        conn.execute("ALTER TABLE population_snapshots ADD COLUMN acquisition_provenance_json TEXT NOT NULL DEFAULT '{}'")

@@ -8,6 +8,7 @@ from sqlalchemy import text
 
 from apps.api.senti_next import db
 from apps.api.senti_next.research_contracts import resolve_formal_window
+from apps.api.senti_next.population_compatibility import check_population_compatibility
 from apps.api.senti_next.research_run_store import (
     create_job,
     create_research_run,
@@ -95,3 +96,26 @@ def test_job_idempotency_transition_and_restart_recovery():
     with db.get_connection() as conn:
         row = conn.execute(text("SELECT status, stage FROM jobs WHERE job_id=:id"), {"id": first["job_id"]}).one()
     assert tuple(row) == ("QUEUED", "requeued_after_restart")
+
+
+def test_population_compatibility_is_explicit_and_never_upgrades_a_truncated_source():
+    run = create_research_run(
+        run_id="run_m0_compatibility",
+        app_id=10,
+        sampling_contract={"app_id": 10, "start_time": 100, "end_time": 300, "languages": ["english"], "max_reviews": 0},
+        reviews=_reviews(),
+        anchor_time="2026-09-14T00:00:00Z",
+        acquisition_provenance={"collection_complete": True, "truncated_by_max_reviews": False},
+    )
+    population = get_population_snapshot(run["population_snapshot_id"])
+    exact = check_population_compatibility(existing_population=population, requested_contract=population["sampling_contract"])
+    assert exact.decision == "EXACT"
+    subset = check_population_compatibility(existing_population=population, requested_contract={"app_id": 10, "start_time": 100, "end_time": 300, "languages": ["english"], "max_reviews": 1})
+    assert subset.decision == "SAFE_SUBSET"
+    assert len(subset.derived_review_snapshot_ids) == 1
+
+    truncated = dict(population)
+    truncated["acquisition_provenance"] = {"collection_complete": False, "truncated_by_max_reviews": True}
+    blocked = check_population_compatibility(existing_population=truncated, requested_contract=population["sampling_contract"])
+    assert blocked.decision == "INCOMPATIBLE"
+    assert any(reason["code"] == "INCOMPLETE_SOURCE" for reason in blocked.reasons)

@@ -15,6 +15,7 @@ from ..research_run_store import (
     get_research_run,
     request_job_cancel,
 )
+from ..population_compatibility import check_population_compatibility
 
 
 router = APIRouter(tags=["research-resources"])
@@ -41,6 +42,11 @@ class JobCreateRequest(BaseModel):
     progress_unit: str = Field(default="items", min_length=1, max_length=40)
     retryable: bool = False
     job_id: str | None = Field(default=None, min_length=3, max_length=160)
+
+
+class PopulationCompatibilityRequest(BaseModel):
+    population_snapshot_id: str = Field(..., min_length=3, max_length=160)
+    requested_contract: dict[str, Any]
 
 
 @router.post("/research-runs", status_code=201)
@@ -84,6 +90,14 @@ def read_population_snapshot(population_snapshot_id: str) -> dict[str, Any]:
     if result is None:
         raise HTTPException(status_code=404, detail="population_snapshot_not_found")
     return result
+
+
+@router.post("/population-compatibility/check")
+def check_population_reuse(request: PopulationCompatibilityRequest) -> dict[str, Any]:
+    existing = get_population_snapshot(request.population_snapshot_id)
+    if existing is None:
+        raise HTTPException(status_code=404, detail="population_snapshot_not_found")
+    return check_population_compatibility(existing_population=existing, requested_contract=request.requested_contract).model_dump()
 
 
 @router.post("/jobs", status_code=201)

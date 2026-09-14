@@ -110,6 +110,7 @@ def _population_row(row: Mapping[str, Any], reviews: Sequence[Mapping[str, Any]]
         "app_id": int(row["app_id"]),
         "sampling_contract": _parse(row["sampling_contract_json"], {}),
         "sampling_contract_hash": str(row["sampling_contract_hash"]),
+        "acquisition_provenance": _parse(row["acquisition_provenance_json"], {}) if "acquisition_provenance_json" in row else {},
         "ordered_review_snapshot_ids": [str(review["review_snapshot_id"]) for review in reviews],
         "membership_count": int(row["membership_count"]),
         "population_hash": str(row["population_hash"]),
@@ -175,12 +176,12 @@ def create_population_snapshot(*, app_id: int, sampling_contract: Mapping[str, A
             return loaded or {}
         conn.execute(
             text("""INSERT INTO population_snapshots
-                (population_snapshot_id, app_id, sampling_contract_json, sampling_contract_hash,
+                (population_snapshot_id, app_id, sampling_contract_json, sampling_contract_hash, acquisition_provenance_json,
                  membership_count, population_hash, anchor_time, start_at_utc, end_at_utc,
                  snapshot_schema_version)
-                VALUES (:id, :app_id, :contract_json, :contract_hash, :count, :population_hash,
+                VALUES (:id, :app_id, :contract_json, :contract_hash, :provenance_json, :count, :population_hash,
                         :anchor, :start_at_utc, :end_at_utc, :schema_version)"""),
-            {"id": population_id, "app_id": int(app_id), "contract_json": canonical_json(canonical_contract), "contract_hash": contract_hash, "count": len(snapshots), "population_hash": pop_hash, "anchor": anchor, "start_at_utc": window["start_at_utc"], "end_at_utc": window["end_at_utc"], "schema_version": POPULATION_SNAPSHOT_SCHEMA_VERSION},
+            {"id": population_id, "app_id": int(app_id), "contract_json": canonical_json(canonical_contract), "contract_hash": contract_hash, "provenance_json": canonical_json(dict(acquisition_provenance or {})), "count": len(snapshots), "population_hash": pop_hash, "anchor": anchor, "start_at_utc": window["start_at_utc"], "end_at_utc": window["end_at_utc"], "schema_version": POPULATION_SNAPSHOT_SCHEMA_VERSION},
         )
         for ordinal, snapshot in enumerate(snapshots):
             conn.execute(
