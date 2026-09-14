@@ -63,6 +63,8 @@ def test_projection_owns_canonical_metrics_and_separates_context() -> None:
     assert presentation["research_snapshot"]["stop_reason"] == "max_reviews_reached"
     assert presentation["research_snapshot"]["collection_status"] == "limited"
     assert presentation["research_snapshot"]["collection_scope"]["languages"] == ["english"]
+    assert presentation["segments"]["available"] is True
+    assert presentation["segments"]["population_scope"] == "exact_research_run_population"
     assert [row["taxonomy_key"] for row in presentation["player_voice"]["actionable_topics"]["items"]] == ["gameplay/balance"]
     assert [(row["taxonomy_key"], row["n"]) for row in presentation["player_voice"]["context_topics"]["items"]] == [("other/meme", 23), ("other/general", 15)]
     assert presentation["semantic"]["claim_status"] == "PROVISIONAL"

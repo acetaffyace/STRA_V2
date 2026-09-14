@@ -52,6 +52,11 @@ export function CanonicalDashboard({ presentation, appName, appId, showHeader = 
   const snapshot = presentation.research_snapshot;
   const semantic = presentation.semantic;
   const runId = presentation.run.run_id;
+  const segmentDimensions = presentation.segments.dimensions as Record<string, {
+    available?: boolean;
+    groups?: Array<{ key: string; n?: number; recommended_n?: number; recommendation_rate?: number | null }>;
+    missing_n?: number;
+  }>;
   const scope = snapshot.collection_scope || {};
   const scopeLanguages = Array.isArray(scope.languages) && scope.languages.length ? scope.languages.join(" + ") : "全部语言";
   const scopeOrder = scope.collection_order === "updated" ? "最近更新" : scope.collection_order === "helpful" ? "最有帮助" : "最近评论";
@@ -76,6 +81,20 @@ export function CanonicalDashboard({ presentation, appName, appId, showHeader = 
         </div>
         <div className="mt-5 grid gap-3 sm:grid-cols-3"><div><p className="text-xs text-slate-500">Recommendation rate</p><p className="mt-1 text-3xl font-semibold text-white">{percent(snapshot.recommendation_rate)}</p></div><div><p className="text-xs text-slate-500">Scope</p><p className="mt-1 text-lg font-medium text-white">{snapshot.population_n} recent English reviews</p><p className="text-xs text-amber-200/80">{snapshot.truncated_by_max_reviews ? "Limited to requested maximum" : "Collection complete"}</p></div><div><p className="text-xs text-slate-500">Recommendation split</p><p className="mt-1 text-lg font-medium text-white">{snapshot.recommended_n} recommended · {snapshot.not_recommended_n} not recommended</p><p className="text-xs text-slate-500">Observed sample, not all players</p></div></div>
       </section>}
+
+      <section className="rounded-lg border border-white/10 bg-slate-900/60 p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div><p className="text-xs uppercase tracking-widest text-slate-500">确定性分群</p><h2 className="mt-1 text-lg font-semibold text-white">谁在评论</h2></div>
+          <span className="text-xs text-slate-500">exact run population · {presentation.segments.population_n.toLocaleString()} reviews</span>
+        </div>
+        {!presentation.segments.available ? <p className="mt-3 text-sm text-slate-400">该 Research Run 没有可用的确定性分群 projection。</p> : <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          {Object.entries(segmentDimensions).map(([dimension, data]) => <div key={dimension} className="rounded border border-white/10 bg-slate-950/25 p-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">{dimension === "playtime_at_review" ? "At-review playtime" : "Language"}</h3>
+            {!data.available || !data.groups?.length ? <p className="mt-2 text-xs text-slate-500">Unavailable — missing observed fields.</p> : <div className="mt-2 space-y-2">{data.groups.map((group) => <div key={group.key} className="flex items-center justify-between gap-2 text-xs"><span className="truncate text-slate-300">{group.key}</span><span className="shrink-0 text-slate-400">{group.n ?? 0} · {percent(group.recommendation_rate)}</span></div>)}</div>}
+            {data.missing_n ? <p className="mt-2 text-[10px] text-slate-600">Missing: {data.missing_n}</p> : null}
+          </div>)}
+        </div>}
+      </section>
 
       <section className="rounded-lg border border-white/10 bg-slate-900/60 p-5"><div className="flex items-start justify-between gap-3"><div><p className="text-xs uppercase tracking-widest text-slate-500">分析状态</p><h2 className="mt-1 text-lg font-semibold text-white">语义分析</h2></div><span title="定量分析已经完成；语义分类可能因配置不可用。" className={`rounded-md border px-3 py-1 text-xs font-bold ${semantic.available ? "border-amber-300/50 bg-amber-300/15 text-amber-100" : "border-slate-500/40 bg-slate-500/10 text-slate-300"}`}>{semantic.available ? "暂定结果 ⓘ" : "暂不可用"}</span></div>{semantic.available ? <><p className="mt-3 text-sm text-slate-300">语义分析已完成，但当前结果仍处于验证阶段。</p><div className="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3"><div><span className="text-slate-500">已分析评论</span><strong className="mt-1 block text-white">{semantic.classified_n ?? 0} / {semantic.population_n ?? snapshot.population_n}</strong></div><div><span className="text-slate-500">分析覆盖率</span><strong className="mt-1 block text-white">{percent(semantic.classification_coverage)}</strong></div><div><span className="text-slate-500">结果资格</span><strong className="mt-1 block text-amber-100">暂定</strong></div></div></> : <div className="mt-3 space-y-1 text-sm text-slate-400"><p>语义分析暂不可用。</p><p>原因：{semanticReason(semantic.reason)}。</p><p>评论概览和定量结果仍可正常查看。</p></div>}</section>
 

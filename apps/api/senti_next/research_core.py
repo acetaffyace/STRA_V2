@@ -11,7 +11,7 @@ from datetime import date, datetime
 from typing import Any, Iterable, Mapping, Optional
 
 from .activity_diagnostics import analyze_review_activity
-from .population_validity import REVIEWER_SELECTION_LIMITATION, compare_populations
+from .population_validity import PLAYTIME_COHORTS, REVIEWER_SELECTION_LIMITATION, compare_populations
 from .rate_inference import calculate_recommendation_rate, compare_recommendation_rates
 from .standardization import standardize_populations
 from .window_robustness import matched_window_robustness
@@ -83,6 +83,85 @@ def _population_projection(population: list[Mapping[str, Any]], metadata: Any) -
         "coverage_end_time": _metadata_value(metadata, "coverage_end_time"),
         "coverage_status": _metadata_value(metadata, "coverage_status"),
         "coverage_end_inclusive": _metadata_value(metadata, "coverage_end_inclusive"),
+    }
+
+
+def _review_field(review: Mapping[str, Any], field: str) -> Any:
+    if field in review:
+        return review.get(field)
+    if field.startswith("author."):
+        author = review.get("author")
+        if isinstance(author, Mapping) and field.split(".", 1)[1] in author:
+            return author.get(field.split(".", 1)[1])
+        return review.get("author_" + field.split(".", 1)[1])
+    return None
+
+
+def _segment_observation(rows: Iterable[Mapping[str, Any]], key: str) -> dict[str, Any]:
+    values = list(rows)
+    recommended = sum(1 for row in values if row.get("voted_up") is True)
+    return {
+        "key": key,
+        "n": len(values),
+        "recommended_n": recommended,
+        "recommendation_rate": recommended / len(values) if values else None,
+    }
+
+
+def build_snapshot_segments(population: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
+    """Build denominator-explicit deterministic segments for one snapshot.
+
+    Only stable, observed Steam fields are exposed. Missing values are not
+    assigned to a synthetic cohort and no demographic inference is attempted.
+    """
+    rows = list(population)
+    language_groups: dict[str, list[Mapping[str, Any]]] = {}
+    for row in rows:
+        value = _review_field(row, "language")
+        if value is None or not str(value).strip():
+            continue
+        language_groups.setdefault(str(value).strip().lower(), []).append(row)
+
+    language = {
+        "available": bool(language_groups),
+        "field": "language",
+        "groups": [_segment_observation(language_groups[key], key) for key in sorted(language_groups)],
+        "missing_n": len(rows) - sum(len(group) for group in language_groups.values()),
+    }
+
+    playtime_groups: dict[str, list[Mapping[str, Any]]] = {label: [] for label, _, _ in PLAYTIME_COHORTS}
+    missing_playtime = 0
+    for row in rows:
+        raw = _review_field(row, "author.playtime_at_review")
+        try:
+            minutes = float(raw)
+        except (TypeError, ValueError):
+            minutes = -1.0
+        if minutes < 0:
+            missing_playtime += 1
+            continue
+        hours = minutes / 60.0
+        matched = False
+        for label, lower, upper in PLAYTIME_COHORTS:
+            if hours >= lower and (upper is None or hours < upper):
+                playtime_groups[label].append(row)
+                matched = True
+                break
+        if not matched:
+            missing_playtime += 1
+
+    playtime = {
+        "available": missing_playtime < len(rows) if rows else False,
+        "field": "author.playtime_at_review",
+        "unit": "minutes",
+        "groups": [_segment_observation(playtime_groups[label], label) for label, _, _ in PLAYTIME_COHORTS if playtime_groups[label]],
+        "missing_n": missing_playtime,
+    }
+    return {
+        "schema_version": "research-segments-v1",
+        "population_scope": "exact_research_run_population",
+        "population_n": len(rows),
+        "dimensions": {"language": language, "playtime_at_review": playtime},
     }
 
 
@@ -179,6 +258,7 @@ def build_snapshot_research_report(
         "population": _population_projection(reviews, metadata),
         "recommendation": recommendation,
         "activity": activity,
+        "segments": build_snapshot_segments(reviews),
         "comparability": _unavailable("comparison_required"),
         "standardization": _unavailable("comparison_required"),
         "window_robustness": _unavailable("comparison_required"),
@@ -314,5 +394,6 @@ __all__ = [
     "REPORT_SCHEMA_VERSION",
     "RESEARCH_CORE_VERSION",
     "build_comparison_research_report",
+    "build_snapshot_segments",
     "build_snapshot_research_report",
 ]

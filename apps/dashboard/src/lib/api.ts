@@ -939,6 +939,14 @@ export interface DashboardPresentation {
     language_distribution: Record<string, number>;
     stage2e_activity: Record<string, unknown>;
   };
+  segments: {
+    available: boolean;
+    schema_version: string;
+    population_scope: string;
+    population_n: number;
+    dimensions: Record<string, unknown>;
+    unavailable_reason?: string | null;
+  };
   semantic: {
     available: boolean;
     status: string;
@@ -1032,6 +1040,7 @@ export function normalizeDashboardPresentation(
   if (!presentation || typeof presentation !== "object") return null;
   const raw = presentation as Partial<DashboardPresentation>;
   const snapshot = raw.research_snapshot ?? {} as DashboardPresentation["research_snapshot"];
+  const segments = raw.segments ?? {} as DashboardPresentation["segments"];
   const semantic = raw.semantic ?? {} as DashboardPresentation["semantic"];
   const voice = raw.player_voice ?? {} as DashboardPresentation["player_voice"];
   const discovery = raw.discovery ?? {} as DashboardPresentation["discovery"];
@@ -1045,6 +1054,14 @@ export function normalizeDashboardPresentation(
       collection_scope: snapshot.collection_scope ?? {},
       language_distribution: snapshot.language_distribution ?? {},
       stage2e_activity: snapshot.stage2e_activity ?? {},
+    },
+    segments: {
+      ...segments,
+      available: segments.available === true,
+      schema_version: segments.schema_version ?? "research-segments-v1",
+      population_scope: segments.population_scope ?? "exact_research_run_population",
+      population_n: typeof segments.population_n === "number" ? segments.population_n : 0,
+      dimensions: segments.dimensions ?? {},
     },
     semantic: {
       ...semantic,

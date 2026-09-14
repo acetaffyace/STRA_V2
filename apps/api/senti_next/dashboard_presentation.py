@@ -167,6 +167,27 @@ def _discovery_projection(discovery: Mapping[str, Any] | None) -> dict[str, Any]
     }
 
 
+def _segments_projection(report: Mapping[str, Any] | None) -> dict[str, Any]:
+    segments = report.get("segments") if isinstance(report, Mapping) else None
+    if not isinstance(segments, Mapping):
+        return {
+            "available": False,
+            "schema_version": "research-segments-v1",
+            "population_scope": "exact_research_run_population",
+            "population_n": 0,
+            "dimensions": {},
+            "unavailable_reason": "research_segments_unavailable",
+        }
+    return {
+        "available": True,
+        "schema_version": segments.get("schema_version") or "research-segments-v1",
+        "population_scope": segments.get("population_scope") or "exact_research_run_population",
+        "population_n": _number(segments.get("population_n")),
+        "dimensions": segments.get("dimensions") or {},
+        "unavailable_reason": None,
+    }
+
+
 def build_dashboard_presentation(
     *,
     app_id: int,
@@ -211,6 +232,7 @@ def build_dashboard_presentation(
             "status": "ready" if report else "unavailable",
         },
         "research_snapshot": _research_snapshot(report if isinstance(report, Mapping) else None),
+        "segments": _segments_projection(report if isinstance(report, Mapping) else None),
         "semantic": semantic,
         "player_voice": {
             "actionable_topics": {"items": [_metric_row(row, count_key="topic_n", share_key="topic_share", validation_key="topic_validation") for row in actionable[:5]], "total_count": len(actionable)},

@@ -13,6 +13,7 @@ from apps.api.senti_next.population_validity import compare_populations
 from apps.api.senti_next.rate_inference import calculate_recommendation_rate, compare_recommendation_rates
 from apps.api.senti_next.research_core import (
     build_comparison_research_report,
+    build_snapshot_segments,
     build_snapshot_research_report,
 )
 from apps.api.senti_next.standardization import standardize_populations
@@ -81,6 +82,9 @@ def test_snapshot_report_schema_and_unavailable_comparison_sections():
     assert report["window_robustness"] == {"status": "unavailable", "reason": "comparison_required"}
     assert report["orchestration"]["stages_executed"] == ["2B", "2E"]
     assert report["orchestration"]["stages_unavailable"]["2A"] == "comparison_required"
+    assert report["segments"] == build_snapshot_segments(population)
+    assert report["segments"]["population_scope"] == "exact_research_run_population"
+    assert [group["key"] for group in report["segments"]["dimensions"]["language"]["groups"]] == ["english", "schinese"]
 
 
 def test_snapshot_direct_stage_parity():
