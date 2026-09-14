@@ -40,6 +40,8 @@ MIGRATION_REGISTRY: tuple[tuple[int, str], ...] = (
     (22, "frozen classification materializations"),
     (23, "canonical semantic measurement and unified research result"),
     (24, "immutable research population snapshots"),
+    (25, "immutable SemanticRun configuration identity"),
+    (26, "immutable SemanticUnit and SemanticMention evidence identity"),
 )
 
 

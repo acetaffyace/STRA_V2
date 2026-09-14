@@ -25,6 +25,10 @@ REVIEW_SNAPSHOT_SCHEMA_VERSION = "review-snapshot-v1"
 POPULATION_SNAPSHOT_SCHEMA_VERSION = "population-snapshot-v1"
 RESEARCH_RUN_SCHEMA_VERSION = "research-run-v1"
 JOB_SCHEMA_VERSION = "job-v1"
+SEMANTIC_RUN_SCHEMA_VERSION = "semantic-run-v1"
+SEMANTIC_CONFIG_VERSION = "semantic-config-v1"
+SEMANTIC_UNIT_SCHEMA_VERSION = "semantic-unit-v1"
+SEMANTIC_MENTION_SCHEMA_VERSION = "semantic-mention-v1"
 
 
 def canonical_json(value: Any) -> str:
@@ -215,6 +219,66 @@ class ResearchContext(ContractModel):
     taxonomy_version: str | None = None
 
 
+class SemanticRun(ContractModel):
+    semantic_run_id: str
+    research_run_id: str
+    population_snapshot_id: str
+    population_hash: str
+    semantic_engine_version: str
+    core_taxonomy_version: str
+    game_topic_catalog_version: str | None = None
+    archetype_topic_pack_versions: list[str] = Field(default_factory=list)
+    embedding_model_version: str
+    embedding_artifact_hash: str
+    prototype_versions: dict[str, Any] = Field(default_factory=dict)
+    calibration_version: str
+    segmentation_version: str
+    normalization_version: str
+    assignment_policy_version: str
+    llm_adjudication_policy_version: str
+    semantic_config_json: dict[str, Any]
+    semantic_config_hash: str
+    status: Literal["QUEUED", "GENERATING", "READY", "FAILED", "PARTIAL", "CANCELLED"] = "QUEUED"
+    eligible_review_count: int = Field(default=0, ge=0)
+    processed_review_count: int = Field(default=0, ge=0)
+    semantic_coverage: float | None = Field(default=None, ge=0, le=1)
+    unresolved_review_count: int = Field(default=0, ge=0)
+    created_by_job_id: str | None = None
+    created_at: str
+    completed_at: str | None = None
+    cost_summary: dict[str, Any] = Field(default_factory=dict)
+    result_ref: str | None = None
+    semantic_run_schema_version: str = SEMANTIC_RUN_SCHEMA_VERSION
+
+
+class SemanticUnit(ContractModel):
+    semantic_unit_id: str
+    semantic_run_id: str
+    review_snapshot_id: str
+    source_content_hash: str
+    start_byte_offset: int = Field(ge=0)
+    end_byte_offset: int = Field(ge=0)
+    text_snapshot: str
+    segmentation_version: str
+    semantic_unit_schema_version: str = SEMANTIC_UNIT_SCHEMA_VERSION
+
+
+class SemanticMention(ContractModel):
+    mention_id: str
+    semantic_run_id: str
+    semantic_unit_id: str
+    core_topic_id: str
+    secondary_topic_id: str | None = None
+    signal_type: Literal["issue", "request", "praise"] | None = None
+    assignment_source: str
+    similarity_score: float | None = None
+    calibrated_confidence: float | None = Field(default=None, ge=0, le=1)
+    decision_band: str
+    prototype_version: str
+    adjudication_ref: str | None = None
+    semantic_mention_schema_version: str = SEMANTIC_MENTION_SCHEMA_VERSION
+
+
 def population_hash(snapshot_ids: Sequence[str], snapshot_hashes: Sequence[str]) -> str:
     if len(snapshot_ids) != len(snapshot_hashes):
         raise ValueError("population_hash_inputs_length_mismatch")
@@ -227,7 +291,7 @@ def population_hash(snapshot_ids: Sequence[str], snapshot_hashes: Sequence[str])
 __all__ = [
     "JOB_SCHEMA_VERSION", "MetricObservation", "PopulationSnapshot", "POPULATION_SNAPSHOT_SCHEMA_VERSION",
     "RESEARCH_RUN_SCHEMA_VERSION", "REVIEW_SNAPSHOT_SCHEMA_VERSION", "ResearchContext", "ResearchRun",
-    "Job", "ReviewSnapshot", "SAMPLING_CONTRACT_VERSION", "TIME_SEMANTICS_VERSION", "canonical_json",
+    "SEMANTIC_CONFIG_VERSION", "SEMANTIC_MENTION_SCHEMA_VERSION", "SEMANTIC_RUN_SCHEMA_VERSION", "SEMANTIC_UNIT_SCHEMA_VERSION", "SemanticMention", "SemanticRun", "SemanticUnit", "Job", "ReviewSnapshot", "SAMPLING_CONTRACT_VERSION", "TIME_SEMANTICS_VERSION", "canonical_json",
     "canonical_sampling_contract", "epoch_to_utc_iso", "population_hash", "review_content_hash", "review_id",
     "review_snapshot_id", "resolve_formal_window", "sha256_json", "utc_iso", "utc_now",
 ]

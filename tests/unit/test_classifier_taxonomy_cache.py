@@ -47,7 +47,7 @@ def test_migration_19_is_additive_and_idempotent():
         migrate_classifier_taxonomy(raw)
         columns = {row[1] for row in raw.execute("PRAGMA table_info(review_labels)").fetchall()}
         assert {"taxonomy_snapshot_id", "taxonomy_fingerprint"} <= columns
-        assert migrations.latest_known_schema_version() == 24
+        assert migrations.latest_known_schema_version() == 26
 
 
 def test_saved_label_round_trips_taxonomy_identity():

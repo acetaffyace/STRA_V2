@@ -63,7 +63,7 @@ def _run(run_id: str, app_id: int = 553850) -> None:
 def test_migration_24_fresh_repeat_and_foreign_keys():
     with db.get_connection() as conn:
         raw = conn.connection.driver_connection
-        assert conn.execute(text("SELECT MAX(version) FROM schema_migrations")).scalar() == 24
+        assert conn.execute(text("SELECT MAX(version) FROM schema_migrations")).scalar() == 26
         assert conn.execute(text("SELECT name FROM sqlite_master WHERE type='table' AND name='analysis_run_populations'")).scalar() == "analysis_run_populations"
         assert conn.execute(text("SELECT name FROM sqlite_master WHERE type='table' AND name='analysis_run_population_items'")).scalar() == "analysis_run_population_items"
         assert conn.execute(text("PRAGMA foreign_keys")).scalar() == 1
@@ -83,7 +83,10 @@ def test_migration_23_to_24_is_additive_and_idempotent(tmp_path, monkeypatch):
     with db.get_connection() as conn:
         conn.execute(text("DROP TABLE analysis_run_population_items"))
         conn.execute(text("DROP TABLE analysis_run_populations"))
-        conn.execute(text("DELETE FROM schema_migrations WHERE version=24"))
+        conn.execute(text("DROP TABLE semantic_mentions"))
+        conn.execute(text("DROP TABLE semantic_units"))
+        conn.execute(text("DROP TABLE semantic_runs"))
+        conn.execute(text("DELETE FROM schema_migrations WHERE version IN (24, 25, 26)"))
         conn.commit()
         assert conn.execute(text("SELECT MAX(version) FROM schema_migrations")).scalar() == 23
     db.close_engine()
@@ -91,11 +94,14 @@ def test_migration_23_to_24_is_additive_and_idempotent(tmp_path, monkeypatch):
     db.init_db()
     db.init_db()
     with db.get_connection() as conn:
-        assert conn.execute(text("SELECT MAX(version) FROM schema_migrations")).scalar() == 24
+        assert conn.execute(text("SELECT MAX(version) FROM schema_migrations")).scalar() == 26
         assert conn.execute(text("SELECT COUNT(*) FROM analysis_runs WHERE run_id='pre-upgrade-run'")).scalar() == 1
         assert conn.execute(text("SELECT COUNT(*) FROM analysis_run_populations")).scalar() == 0
         for table in ("review_snapshots", "population_snapshots", "population_snapshot_members", "research_runs", "jobs"):
             assert conn.execute(text("SELECT name FROM sqlite_master WHERE type='table' AND name=:name"), {"name": table}).scalar() == table
+        assert conn.execute(text("SELECT name FROM sqlite_master WHERE type='table' AND name='semantic_runs'")).scalar() == "semantic_runs"
+        assert conn.execute(text("SELECT name FROM sqlite_master WHERE type='table' AND name='semantic_units'")).scalar() == "semantic_units"
+        assert conn.execute(text("SELECT name FROM sqlite_master WHERE type='table' AND name='semantic_mentions'")).scalar() == "semantic_mentions"
 
 
 def test_snapshot_idempotence_conflict_and_mutable_store_isolation():
