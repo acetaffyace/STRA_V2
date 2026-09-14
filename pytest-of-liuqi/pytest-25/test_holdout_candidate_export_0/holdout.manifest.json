@@ -1,0 +1,31 @@
+{
+  "asset": {
+    "max_examples": 2,
+    "min_examples": 2,
+    "path": "holdout.jsonl",
+    "sha256": "7d9458a8bc3f92d65fe5d3f4a8e01af601403089c7c54f7627795112dc8c8f66"
+  },
+  "asset_type": "evaluation_holdout",
+  "calibration_training_policy": {
+    "allowed_for_calibration_training": false,
+    "evaluation_only": true
+  },
+  "candidate_sampling": {
+    "exported_count": 2,
+    "requested_count": 2,
+    "seed": "holdout-seed",
+    "status": "UNLABELED"
+  },
+  "dataset_identity": {
+    "annotation_protocol_version": "pending-human-annotation",
+    "dataset_id": "stra-semantic-v2-evaluation_holdout-candidates",
+    "dataset_version": "candidate-export-v1",
+    "evaluation_code_commit": "candidate-export-v1",
+    "guideline_version": "pending-human-annotation",
+    "source_collection": "D:\\project\\STRA_V2\\pytest-of-liuqi\\pytest-25\\test_holdout_candidate_export_0\\reviews.jsonl",
+    "source_collection_hash": "355be9e89d6d30270398a1d0c638f8b251b28ce50941fff623a7337922d0a869",
+    "taxonomy_version": "stra-core-taxonomy-v2"
+  },
+  "schema_version": "semantic-v2-candidate-manifest-v1",
+  "status": "UNLABELED_CANDIDATES"
+}

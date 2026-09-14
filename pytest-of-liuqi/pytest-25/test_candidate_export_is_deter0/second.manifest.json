@@ -1,0 +1,31 @@
+{
+  "asset": {
+    "max_examples": 3,
+    "min_examples": 3,
+    "path": "second.jsonl",
+    "sha256": "826ac62153700d37f74f339b6943f7f36e9de53dada96517e56dbd71d0fa0af9"
+  },
+  "asset_type": "boundary_regression",
+  "calibration_training_policy": {
+    "allowed_for_calibration_training": true,
+    "evaluation_only": false
+  },
+  "candidate_sampling": {
+    "exported_count": 3,
+    "requested_count": 3,
+    "seed": "seed-1",
+    "status": "UNLABELED"
+  },
+  "dataset_identity": {
+    "annotation_protocol_version": "pending-human-annotation",
+    "dataset_id": "stra-semantic-v2-boundary_regression-candidates",
+    "dataset_version": "candidate-export-v1",
+    "evaluation_code_commit": "candidate-export-v1",
+    "guideline_version": "pending-human-annotation",
+    "source_collection": "D:\\project\\STRA_V2\\pytest-of-liuqi\\pytest-25\\test_candidate_export_is_deter0\\reviews.jsonl",
+    "source_collection_hash": "f61fd5defffd378236da2e4190d2bcade604d276f2769537f00b476a92e83aa5",
+    "taxonomy_version": "stra-core-taxonomy-v2"
+  },
+  "schema_version": "semantic-v2-candidate-manifest-v1",
+  "status": "UNLABELED_CANDIDATES"
+}
