@@ -23,16 +23,18 @@ Completed:
     idempotency, transitions, cancellation and restart recovery added.
   - M0-WP3: current general-analysis population freeze now dual-writes the
     canonical graph while preserving legacy compatibility readers.
+  - M0-WP4: deterministic population reuse compatibility returns EXACT,
+    SAFE_SUBSET, or INCOMPATIBLE with machine-readable reasons; offline
+    fixtures now freeze canonical runs before finalization.
 
 Current work item:
-  - integrate canonical runs with deterministic Research Core result identity
-    and complete M0 fixture/recovery acceptance evidence
+  - implement exact-run URL restoration and complete M0 fixture/recovery
+    acceptance evidence
 
 Next:
-  - wire canonical run finalization to immutable Research Core result refs
-  - add population compatibility checks for EXACT/SAFE_SUBSET/INCOMPATIBLE
-  - add representative legacy migration/restart fixture coverage
   - validate frontend exact-run restoration against canonical resource IDs
+  - wire canonical run finalization to immutable Research Core result refs
+  - add representative legacy migration/restart fixture coverage
 
 Release blockers:
   - none identified yet
@@ -41,7 +43,8 @@ Required items:
   - none waived
 
 Last verified commit:
-  - f59acc7 — canonical M0 research identity foundation
+  - b22210b — population reuse compatibility and deterministic fixture bridge
 
 Last validation:
-  - 18 focused M0/compatibility tests passed after the implementation commit.
+  - 5 M0 contract tests plus 29 compatibility/sampling tests passed after the
+    latest implementation commit.
