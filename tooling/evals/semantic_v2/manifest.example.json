@@ -1,0 +1,21 @@
+{
+  "schema_version": "semantic-v2-benchmark-manifest-v1",
+  "dataset_version": "stra-semantic-v2-eval-YYYYMMDD-v1",
+  "taxonomy_version": "stra-core-taxonomy-v2",
+  "guideline_version": "stra-semantic-v2-guidelines-v1",
+  "evaluation_code_commit": "<git-commit>",
+  "minimum_primary_language_support": 50,
+  "boundary_regression": {
+    "path": "boundary_regression.jsonl",
+    "sha256": "<sha256>",
+    "min_examples": 200,
+    "max_examples": 500
+  },
+  "holdout": {
+    "path": "holdout.jsonl",
+    "sha256": "<sha256>",
+    "min_examples": 300,
+    "max_examples": 600
+  }
+}
+
