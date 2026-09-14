@@ -17,6 +17,7 @@ from .research_contracts import (
     utc_iso,
 )
 from .taxonomy_v2 import CORE_TAXONOMY_VERSION, core_taxonomy_fingerprint
+from .semantic_adjudication import validate_adjudication_output
 from .research_run_store import (
     get_job,
     get_population_snapshot,
@@ -545,6 +546,10 @@ def execute_semantic_run_job(semantic_run_id: str, job_id: str) -> dict[str, Any
                 text_snapshot=content,
             )
             assignment = fixture_mentions.get(str(review.get("steam_review_id"))) or review.get("payload", {}).get("semantic_mention") or {}
+            try:
+                assignment = validate_adjudication_output(assignment) if assignment else {}
+            except ValueError:
+                assignment = {}
             core_topic_id = str(assignment.get("core_topic_id") or "").strip()
             if core_topic_id:
                 prototype_version = str(assignment.get("prototype_version") or semantic_run["embedding_model_version"])

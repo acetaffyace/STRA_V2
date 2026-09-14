@@ -183,7 +183,7 @@ def test_semantic_generation_job_is_durable_and_marks_unresolved_reviews_partial
         research_run_id=research["run_id"],
         semantic_config={
             "segmentation_version": "segmentation-v1",
-            "fixture_mentions": {"r-unit-1": {"core_topic_id": "technical/crash", "signal_type": "issue"}},
+            "fixture_mentions": {"r-unit-1": {"core_topic_id": "technical/crash", "signal_type": "issue", "decision_band": "HIGH", "prototype_version": "prototype-v1"}},
         },
     )
     job = create_job(
