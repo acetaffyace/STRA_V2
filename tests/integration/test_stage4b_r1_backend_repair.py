@@ -94,6 +94,8 @@ def test_migration_23_to_24_is_additive_and_idempotent(tmp_path, monkeypatch):
         assert conn.execute(text("SELECT MAX(version) FROM schema_migrations")).scalar() == 24
         assert conn.execute(text("SELECT COUNT(*) FROM analysis_runs WHERE run_id='pre-upgrade-run'")).scalar() == 1
         assert conn.execute(text("SELECT COUNT(*) FROM analysis_run_populations")).scalar() == 0
+        for table in ("review_snapshots", "population_snapshots", "population_snapshot_members", "research_runs", "jobs"):
+            assert conn.execute(text("SELECT name FROM sqlite_master WHERE type='table' AND name=:name"), {"name": table}).scalar() == table
 
 
 def test_snapshot_idempotence_conflict_and_mutable_store_isolation():

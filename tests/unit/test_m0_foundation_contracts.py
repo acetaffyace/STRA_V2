@@ -137,6 +137,18 @@ def test_job_idempotency_transition_and_restart_recovery():
         row = conn.execute(text("SELECT status, stage FROM jobs WHERE job_id=:id"), {"id": first["job_id"]}).one()
     assert tuple(row) == ("QUEUED", "requeued_after_restart")
 
+    non_retryable = create_job(
+        job_type="one_shot_export",
+        target_resource_type="ResearchRun",
+        idempotency_key="one-shot",
+        retryable=False,
+    )
+    transition_job(non_retryable["job_id"], "RUNNING")
+    with db.get_connection() as conn:
+        conn.execute(text("UPDATE jobs SET heartbeat_at='2020-01-01T00:00:00Z' WHERE job_id=:id"), {"id": non_retryable["job_id"]})
+    assert recover_interrupted_jobs(stale_after_seconds=1) == 1
+    assert transition_job(non_retryable["job_id"], "FAILED")["status"] == "FAILED"
+
 
 def test_population_compatibility_is_explicit_and_never_upgrades_a_truncated_source():
     run = create_research_run(

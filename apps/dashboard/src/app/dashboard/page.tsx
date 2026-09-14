@@ -524,13 +524,16 @@ function DashboardContent() {
         url: `https://store.steampowered.com/app/${appId}`,
         image_url: task.game.image_url ?? null,
       });
-      setAnalysis(task.result);
+      setAnalysis({
+        ...task.result,
+        run_id: task.result.run_id ?? task.progress?.run_id ?? null,
+      });
       selectGameById(appId);
-      return;
     }
 
-    // Final fallback: load directly from persisted analysis_results so dashboard
-    // can still open even when starred cache is missing or stale.
+    // In-memory task state is only an optimistic first paint. Always hydrate
+    // the canonical dashboard payload so readiness, presentation, and exact
+    // run identity come from the persisted result.
     let cancelled = false;
     let readiness: DashboardReadiness | null = null;
     const restoreFromSavedAnalysis = async () => {
@@ -653,7 +656,7 @@ function DashboardContent() {
         selectGameById(selectedGame.appid);
       }
     }
-  }, [currentTask, refreshGames, selectGameById, selectedGame]);
+  }, [currentTask, refreshGames, runParam, selectGameById, selectedGame]);
 
   async function handleSearch() {
     if (!searchQuery.trim()) return;
