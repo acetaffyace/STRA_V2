@@ -459,6 +459,46 @@ def get_semantic_mention(mention_id: str) -> dict[str, Any] | None:
     return _semantic_mention_row(row) if row else None
 
 
+def materialize_semantic_rollups(semantic_run_id: str) -> dict[str, Any]:
+    """Materialize review-level unique topic/signal keys from immutable mentions."""
+    if not get_semantic_run(semantic_run_id):
+        raise KeyError(f"semantic_run_not_found:{semantic_run_id}")
+    with db.get_connection() as conn:
+        topics = conn.execute(text("""SELECT DISTINCT m.semantic_run_id, u.review_snapshot_id, m.core_topic_id
+            FROM semantic_mentions m JOIN semantic_units u ON u.semantic_unit_id=m.semantic_unit_id
+            WHERE m.semantic_run_id=:id"""), {"id": str(semantic_run_id)}).mappings().all()
+        for item in topics:
+            rollup_id = "rt_" + sha256_json(dict(item))[:40]
+            conn.execute(text("""INSERT OR IGNORE INTO semantic_review_topic_rollups
+                (rollup_id, semantic_run_id, review_snapshot_id, core_topic_id)
+                VALUES (:rollup_id, :semantic_run_id, :review_snapshot_id, :core_topic_id)"""), {"rollup_id": rollup_id, **dict(item)})
+        signals = conn.execute(text("""SELECT DISTINCT m.semantic_run_id, u.review_snapshot_id, m.core_topic_id, m.signal_type
+            FROM semantic_mentions m JOIN semantic_units u ON u.semantic_unit_id=m.semantic_unit_id
+            WHERE m.semantic_run_id=:id AND m.signal_type IS NOT NULL"""), {"id": str(semantic_run_id)}).mappings().all()
+        for item in signals:
+            rollup_id = "rs_" + sha256_json(dict(item))[:40]
+            conn.execute(text("""INSERT OR IGNORE INTO semantic_review_signal_rollups
+                (rollup_id, semantic_run_id, review_snapshot_id, core_topic_id, signal_type)
+                VALUES (:rollup_id, :semantic_run_id, :review_snapshot_id, :core_topic_id, :signal_type)"""), {"rollup_id": rollup_id, **dict(item)})
+        return {"topic_rollup_count": len(topics), "signal_rollup_count": len(signals)}
+
+
+def get_semantic_rollups(semantic_run_id: str) -> dict[str, Any]:
+    with db.get_connection() as conn:
+        topic_rows = conn.execute(text("""SELECT core_topic_id, COUNT(*) AS review_count
+            FROM semantic_review_topic_rollups WHERE semantic_run_id=:id
+            GROUP BY core_topic_id ORDER BY core_topic_id"""), {"id": str(semantic_run_id)}).mappings().all()
+        signal_rows = conn.execute(text("""SELECT core_topic_id, signal_type, COUNT(*) AS review_count
+            FROM semantic_review_signal_rollups WHERE semantic_run_id=:id
+            GROUP BY core_topic_id, signal_type ORDER BY core_topic_id, signal_type"""), {"id": str(semantic_run_id)}).mappings().all()
+    return {
+        "topic_rollup_count": sum(int(row["review_count"]) for row in topic_rows),
+        "signal_rollup_count": sum(int(row["review_count"]) for row in signal_rows),
+        "topics": [{"core_topic_id": str(row["core_topic_id"]), "review_count": int(row["review_count"])} for row in topic_rows],
+        "signals": [{"core_topic_id": str(row["core_topic_id"]), "signal_type": str(row["signal_type"]), "review_count": int(row["review_count"])} for row in signal_rows],
+    }
+
+
 def execute_semantic_run_job(semantic_run_id: str, job_id: str) -> dict[str, Any]:
     """Run the deterministic evidence stage behind a durable semantic Job.
 
@@ -532,6 +572,7 @@ def execute_semantic_run_job(semantic_run_id: str, job_id: str) -> dict[str, Any
                 unresolved_review_count=unresolved,
                 semantic_coverage=(processed / len(eligible)) if eligible else 1.0,
             )
+        materialized_rollups = materialize_semantic_rollups(semantic_run_id)
         final_status = "PARTIAL" if unresolved or processed != len(eligible) else "READY"
         result = transition_semantic_run(
             semantic_run_id,
@@ -541,6 +582,7 @@ def execute_semantic_run_job(semantic_run_id: str, job_id: str) -> dict[str, Any
             semantic_coverage=(processed / len(eligible)) if eligible else 1.0,
             result_ref=f"semantic_results:{semantic_run_id}",
         )
+        result["rollups"] = materialized_rollups
         transition_job(job_id, "PARTIAL" if final_status == "PARTIAL" else "SUCCEEDED", stage="completed", progress_current=processed, progress_total=len(eligible))
         return result
     except Exception as exc:
@@ -554,6 +596,7 @@ def execute_semantic_run_job(semantic_run_id: str, job_id: str) -> dict[str, Any
 
 __all__ = [
     "canonical_semantic_config", "create_semantic_mention", "create_semantic_run", "create_semantic_unit",
-    "execute_semantic_run_job", "get_semantic_mention", "get_semantic_run", "get_semantic_unit",
+    "execute_semantic_run_job", "get_semantic_mention", "get_semantic_rollups", "get_semantic_run", "get_semantic_unit",
+    "materialize_semantic_rollups",
     "list_semantic_runs", "semantic_config_hash", "semantic_run_id_for", "transition_semantic_run",
 ]

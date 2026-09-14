@@ -63,7 +63,7 @@ def _run(run_id: str, app_id: int = 553850) -> None:
 def test_migration_24_fresh_repeat_and_foreign_keys():
     with db.get_connection() as conn:
         raw = conn.connection.driver_connection
-        assert conn.execute(text("SELECT MAX(version) FROM schema_migrations")).scalar() == 27
+        assert conn.execute(text("SELECT MAX(version) FROM schema_migrations")).scalar() == 28
         assert conn.execute(text("SELECT name FROM sqlite_master WHERE type='table' AND name='analysis_run_populations'")).scalar() == "analysis_run_populations"
         assert conn.execute(text("SELECT name FROM sqlite_master WHERE type='table' AND name='analysis_run_population_items'")).scalar() == "analysis_run_population_items"
         assert conn.execute(text("PRAGMA foreign_keys")).scalar() == 1
@@ -88,7 +88,9 @@ def test_migration_23_to_24_is_additive_and_idempotent(tmp_path, monkeypatch):
         conn.execute(text("DROP TABLE semantic_runs"))
         conn.execute(text("DROP TABLE topic_catalog_topics"))
         conn.execute(text("DROP TABLE topic_catalog_versions"))
-        conn.execute(text("DELETE FROM schema_migrations WHERE version IN (24, 25, 26, 27)"))
+        conn.execute(text("DROP TABLE semantic_review_signal_rollups"))
+        conn.execute(text("DROP TABLE semantic_review_topic_rollups"))
+        conn.execute(text("DELETE FROM schema_migrations WHERE version IN (24, 25, 26, 27, 28)"))
         conn.commit()
         assert conn.execute(text("SELECT MAX(version) FROM schema_migrations")).scalar() == 23
     db.close_engine()
@@ -96,7 +98,7 @@ def test_migration_23_to_24_is_additive_and_idempotent(tmp_path, monkeypatch):
     db.init_db()
     db.init_db()
     with db.get_connection() as conn:
-        assert conn.execute(text("SELECT MAX(version) FROM schema_migrations")).scalar() == 27
+        assert conn.execute(text("SELECT MAX(version) FROM schema_migrations")).scalar() == 28
         assert conn.execute(text("SELECT COUNT(*) FROM analysis_runs WHERE run_id='pre-upgrade-run'")).scalar() == 1
         assert conn.execute(text("SELECT COUNT(*) FROM analysis_run_populations")).scalar() == 0
         for table in ("review_snapshots", "population_snapshots", "population_snapshot_members", "research_runs", "jobs"):

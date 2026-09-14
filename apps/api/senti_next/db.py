@@ -12,7 +12,7 @@ from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.pool import NullPool, StaticPool
 
-from . import classification_materialization_schema, classifier_taxonomy_schema, classifier_validation_execution_schema, label_schema, result_schema, research_population_snapshot_schema, semantic_discovery_materialization_schema, semantic_discovery_schema, semantic_index_schema, semantic_measurement_result_schema, semantic_measurement_schema, semantic_region_interpretation_schema, semantic_run_schema, semantic_unit_schema, taxonomy_governance_schema, topic_catalog_schema
+from . import classification_materialization_schema, classifier_taxonomy_schema, classifier_validation_execution_schema, label_schema, result_schema, research_population_snapshot_schema, semantic_discovery_materialization_schema, semantic_discovery_schema, semantic_index_schema, semantic_measurement_result_schema, semantic_measurement_schema, semantic_region_interpretation_schema, semantic_rollup_schema, semantic_run_schema, semantic_unit_schema, taxonomy_governance_schema, topic_catalog_schema
 from . import migrations, runtime_state
 
 logger = logging.getLogger(__name__)
@@ -1017,6 +1017,28 @@ def init_db() -> None:
             topic_catalog_path,
             [(topic_catalog_schema.TOPIC_CATALOG_MIGRATION_VERSION, topic_catalog_schema.DESCRIPTION, topic_catalog_schema.migrate_topic_catalogs)],
             backup_path=topic_catalog_backup,
+            restore_on_error=True,
+        )
+
+    # Review-level rollups deduplicate multiple SemanticMentions from the
+    # same review/topic before formal prevalence is exposed.
+    if database in (None, ":memory:"):
+        with get_connection() as conn:
+            raw = conn.connection.driver_connection
+            if migrations.current_version(raw) < semantic_rollup_schema.SEMANTIC_ROLLUP_MIGRATION_VERSION:
+                semantic_rollup_schema.migrate_semantic_rollups(raw)
+                migrations.record_version(raw, semantic_rollup_schema.SEMANTIC_ROLLUP_MIGRATION_VERSION, semantic_rollup_schema.DESCRIPTION)
+                raw.commit()
+            else:
+                semantic_rollup_schema.migrate_semantic_rollups(raw)
+                raw.commit()
+    else:
+        semantic_rollup_path = Path(database).expanduser().resolve()
+        semantic_rollup_backup = semantic_rollup_path.with_name(semantic_rollup_path.name + ".semantic_rollup_v1.bak")
+        migrations.apply_ordered_migrations(
+            semantic_rollup_path,
+            [(semantic_rollup_schema.SEMANTIC_ROLLUP_MIGRATION_VERSION, semantic_rollup_schema.DESCRIPTION, semantic_rollup_schema.migrate_semantic_rollups)],
+            backup_path=semantic_rollup_backup,
             restore_on_error=True,
         )
 

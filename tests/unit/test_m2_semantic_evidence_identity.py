@@ -11,6 +11,7 @@ from apps.api.senti_next.semantic_run_store import (
     create_semantic_run,
     create_semantic_unit,
     execute_semantic_run_job,
+    get_semantic_rollups,
 )
 from apps.api.senti_next.routes.research_runs import SemanticRunCreateRequest, create_snapshot_semantic_run
 
@@ -170,7 +171,7 @@ def test_semantic_mention_preserves_one_core_topic_with_optional_secondary_and_i
 
 
 def test_migration_registry_and_schema_include_evidence_tables():
-    assert migrations.latest_known_schema_version() == 27
+    assert migrations.latest_known_schema_version() == 28
     with db.get_connection() as conn:
         tables = {row[0] for row in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'")).all()}
     assert {"semantic_runs", "semantic_units", "semantic_mentions"} <= tables
@@ -199,6 +200,9 @@ def test_semantic_generation_job_is_durable_and_marks_unresolved_reviews_partial
     assert result["processed_review_count"] == 1
     assert result["unresolved_review_count"] == 0
     assert get_job(job["job_id"])["status"] == "SUCCEEDED"
+    rollups = get_semantic_rollups(semantic["semantic_run_id"])
+    assert rollups["topic_rollup_count"] == 1
+    assert rollups["signal_rollup_count"] == 1
 
     unresolved_research = create_research_run(
         run_id="run_m2_unresolved",
