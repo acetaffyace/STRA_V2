@@ -384,7 +384,7 @@ def _fetch_reviews_contract(
                     continue
                 if contract.start_time is not None and timestamp_value < contract.start_time:
                     continue
-                if contract.end_time is not None and timestamp_value > contract.end_time:
+                if contract.end_time is not None and timestamp_value >= contract.end_time:
                     continue
             population.append(review)
 

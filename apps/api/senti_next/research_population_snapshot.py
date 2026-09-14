@@ -8,6 +8,14 @@ from typing import Any, Mapping, Sequence
 from sqlalchemy import text
 
 from . import db
+from .research_run_store import (
+    create_population_snapshot,
+    create_research_run,
+    get_population_snapshot,
+    get_research_run,
+    get_review_snapshot,
+    save_review_snapshot,
+)
 
 
 def _json(value: Any) -> str:
@@ -102,41 +110,82 @@ def freeze_analysis_run_population(
         if existing:
             if str(existing["population_fingerprint"]) != fingerprint or int(existing["population_n"]) != len(canonical_reviews):
                 raise ValueError("research_population_snapshot_conflict")
-            return _row_to_metadata(existing)
-        run = conn.execute(
-            text("SELECT target_app_id FROM analysis_runs WHERE run_id=:run_id AND run_type='general_analysis'"),
+            row = existing
+        else:
+            run = conn.execute(
+                text("SELECT target_app_id FROM analysis_runs WHERE run_id=:run_id AND run_type='general_analysis'"),
+                {"run_id": str(run_id)},
+            ).mappings().first()
+            if not run:
+                raise ValueError("analysis_run_not_found")
+            if int(run["target_app_id"]) != int(app_id):
+                raise ValueError("research_population_snapshot_app_mismatch")
+            conn.execute(
+                text("INSERT INTO analysis_run_populations(run_id, app_id, population_fingerprint, population_n) VALUES (:run_id, :app_id, :fingerprint, :population_n)"),
+                {"run_id": str(run_id), "app_id": int(app_id), "fingerprint": fingerprint, "population_n": len(canonical_reviews)},
+            )
+            for ordinal, (review_id, review) in enumerate(zip(review_ids, canonical_reviews)):
+                conn.execute(
+                    text("INSERT INTO analysis_run_population_items(run_id, ordinal, review_id, review_hash, payload_json) VALUES (:run_id, :ordinal, :review_id, :review_hash, :payload_json)"),
+                    {
+                        "run_id": str(run_id),
+                        "ordinal": ordinal,
+                        "review_id": review_id,
+                        "review_hash": review_hash(review),
+                        "payload_json": _json(review),
+                    },
+                )
+            row = conn.execute(
+                text("SELECT run_id, app_id, population_fingerprint, population_n, created_at FROM analysis_run_populations WHERE run_id=:run_id"),
+                {"run_id": str(run_id)},
+            ).mappings().one()
+        run_row = conn.execute(
+            text("SELECT config, created_at FROM analysis_runs WHERE run_id=:run_id AND run_type='general_analysis'"),
             {"run_id": str(run_id)},
         ).mappings().first()
-        if not run:
-            raise ValueError("analysis_run_not_found")
-        if int(run["target_app_id"]) != int(app_id):
-            raise ValueError("research_population_snapshot_app_mismatch")
-        conn.execute(
-            text("INSERT INTO analysis_run_populations(run_id, app_id, population_fingerprint, population_n) VALUES (:run_id, :app_id, :fingerprint, :population_n)"),
-            {"run_id": str(run_id), "app_id": int(app_id), "fingerprint": fingerprint, "population_n": len(canonical_reviews)},
+
+    # New general-analysis writes receive the canonical M0 identity graph at
+    # the same freeze point.  The legacy return shape remains unchanged for
+    # existing callers, with exact canonical IDs added as provenance.
+    canonical = None
+    if run_row:
+        try:
+            config = json.loads(str(run_row["config"] or "{}"))
+        except (TypeError, ValueError):
+            config = {}
+        contract = config.get("sampling_contract")
+        if not isinstance(contract, dict):
+            contract = {"app_id": int(app_id), "languages": config.get("languages") or ["all"]}
+        canonical = create_research_run(
+            run_id=str(run_id),
+            app_id=int(app_id),
+            sampling_contract=contract,
+            reviews=canonical_reviews,
+            anchor_time=run_row["created_at"],
+            acquisition_provenance={"legacy_bridge": True, "source": config.get("source", "steam_reviews")},
+            config=config,
+            status="RUNNING",
         )
-        for ordinal, (review_id, review) in enumerate(zip(review_ids, canonical_reviews)):
-            conn.execute(
-                text("INSERT INTO analysis_run_population_items(run_id, ordinal, review_id, review_hash, payload_json) VALUES (:run_id, :ordinal, :review_id, :review_hash, :payload_json)"),
-                {
-                    "run_id": str(run_id),
-                    "ordinal": ordinal,
-                    "review_id": review_id,
-                    "review_hash": review_hash(review),
-                    "payload_json": _json(review),
-                },
-            )
-        row = conn.execute(
-            text("SELECT run_id, app_id, population_fingerprint, population_n, created_at FROM analysis_run_populations WHERE run_id=:run_id"),
-            {"run_id": str(run_id)},
-        ).mappings().one()
-    return _row_to_metadata(row)
+    metadata = _row_to_metadata(row)
+    if canonical:
+        metadata.update({
+            "population_snapshot_id": canonical["population_snapshot_id"],
+            "canonical_population_hash": canonical["population_hash"],
+            "canonical_run_id": canonical["run_id"],
+        })
+    return metadata
 
 
 __all__ = [
     "compute_population_fingerprint",
+    "create_population_snapshot",
+    "create_research_run",
     "freeze_analysis_run_population",
+    "get_population_snapshot",
     "get_analysis_run_population",
     "get_analysis_run_population_metadata",
+    "get_research_run",
+    "get_review_snapshot",
     "review_hash",
+    "save_review_snapshot",
 ]

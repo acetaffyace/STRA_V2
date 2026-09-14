@@ -18,8 +18,9 @@ PurchaseType = Literal["all", "steam", "non_steam_purchase"]
 class SamplingContract(BaseModel):
     """Serializable definition of a Steam review research population.
 
-    ``start_time`` and ``end_time`` are inclusive Unix timestamps applied to
-    ``timestamp_created`` after acquisition. ``max_reviews=0`` is the sole
+    ``start_time`` and ``end_time`` define a half-open Unix timestamp interval
+    ``[start_time, end_time)`` applied to ``timestamp_created`` after
+    acquisition. ``max_reviews=0`` is the sole
     unlimited convention.  A time window is intentionally restricted to the
     chronological Steam mode: Steam's helpfulness mode uses sliding windows
     and cannot establish complete historical coverage.

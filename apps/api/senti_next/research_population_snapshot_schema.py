@@ -1,7 +1,7 @@
 """Migration 24 for immutable Research Population snapshots."""
 from __future__ import annotations
 
-DESCRIPTION = "immutable research population snapshots"
+DESCRIPTION = "immutable research population snapshots and canonical M0 identity graph"
 RESEARCH_POPULATION_SNAPSHOT_MIGRATION_VERSION = 24
 
 
@@ -33,3 +33,9 @@ def migrate_research_population_snapshots(conn) -> None:
         """CREATE INDEX IF NOT EXISTS idx_analysis_run_population_items_ordinal
            ON analysis_run_population_items(run_id, ordinal)"""
     )
+    # M0 canonical identity graph.  Keep the legacy tables above available to
+    # historical readers while all new formal resources use ReviewSnapshot ->
+    # PopulationSnapshot -> ResearchRun.
+    from .foundation_schema import migrate_foundation_contracts
+
+    migrate_foundation_contracts(conn)

@@ -959,6 +959,10 @@ def init_db() -> None:
         recovered = run_schema.recover_invalid_version_runs(conn)
         if recovered:
             logger.warning("Recovered %s invalid version-review run(s) after startup", recovered)
+    from .research_run_store import recover_interrupted_jobs
+    recovered_jobs = recover_interrupted_jobs()
+    if recovered_jobs:
+        logger.warning("Recovered %s interrupted durable job(s) after startup", recovered_jobs)
     _initialized = True
 
 

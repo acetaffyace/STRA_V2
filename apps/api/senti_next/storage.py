@@ -1812,6 +1812,11 @@ def finalize_general_analysis_run(
         )
         if transitioned.rowcount != 1:
             raise ValueError("General analysis run completion transition failed")
+    try:
+        from .research_run_store import transition_research_run
+        transition_research_run(run_id, "completed")
+    except Exception:
+        logger.debug("Canonical ResearchRun completion bridge unavailable for %s", run_id, exc_info=True)
 
 
 def get_analysis_run_result(run_id: str) -> Optional[Dict[str, Any]]:
@@ -2036,6 +2041,15 @@ def transition_general_analysis_run(
                 sets.append(f"{key}=:{key}")
                 values[key] = value
         conn.execute(text(f"UPDATE analysis_runs SET {', '.join(sets)} WHERE run_id=:run_id AND user_id=:user_id"), values)
+    # Keep the canonical ResearchRun lifecycle synchronized with the legacy
+    # general-run compatibility row when a population has been frozen.
+    try:
+        from .research_run_store import transition_research_run
+        transition_research_run(run_id, status)
+    except (KeyError, ValueError):
+        raise
+    except Exception:
+        logger.debug("Canonical ResearchRun lifecycle bridge unavailable for %s", run_id, exc_info=True)
     return get_analysis_run(run_id) or {}
 
 
@@ -2195,8 +2209,16 @@ def list_analysis_history(limit: int = 30, active_only: bool = False) -> List[Di
         config = _parse_json_field(row["config"], {})
         metrics = _parse_json_field(row["metrics"], {}) or {}
         analysis_config = config.get("analysis") or {}
-        population = row["analysis_population_count"] or metrics.get("population_contract", {}).get("raw_window_count")
-        classified = row["classified_count"] or metrics.get("population_contract", {}).get("classified_count")
+        population = (
+            row["analysis_population_count"]
+            if row["analysis_population_count"] is not None
+            else metrics.get("population_contract", {}).get("raw_window_count")
+        )
+        classified = (
+            row["classified_count"]
+            if row["classified_count"] is not None
+            else metrics.get("population_contract", {}).get("classified_count")
+        )
         result_available = bool(row["status"] == "completed" and (row["run_type"] == "version_review" and metrics or get_analysis_run_result(str(row["run_id"]))))
         # Normal Version Review history is a user-facing result list, not a
         # queue/debug dump.  Hide empty/legacy records and duplicate joined

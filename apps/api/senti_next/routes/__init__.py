@@ -10,6 +10,7 @@ from .misc import router as misc_router
 from .runs import router as runs_router
 from .presentation import router as presentation_router
 from .comparison import router as comparison_router
+from .research_runs import router as research_resources_router
 
 all_routers = [
     analysis_router,
@@ -22,4 +23,5 @@ all_routers = [
     runs_router,
     presentation_router,
     comparison_router,
+    research_resources_router,
 ]
