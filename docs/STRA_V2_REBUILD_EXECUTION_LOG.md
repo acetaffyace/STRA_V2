@@ -32,9 +32,21 @@
 
 ## M1 — Canonical Research Workbench
 
-- Status: IN_PROGRESS
-- Current work item: reconcile the dashboard's remaining page-local
-  segment/trend fallbacks with exact persisted Research Core projections.
+- Status: COMPLETE
+- Acceptance: exact-run Overview, deterministic language/at-review-playtime
+  Segments, exact daily Trends, and run-scoped Evidence are available without
+  semantic dependency; unfiltered formal views do not use capped review
+  samples or StarredGame data.
+- Tests: 21 M1 workbench/core tests passed; dashboard typecheck and elevated
+  production build passed; lint passed with warnings only.
 - M0 handoff: canonical run/population/job identity is sealed; M1 may use the
   legacy result tables as a compatibility boundary but must preserve exact
   run IDs and never restore formal results from StarredGame samples.
+
+## M2 — Semantic Engine V2 vertical slice
+
+- Status: IN_PROGRESS
+- Current work item: implement immutable SemanticRun identity and
+  `semantic_config_hash` idempotency/lifecycle persistence.
+- M1 handoff: deterministic Research Core and exact Workbench presentation are
+  available independently of semantic execution.
