@@ -12,7 +12,7 @@ from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.pool import NullPool, StaticPool
 
-from . import classification_materialization_schema, classifier_taxonomy_schema, classifier_validation_execution_schema, label_schema, result_schema, research_population_snapshot_schema, semantic_discovery_materialization_schema, semantic_discovery_schema, semantic_index_schema, semantic_measurement_result_schema, semantic_measurement_schema, semantic_region_interpretation_schema, semantic_run_schema, semantic_unit_schema, taxonomy_governance_schema
+from . import classification_materialization_schema, classifier_taxonomy_schema, classifier_validation_execution_schema, label_schema, result_schema, research_population_snapshot_schema, semantic_discovery_materialization_schema, semantic_discovery_schema, semantic_index_schema, semantic_measurement_result_schema, semantic_measurement_schema, semantic_region_interpretation_schema, semantic_run_schema, semantic_unit_schema, taxonomy_governance_schema, topic_catalog_schema
 from . import migrations, runtime_state
 
 logger = logging.getLogger(__name__)
@@ -995,6 +995,28 @@ def init_db() -> None:
             semantic_unit_path,
             [(semantic_unit_schema.SEMANTIC_UNIT_MIGRATION_VERSION, semantic_unit_schema.DESCRIPTION, semantic_unit_schema.migrate_semantic_units)],
             backup_path=semantic_unit_backup,
+            restore_on_error=True,
+        )
+
+    # M2 stores accepted Game/Archetype Topic catalog versions separately
+    # from the stable Core Taxonomy and never rewrites published entries.
+    if database in (None, ":memory:"):
+        with get_connection() as conn:
+            raw = conn.connection.driver_connection
+            if migrations.current_version(raw) < topic_catalog_schema.TOPIC_CATALOG_MIGRATION_VERSION:
+                topic_catalog_schema.migrate_topic_catalogs(raw)
+                migrations.record_version(raw, topic_catalog_schema.TOPIC_CATALOG_MIGRATION_VERSION, topic_catalog_schema.DESCRIPTION)
+                raw.commit()
+            else:
+                topic_catalog_schema.migrate_topic_catalogs(raw)
+                raw.commit()
+    else:
+        topic_catalog_path = Path(database).expanduser().resolve()
+        topic_catalog_backup = topic_catalog_path.with_name(topic_catalog_path.name + ".topic_catalog_v1.bak")
+        migrations.apply_ordered_migrations(
+            topic_catalog_path,
+            [(topic_catalog_schema.TOPIC_CATALOG_MIGRATION_VERSION, topic_catalog_schema.DESCRIPTION, topic_catalog_schema.migrate_topic_catalogs)],
+            backup_path=topic_catalog_backup,
             restore_on_error=True,
         )
 

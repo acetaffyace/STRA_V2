@@ -155,4 +155,5 @@ def test_application_db_initialization_records_stable_bootstrap_version(monkeypa
                                             (24, "immutable research population snapshots and canonical M0 identity graph"),
                                             (25, "immutable SemanticRun configuration identity"),
                                             (26, "immutable SemanticUnit and SemanticMention evidence identity"),
+                                            (27, "versioned Game and Archetype Topic catalog governance"),
                                             ]

@@ -42,6 +42,7 @@ MIGRATION_REGISTRY: tuple[tuple[int, str], ...] = (
     (24, "immutable research population snapshots"),
     (25, "immutable SemanticRun configuration identity"),
     (26, "immutable SemanticUnit and SemanticMention evidence identity"),
+    (27, "versioned Game and Archetype Topic catalog governance"),
 )
 
 
