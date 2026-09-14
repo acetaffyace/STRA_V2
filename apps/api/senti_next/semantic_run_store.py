@@ -16,6 +16,7 @@ from .research_contracts import (
     sha256_json,
     utc_iso,
 )
+from .taxonomy_v2 import CORE_TAXONOMY_VERSION, core_taxonomy_fingerprint
 from .research_run_store import (
     get_job,
     get_population_snapshot,
@@ -42,6 +43,17 @@ def canonical_semantic_config(config: Mapping[str, Any]) -> dict[str, Any]:
         raise ValueError("semantic_config_required")
     normalized = dict(config)
     normalized.setdefault("semantic_config_version", SEMANTIC_CONFIG_VERSION)
+    normalized.setdefault("semantic_engine_version", "semantic-engine-v2")
+    normalized.setdefault("core_taxonomy_version", CORE_TAXONOMY_VERSION)
+    normalized.setdefault("core_taxonomy_fingerprint", core_taxonomy_fingerprint())
+    normalized.setdefault("embedding_model_version", "local-multilingual-embedding-v1")
+    normalized.setdefault("embedding_artifact_hash", "unresolved")
+    normalized.setdefault("prototype_versions", {})
+    normalized.setdefault("calibration_version", "calibration-v1")
+    normalized.setdefault("segmentation_version", "segmentation-v1")
+    normalized.setdefault("normalization_version", "normalization-v1")
+    normalized.setdefault("assignment_policy_version", "assignment-v1")
+    normalized.setdefault("llm_adjudication_policy_version", "adjudication-v1")
     # Round-trip through canonical JSON to make nested values deterministic
     # and reject values that cannot be persisted as configuration identity.
     try:

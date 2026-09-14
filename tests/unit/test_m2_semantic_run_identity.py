@@ -12,6 +12,7 @@ from apps.api.senti_next.semantic_run_store import (
     semantic_config_hash,
     transition_semantic_run,
 )
+from apps.api.senti_next.taxonomy_v2 import CORE_TAXONOMY_VERSION, core_taxonomy_fingerprint
 
 
 @pytest.fixture(autouse=True)
@@ -58,6 +59,12 @@ def test_semantic_config_hash_is_order_independent_and_material_changes_rotate_i
     assert semantic_config_hash(first) == semantic_config_hash(reordered)
     changed = dict(first, calibration_version="calibration-v3")
     assert semantic_config_hash(first) != semantic_config_hash(changed)
+
+
+def test_partial_semantic_config_is_pinned_to_the_versioned_core_taxonomy_source():
+    created = create_semantic_run(research_run_id=_research_run()["run_id"], semantic_config={"segmentation_version": "segmentation-v1"})
+    assert created["core_taxonomy_version"] == CORE_TAXONOMY_VERSION
+    assert created["semantic_config_json"]["core_taxonomy_fingerprint"] == core_taxonomy_fingerprint()
 
 
 def test_semantic_run_is_idempotent_per_research_run_and_config_and_identity_is_immutable():
