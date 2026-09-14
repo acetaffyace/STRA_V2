@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stra.local/schemas/semantic-v2-common-record-v1.json",
+  "title": "Semantic V2 human annotation record",
+  "type": "object",
+  "required": ["record_schema_version", "dataset_role", "sample_id", "taxonomy_version", "language", "source", "annotation_provenance", "gold"],
+  "properties": {
+    "record_schema_version": {"type": "string"},
+    "dataset_role": {"enum": ["boundary_regression", "evaluation_holdout"]},
+    "sample_id": {"type": "string", "minLength": 1},
+    "taxonomy_version": {"const": "stra-core-taxonomy-v2"},
+    "language": {"type": "string", "minLength": 2},
+    "source": {
+      "type": "object",
+      "required": ["source_system", "app_id", "source_review_id", "source_content_hash", "source_review_text"],
+      "properties": {
+        "source_system": {"type": "string", "minLength": 1},
+        "app_id": {"type": "integer", "exclusiveMinimum": 0},
+        "source_review_id": {"type": "string", "minLength": 1},
+        "source_snapshot_id": {"type": ["string", "null"]},
+        "source_content_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "source_review_text": {"type": "string", "minLength": 1}
+      }
+    },
+    "annotation_provenance": {
+      "type": "object",
+      "required": ["annotator_id", "annotation_method", "first_pass", "final", "disagreement_state"],
+      "properties": {
+        "annotator_id": {"type": "string", "minLength": 1},
+        "annotation_method": {"type": "string", "minLength": 1},
+        "first_pass": {"$ref": "#/$defs/label_block"},
+        "final": {"$ref": "#/$defs/label_block"},
+        "disagreement_state": {"enum": ["not_applicable", "no_disagreement", "annotator_disagreement", "adjudicated"]},
+        "reviewer_id": {"type": "string"},
+        "notes": {"type": "string"}
+      }
+    },
+    "gold": {"$ref": "#/$defs/label_block"}
+  },
+  "$defs": {
+    "label_block": {
+      "type": "object",
+      "required": ["semantic_status", "core_topic_ids", "secondary_game_topic_ids", "secondary_archetype_topic_ids", "semantic_mentions", "signals"],
+      "properties": {
+        "semantic_status": {"enum": ["resolved", "unresolved", "semantically_invalid"]},
+        "core_topic_ids": {"type": "array", "items": {"type": "string"}},
+        "secondary_game_topic_ids": {"type": "array", "items": {"type": "string"}},
+        "secondary_archetype_topic_ids": {"type": "array", "items": {"type": "string"}},
+        "semantic_mentions": {"type": "array", "items": {"$ref": "#/$defs/mention"}},
+        "signals": {"type": "array", "items": {"$ref": "#/$defs/signal"}},
+        "evidence_spans": {"type": "array", "items": {"type": "string"}},
+        "unresolved_reason": {"type": "string"}
+      }
+    },
+    "mention": {
+      "type": "object",
+      "required": ["core_topic_id", "signal_type", "evidence_spans"],
+      "properties": {
+        "core_topic_id": {"type": "string"},
+        "secondary_game_topic_id": {"type": ["string", "null"]},
+        "secondary_archetype_topic_id": {"type": ["string", "null"]},
+        "signal_type": {"enum": ["issue", "request", "praise", null]},
+        "evidence_spans": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "signal": {
+      "type": "object",
+      "required": ["core_topic_id", "signal_type", "evidence_spans"],
+      "properties": {
+        "core_topic_id": {"type": "string"},
+        "signal_type": {"enum": ["issue", "request", "praise"]},
+        "evidence_spans": {"type": "array", "items": {"type": "string"}}
+      }
+    }
+  }
+}
+

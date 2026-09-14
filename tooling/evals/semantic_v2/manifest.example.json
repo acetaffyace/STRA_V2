@@ -1,21 +1,23 @@
 {
-  "schema_version": "semantic-v2-benchmark-manifest-v1",
-  "dataset_version": "stra-semantic-v2-eval-YYYYMMDD-v1",
-  "taxonomy_version": "stra-core-taxonomy-v2",
-  "guideline_version": "stra-semantic-v2-guidelines-v1",
-  "evaluation_code_commit": "<git-commit>",
-  "minimum_primary_language_support": 50,
-  "boundary_regression": {
-    "path": "boundary_regression.jsonl",
-    "sha256": "<sha256>",
-    "min_examples": 200,
-    "max_examples": 500
+  "schema_version": "semantic-v2-benchmark-manifest-v2",
+  "asset_type": "bundle",
+  "dataset_identity": {
+    "dataset_id": "stra-semantic-v2-eval-YYYYMMDD",
+    "dataset_version": "stra-semantic-v2-eval-YYYYMMDD-v1",
+    "taxonomy_version": "stra-core-taxonomy-v2",
+    "guideline_version": "stra-semantic-v2-guidelines-v1",
+    "source_collection": "<immutable-source-collection>",
+    "source_collection_hash": "<sha256>",
+    "annotation_protocol_version": "stra-semantic-v2-human-annotation-v1",
+    "evaluation_code_commit": "<git-commit>"
   },
-  "holdout": {
-    "path": "holdout.jsonl",
-    "sha256": "<sha256>",
-    "min_examples": 300,
-    "max_examples": 600
+  "minimum_primary_language_support": 50,
+  "asset_policies": {
+    "boundary_regression": {"evaluation_only": false, "allowed_for_calibration_training": true},
+    "evaluation_holdout": {"evaluation_only": true, "allowed_for_calibration_training": false}
+  },
+  "assets": {
+    "boundary_regression": {"path": "boundary_regression.jsonl", "sha256": "<sha256>", "min_examples": 200, "max_examples": 500},
+    "evaluation_holdout": {"path": "evaluation_holdout.jsonl", "sha256": "<sha256>", "min_examples": 300, "max_examples": 600}
   }
 }
-

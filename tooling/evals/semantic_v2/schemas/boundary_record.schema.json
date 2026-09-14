@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stra.local/schemas/semantic-v2-boundary-record-v1.json",
+  "title": "Semantic V2 Boundary Regression Suite record",
+  "allOf": [
+    {"$ref": "common_record.schema.json"},
+    {
+      "type": "object",
+      "required": ["boundary_metadata"],
+      "properties": {
+        "record_schema_version": {"const": "semantic-v2-boundary-record-v1"},
+        "dataset_role": {"const": "boundary_regression"},
+        "boundary_metadata": {
+          "type": "object",
+          "required": ["boundary_category", "confusion_topic_ids", "policy_edge_cases"],
+          "properties": {
+            "boundary_category": {"type": "string"},
+            "confusion_topic_ids": {"type": "array", "minItems": 2, "items": {"type": "string"}},
+            "policy_edge_cases": {"type": "array", "items": {"type": "string"}},
+            "sampling_reason": {"type": "string"}
+          }
+        }
+      }
+    }
+  ]
+}
+

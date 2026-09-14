@@ -1,0 +1,18 @@
+{
+  "schema_version": "semantic-v2-benchmark-manifest-v2",
+  "asset_type": "boundary_regression",
+  "dataset_identity": {
+    "dataset_id": "stra-semantic-v2-boundary-YYYYMMDD",
+    "dataset_version": "stra-semantic-v2-boundary-YYYYMMDD-v1",
+    "taxonomy_version": "stra-core-taxonomy-v2",
+    "guideline_version": "stra-semantic-v2-guidelines-v1",
+    "source_collection": "<immutable-source-collection>",
+    "source_collection_hash": "<sha256>",
+    "annotation_protocol_version": "stra-semantic-v2-human-annotation-v1",
+    "evaluation_code_commit": "<git-commit>"
+  },
+  "calibration_training_policy": {"evaluation_only": false, "allowed_for_calibration_training": true},
+  "boundary_categories": ["balance_vs_difficulty", "mechanics_vs_controls", "bugs_vs_stability", "multilingual_edge_case"],
+  "asset": {"path": "boundary_regression.jsonl", "sha256": "<sha256>", "min_examples": 200, "max_examples": 500}
+}
+

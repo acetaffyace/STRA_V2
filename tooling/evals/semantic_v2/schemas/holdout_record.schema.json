@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stra.local/schemas/semantic-v2-holdout-record-v1.json",
+  "title": "Semantic V2 Evaluation Holdout record",
+  "allOf": [
+    {"$ref": "common_record.schema.json"},
+    {
+      "type": "object",
+      "required": ["holdout_metadata"],
+      "properties": {
+        "record_schema_version": {"const": "semantic-v2-holdout-record-v1"},
+        "dataset_role": {"const": "evaluation_holdout"},
+        "holdout_metadata": {
+          "type": "object",
+          "required": ["sampling_stratum", "evaluation_only", "calibration_training_use"],
+          "properties": {
+            "sampling_stratum": {"type": "string", "minLength": 1},
+            "evaluation_only": {"const": true},
+            "calibration_training_use": {"const": "prohibited"}
+          }
+        }
+      }
+    }
+  ]
+}
+

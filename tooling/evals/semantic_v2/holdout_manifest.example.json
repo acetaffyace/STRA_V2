@@ -1,0 +1,17 @@
+{
+  "schema_version": "semantic-v2-benchmark-manifest-v2",
+  "asset_type": "evaluation_holdout",
+  "dataset_identity": {
+    "dataset_id": "stra-semantic-v2-holdout-YYYYMMDD",
+    "dataset_version": "stra-semantic-v2-holdout-YYYYMMDD-v1",
+    "taxonomy_version": "stra-core-taxonomy-v2",
+    "guideline_version": "stra-semantic-v2-human-guidelines-v1",
+    "source_collection": "<independent-immutable-source-collection>",
+    "source_collection_hash": "<sha256>",
+    "annotation_protocol_version": "stra-semantic-v2-human-annotation-v1",
+    "evaluation_code_commit": "<git-commit>"
+  },
+  "minimum_primary_language_support": 50,
+  "calibration_training_policy": {"evaluation_only": true, "allowed_for_calibration_training": false},
+  "asset": {"path": "evaluation_holdout.jsonl", "sha256": "<sha256>", "min_examples": 300, "max_examples": 600}
+}
