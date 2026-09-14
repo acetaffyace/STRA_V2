@@ -34,6 +34,8 @@ import {
   fetchDailyReviewVolume,
   fetchDailyRecommendationRate,
   fetchProvenanceStrip,
+  fetchSemanticRun,
+  SemanticRunResource,
   buildDashboardRunUrl,
   DashboardReadiness,
   DashboardPresentation,
@@ -478,6 +480,7 @@ function DashboardContent() {
   const router = useRouter();
   const gameParam = searchParams.get("game");
   const runParam = searchParams.get("run");
+  const semanticRunParam = searchParams.get("semantic_run");
   const viewParam = searchParams.get("view");
   const { startAnalysis, getTask, tasks } = useAnalysis();
   const { games, loading: gamesLoading, refreshGames, selectGameById, setTemporaryGame, selectedStarredGame, toggleFavorite } = useGameContext();
@@ -508,12 +511,34 @@ function DashboardContent() {
   const [mounted, setMounted] = useState(false);
   const [analysisHistory, setAnalysisHistory] = useState<import("@/lib/api").AnalysisHistoryItem[]>([]);
   const [recentAnalysisSummary, setRecentAnalysisSummary] = useState<import("@/lib/api").RecentAnalysisSummaryItem[]>([]);
+  const [semanticRunResource, setSemanticRunResource] = useState<SemanticRunResource | null>(null);
 
   useEffect(() => {
     setMounted(true);
     fetchRecentAnalysisRuns().then(setAnalysisHistory).catch(() => undefined);
     fetchRecentAnalysisSummary().then((data) => setRecentAnalysisSummary(data.items)).catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    if (!semanticRunParam) {
+      setSemanticRunResource(null);
+      return;
+    }
+    let cancelled = false;
+    const loadSemanticRun = () => fetchSemanticRun(semanticRunParam)
+      .then((resource) => {
+        if (!cancelled) setSemanticRunResource(resource);
+      })
+      .catch(() => {
+        if (!cancelled) setSemanticRunResource(null);
+      });
+    void loadSemanticRun();
+    const poller = window.setInterval(() => void loadSemanticRun(), 1500);
+    return () => {
+      cancelled = true;
+      window.clearInterval(poller);
+    };
+  }, [semanticRunParam]);
 
   const currentTask = selectedGame ? getTask(selectedGame.appid) : undefined;
   const recentSummaryByApp = useMemo(
@@ -1112,6 +1137,22 @@ function DashboardContent() {
               </div>
             </section>
           </>
+        )}
+
+        {semanticRunParam && semanticRunResource && (
+          <div className="mx-auto max-w-5xl px-4 py-4">
+            <Card className="border-cyan-400/30 bg-cyan-400/5 p-5">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-widest text-cyan-200/70">Exact SemanticRun</p>
+                  <p className="mt-1 text-sm text-slate-300">语义运行 {semanticRunResource.semantic_run.semantic_run_id} · 配置哈希 {semanticRunResource.semantic_run.semantic_config_hash.slice(0, 12)}…</p>
+                </div>
+                <span className="rounded border border-cyan-300/30 px-2 py-1 text-xs text-cyan-100">{semanticRunResource.semantic_run.status}</span>
+              </div>
+              <p className="mt-3 text-sm text-slate-400">Job {semanticRunResource.job?.stage ?? "未连接"} · {semanticRunResource.semantic_run.processed_review_count.toLocaleString()} / {semanticRunResource.semantic_run.eligible_review_count.toLocaleString()} 条 · 未解析 {semanticRunResource.semantic_run.unresolved_review_count.toLocaleString()} 条</p>
+              <p className="mt-1 text-xs text-slate-500">该状态来自持久化 semantic_run_id，可在刷新或重启后恢复；不会按 app_id 静默切换到其他语义运行。</p>
+            </Card>
+          </div>
         )}
 
         {/* Keep the legacy status panel only when neither analytical layer is available. */}

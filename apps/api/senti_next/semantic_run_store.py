@@ -16,7 +16,13 @@ from .research_contracts import (
     sha256_json,
     utc_iso,
 )
-from .research_run_store import get_research_run, get_review_snapshot
+from .research_run_store import (
+    get_job,
+    get_population_snapshot,
+    get_research_run,
+    get_review_snapshot,
+    transition_job,
+)
 
 
 _STATUSES = {"QUEUED", "GENERATING", "READY", "FAILED", "PARTIAL", "CANCELLED"}
@@ -46,6 +52,15 @@ def canonical_semantic_config(config: Mapping[str, Any]) -> dict[str, Any]:
 
 def semantic_config_hash(config: Mapping[str, Any]) -> str:
     return sha256_json(canonical_semantic_config(config))
+
+
+def semantic_run_id_for(research_run_id: str, config: Mapping[str, Any]) -> str:
+    """Return the deterministic target identity for a ResearchRun/config pair."""
+    config_hash = semantic_config_hash(config)
+    return "sem_" + sha256_json({
+        "research_run_id": str(research_run_id),
+        "semantic_config_hash": config_hash,
+    })[:40]
 
 
 def _config_text(config: Mapping[str, Any], key: str, default: str = "unspecified") -> str:
@@ -113,7 +128,7 @@ def create_semantic_run(
         raise KeyError(f"research_run_not_found:{research_run_id}")
     config = canonical_semantic_config(semantic_config)
     config_hash = sha256_json(config)
-    run_id = semantic_run_id or "sem_" + sha256_json({"research_run_id": research_run_id, "semantic_config_hash": config_hash})[:40]
+    run_id = semantic_run_id or semantic_run_id_for(research_run_id, config)
     target_status = str(status).upper()
     if target_status not in _STATUSES:
         raise ValueError("invalid_semantic_run_status")
@@ -173,6 +188,15 @@ def get_semantic_run(semantic_run_id: str) -> dict[str, Any] | None:
     with db.get_connection() as conn:
         row = conn.execute(text("SELECT * FROM semantic_runs WHERE semantic_run_id=:semantic_run_id"), {"semantic_run_id": str(semantic_run_id)}).mappings().first()
     return _row(row) if row else None
+
+
+def list_semantic_runs(research_run_id: str) -> list[dict[str, Any]]:
+    with db.get_connection() as conn:
+        rows = conn.execute(
+            text("SELECT * FROM semantic_runs WHERE research_run_id=:id ORDER BY created_at DESC, semantic_run_id"),
+            {"id": str(research_run_id)},
+        ).mappings().all()
+    return [_row(row) for row in rows]
 
 
 def transition_semantic_run(
@@ -423,7 +447,101 @@ def get_semantic_mention(mention_id: str) -> dict[str, Any] | None:
     return _semantic_mention_row(row) if row else None
 
 
+def execute_semantic_run_job(semantic_run_id: str, job_id: str) -> dict[str, Any]:
+    """Run the deterministic evidence stage behind a durable semantic Job.
+
+    Provider/model-specific classification can enrich the frozen fixture
+    payload through ``fixture_mentions``.  Reviews without an explicit
+    assignment remain unresolved and therefore produce a truthful PARTIAL
+    SemanticRun instead of an invented topic.
+    """
+    semantic_run = get_semantic_run(semantic_run_id)
+    job = get_job(job_id)
+    if not semantic_run:
+        raise KeyError(f"semantic_run_not_found:{semantic_run_id}")
+    if not job:
+        raise KeyError(f"job_not_found:{job_id}")
+    if job["status"] != "QUEUED":
+        return semantic_run
+    population = get_population_snapshot(semantic_run["population_snapshot_id"])
+    if population is None:
+        transition_job(job_id, "FAILED", stage="failed", error_code="population_not_found")
+        return transition_semantic_run(semantic_run_id, "FAILED", result_ref=f"semantic_results:{semantic_run_id}")
+    reviews = list(population.get("reviews") or [])
+    eligible = [review for review in reviews if str(review.get("content_text") or "").strip()]
+    transition_job(job_id, "RUNNING", stage="segmenting", progress_total=len(eligible))
+    transition_semantic_run(semantic_run_id, "GENERATING", eligible_review_count=len(eligible))
+    config = semantic_run.get("semantic_config_json") or {}
+    fixture_mentions = config.get("fixture_mentions") or {}
+    unresolved = 0
+    processed = 0
+    try:
+        for review in eligible:
+            current_job = get_job(job_id) or {}
+            if current_job.get("cancel_requested_at") or current_job.get("status") == "CANCELLED":
+                transition_semantic_run(semantic_run_id, "CANCELLED", processed_review_count=processed, unresolved_review_count=unresolved)
+                if current_job.get("status") != "CANCELLED":
+                    transition_job(job_id, "CANCELLED", stage="cancelled")
+                return get_semantic_run(semantic_run_id) or {}
+            content = str(review["content_text"])
+            unit = create_semantic_unit(
+                semantic_run_id=semantic_run_id,
+                review_snapshot_id=review["review_snapshot_id"],
+                start_byte_offset=0,
+                end_byte_offset=len(content.encode("utf-8")),
+                segmentation_version=semantic_run["segmentation_version"],
+                text_snapshot=content,
+            )
+            assignment = fixture_mentions.get(str(review.get("steam_review_id"))) or review.get("payload", {}).get("semantic_mention") or {}
+            core_topic_id = str(assignment.get("core_topic_id") or "").strip()
+            if core_topic_id:
+                prototype_version = str(assignment.get("prototype_version") or semantic_run["embedding_model_version"])
+                create_semantic_mention(
+                    semantic_run_id=semantic_run_id,
+                    semantic_unit_id=unit["semantic_unit_id"],
+                    core_topic_id=core_topic_id,
+                    secondary_topic_id=assignment.get("secondary_topic_id"),
+                    signal_type=assignment.get("signal_type"),
+                    assignment_source=str(assignment.get("assignment_source") or "fixture"),
+                    similarity_score=assignment.get("similarity_score"),
+                    calibrated_confidence=assignment.get("calibrated_confidence"),
+                    decision_band=str(assignment.get("decision_band") or "assigned"),
+                    prototype_version=prototype_version,
+                    adjudication_ref=assignment.get("adjudication_ref"),
+                )
+            else:
+                unresolved += 1
+            processed += 1
+            transition_job(job_id, "RUNNING", stage="segmenting", progress_current=processed, progress_total=len(eligible))
+            transition_semantic_run(
+                semantic_run_id,
+                "GENERATING",
+                processed_review_count=processed,
+                unresolved_review_count=unresolved,
+                semantic_coverage=(processed / len(eligible)) if eligible else 1.0,
+            )
+        final_status = "PARTIAL" if unresolved or processed != len(eligible) else "READY"
+        result = transition_semantic_run(
+            semantic_run_id,
+            final_status,
+            processed_review_count=processed,
+            unresolved_review_count=unresolved,
+            semantic_coverage=(processed / len(eligible)) if eligible else 1.0,
+            result_ref=f"semantic_results:{semantic_run_id}",
+        )
+        transition_job(job_id, "PARTIAL" if final_status == "PARTIAL" else "SUCCEEDED", stage="completed", progress_current=processed, progress_total=len(eligible))
+        return result
+    except Exception as exc:
+        try:
+            transition_job(job_id, "FAILED", stage="failed", error_code="semantic_generation_failed", error_detail=str(exc))
+            transition_semantic_run(semantic_run_id, "FAILED", processed_review_count=processed, unresolved_review_count=unresolved, result_ref=f"semantic_results:{semantic_run_id}")
+        except Exception:
+            pass
+        raise
+
+
 __all__ = [
     "canonical_semantic_config", "create_semantic_mention", "create_semantic_run", "create_semantic_unit",
-    "get_semantic_mention", "get_semantic_run", "get_semantic_unit", "semantic_config_hash", "transition_semantic_run",
+    "execute_semantic_run_job", "get_semantic_mention", "get_semantic_run", "get_semantic_unit",
+    "list_semantic_runs", "semantic_config_hash", "semantic_run_id_for", "transition_semantic_run",
 ]

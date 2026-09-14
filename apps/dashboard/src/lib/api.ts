@@ -71,6 +71,10 @@ export function buildDashboardRunUrl(appId: number, runId: string): string {
   return `/dashboard?game=${encodeURIComponent(appId)}&run=${encodeURIComponent(runId)}`;
 }
 
+export function buildDashboardSemanticRunUrl(appId: number, runId: string, semanticRunId: string): string {
+  return `/dashboard?game=${encodeURIComponent(appId)}&run=${encodeURIComponent(runId)}&semantic_run=${encodeURIComponent(semanticRunId)}`;
+}
+
 export function buildVersionReviewRunUrl(runId: string): string {
   return `/version-review?run=${encodeURIComponent(runId)}`;
 }
@@ -1101,6 +1105,40 @@ export async function fetchDashboardPayload(appId: number, runId?: string | null
     ...payload,
     presentation: normalizeDashboardPresentation(payload.presentation, appId, runId ?? payload.readiness.run_id),
   };
+}
+
+export interface SemanticRunResource {
+  semantic_run: {
+    semantic_run_id: string;
+    research_run_id: string;
+    population_snapshot_id: string;
+    population_hash: string;
+    semantic_config_hash: string;
+    status: string;
+    eligible_review_count: number;
+    processed_review_count: number;
+    semantic_coverage: number | null;
+    unresolved_review_count: number;
+    created_at: string;
+    completed_at: string | null;
+    result_ref: string | null;
+    [key: string]: unknown;
+  };
+  job: {
+    job_id: string;
+    status: string;
+    stage: string;
+    progress_current: number;
+    progress_total: number;
+    progress_unit: string;
+    error_code?: string | null;
+    error_detail?: string | null;
+  } | null;
+}
+
+export async function fetchSemanticRun(semanticRunId: string): Promise<SemanticRunResource> {
+  const response = await apiFetch(apiUrl(`/semantic-runs/${encodeURIComponent(semanticRunId)}`), { cache: "no-store" });
+  return handleResponse<SemanticRunResource>(response);
 }
 
 export async function fetchAnalysisEvidence(

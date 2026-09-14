@@ -1,15 +1,18 @@
 from __future__ import annotations
 
 import pytest
+from fastapi import BackgroundTasks
 from sqlalchemy import text
 
 from apps.api.senti_next import db, migrations
-from apps.api.senti_next.research_run_store import create_research_run
+from apps.api.senti_next.research_run_store import create_job, create_research_run, get_job
 from apps.api.senti_next.semantic_run_store import (
     create_semantic_mention,
     create_semantic_run,
     create_semantic_unit,
+    execute_semantic_run_job,
 )
+from apps.api.senti_next.routes.research_runs import SemanticRunCreateRequest, create_snapshot_semantic_run
 
 
 @pytest.fixture(autouse=True)
@@ -171,3 +174,67 @@ def test_migration_registry_and_schema_include_evidence_tables():
     with db.get_connection() as conn:
         tables = {row[0] for row in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'")).all()}
     assert {"semantic_runs", "semantic_units", "semantic_mentions"} <= tables
+
+
+def test_semantic_generation_job_is_durable_and_marks_unresolved_reviews_partial():
+    research, _ = _context()
+    semantic = create_semantic_run(
+        research_run_id=research["run_id"],
+        semantic_config={
+            "segmentation_version": "segmentation-v1",
+            "fixture_mentions": {"r-unit-1": {"core_topic_id": "technical/crash", "signal_type": "issue"}},
+        },
+    )
+    job = create_job(
+        job_type="semantic_v2_generation",
+        target_resource_type="semantic_run",
+        target_resource_id=semantic["semantic_run_id"],
+        idempotency_key="semantic-job-m2-evidence",
+        progress_total=1,
+        progress_unit="reviews",
+        retryable=True,
+    )
+    result = execute_semantic_run_job(semantic["semantic_run_id"], job["job_id"])
+    assert result["status"] == "READY"
+    assert result["processed_review_count"] == 1
+    assert result["unresolved_review_count"] == 0
+    assert get_job(job["job_id"])["status"] == "SUCCEEDED"
+
+    unresolved_research = create_research_run(
+        run_id="run_m2_unresolved",
+        app_id=10,
+        sampling_contract={"app_id": 10, "languages": ["english"]},
+        reviews=[{"recommendationid": "r-unresolved", "review": "No assignment yet", "language": "english"}],
+        anchor_time="2026-09-14T00:00:00Z",
+    )
+    unresolved = create_semantic_run(
+        research_run_id=unresolved_research["run_id"],
+        semantic_config={"segmentation_version": "segmentation-v1"},
+    )
+    unresolved_job = create_job(
+        job_type="semantic_v2_generation",
+        target_resource_type="semantic_run",
+        target_resource_id=unresolved["semantic_run_id"],
+        idempotency_key="semantic-job-m2-unresolved",
+        retryable=True,
+    )
+    partial = execute_semantic_run_job(unresolved["semantic_run_id"], unresolved_job["job_id"])
+    assert partial["status"] == "PARTIAL"
+    assert partial["unresolved_review_count"] == 1
+    assert get_job(unresolved_job["job_id"])["status"] == "PARTIAL"
+
+
+def test_semantic_run_resource_endpoint_is_idempotent_and_schedules_durable_job():
+    research, _ = _context()
+    request = SemanticRunCreateRequest(semantic_config={"segmentation_version": "endpoint-segmentation-v1"})
+    first_tasks = BackgroundTasks()
+    first = create_snapshot_semantic_run(research["run_id"], request, first_tasks, "api-idempotency-m2")
+    second_tasks = BackgroundTasks()
+    second = create_snapshot_semantic_run(research["run_id"], request, second_tasks, "api-idempotency-m2")
+    assert first["semantic_run"]["semantic_run_id"] == second["semantic_run"]["semantic_run_id"]
+    assert first["job"]["job_id"] == second["job"]["job_id"]
+    assert first["job"]["status"] == "QUEUED"
+    assert len(first_tasks.tasks) == 1
+    first_tasks.tasks[0].func(*first_tasks.tasks[0].args, **first_tasks.tasks[0].kwargs)
+    fetched = get_job(first["job"]["job_id"])
+    assert fetched["status"] == "PARTIAL"

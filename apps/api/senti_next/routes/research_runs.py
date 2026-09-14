@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from ..research_run_store import (
@@ -14,6 +14,15 @@ from ..research_run_store import (
     get_population_snapshot,
     get_research_run,
     request_job_cancel,
+    transition_job,
+)
+from ..semantic_run_store import (
+    create_semantic_run,
+    execute_semantic_run_job,
+    get_semantic_run,
+    list_semantic_runs,
+    semantic_config_hash,
+    semantic_run_id_for,
 )
 from ..population_compatibility import check_population_compatibility
 
@@ -49,6 +58,11 @@ class PopulationCompatibilityRequest(BaseModel):
     requested_contract: dict[str, Any]
 
 
+class SemanticRunCreateRequest(BaseModel):
+    semantic_config: dict[str, Any] = Field(..., min_length=1)
+    semantic_run_id: str | None = Field(default=None, min_length=3, max_length=160)
+
+
 @router.post("/research-runs", status_code=201)
 def create_snapshot_research_run(request: ResearchRunCreateRequest, idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")) -> dict[str, Any]:
     """Persist one exact snapshot run over supplied/frozen review fixtures.
@@ -82,6 +96,67 @@ def read_snapshot_research_run(run_id: str) -> dict[str, Any]:
     if result is None:
         raise HTTPException(status_code=404, detail="research_run_not_found")
     return result
+
+
+@router.post("/research-runs/{run_id}/semantic-runs", status_code=202)
+def create_snapshot_semantic_run(
+    run_id: str,
+    request: SemanticRunCreateRequest,
+    background_tasks: BackgroundTasks,
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict[str, Any]:
+    """Attach one exact SemanticRun and durable generation Job to a ResearchRun."""
+    research = get_research_run(run_id)
+    if research is None:
+        raise HTTPException(status_code=404, detail="research_run_not_found")
+    try:
+        config_hash = semantic_config_hash(request.semantic_config)
+        semantic_id = request.semantic_run_id or semantic_run_id_for(run_id, request.semantic_config)
+        population = get_population_snapshot(research["population_snapshot_id"]) or {}
+        job_key = idempotency_key or f"semantic-run:{run_id}:{config_hash}"
+        job_id = "job_semantic_" + config_hash[:32]
+        job = create_job(
+            job_type="semantic_v2_generation",
+            target_resource_type="semantic_run",
+            target_resource_id=semantic_id,
+            idempotency_key=job_key,
+            progress_total=int(population.get("membership_count") or 0),
+            progress_unit="reviews",
+            retryable=True,
+            job_id=job_id,
+        )
+        semantic = create_semantic_run(
+            research_run_id=run_id,
+            semantic_config=request.semantic_config,
+            created_by_job_id=job["job_id"],
+            semantic_run_id=semantic_id,
+        )
+        if job["status"] == "QUEUED" and semantic["status"] == "QUEUED":
+            background_tasks.add_task(execute_semantic_run_job, semantic["semantic_run_id"], job["job_id"])
+        elif job["status"] == "QUEUED" and semantic["status"] in {"READY", "PARTIAL", "FAILED", "CANCELLED"}:
+            # A retried request may find an already materialized immutable
+            # target. Close the new job without rewriting that target.
+            terminal_job_status = "PARTIAL" if semantic["status"] == "PARTIAL" else "SUCCEEDED" if semantic["status"] == "READY" else semantic["status"]
+            job = transition_job(job["job_id"], terminal_job_status, stage="already_materialized")
+        return {"semantic_run": semantic, "job": job}
+    except (KeyError, ValueError) as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.get("/research-runs/{run_id}/semantic-runs")
+def read_snapshot_semantic_runs(run_id: str) -> dict[str, Any]:
+    if get_research_run(run_id) is None:
+        raise HTTPException(status_code=404, detail="research_run_not_found")
+    return {"research_run_id": run_id, "semantic_runs": list_semantic_runs(run_id)}
+
+
+@router.get("/semantic-runs/{semantic_run_id}")
+def read_snapshot_semantic_run(semantic_run_id: str) -> dict[str, Any]:
+    result = get_semantic_run(semantic_run_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="semantic_run_not_found")
+    job = get_job(result["created_by_job_id"]) if result.get("created_by_job_id") else None
+    return {"semantic_run": result, "job": job}
 
 
 @router.get("/population-snapshots/{population_snapshot_id}")
