@@ -20,7 +20,7 @@
 - Known limitations: canonical ResearchRun is currently a persistence
   foundation and is not yet the sole immutable Research Core result reader;
   population compatibility service and frontend restoration remain open.
-- Commit SHA(s): pending first implementation commit.
+- Commit SHA(s): f59acc7.
 - Deviation: canonical tables are attached to the existing migration-24
   bridge to preserve the repository's sealed migration-version contract; see
   `docs/execution/DECISION_LOG.md`.

@@ -41,8 +41,7 @@ Required items:
   - none waived
 
 Last verified commit:
-  - pending first implementation commit
+  - f59acc7 — canonical M0 research identity foundation
 
 Last validation:
-  - 18 focused M0/compatibility tests passed; 14 earlier tests passed before
-    the temporary-directory permission issue was isolated.
+  - 18 focused M0/compatibility tests passed after the implementation commit.
