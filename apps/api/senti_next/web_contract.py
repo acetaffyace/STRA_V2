@@ -122,11 +122,16 @@ def build_dashboard_payload(app_id: int, requested_run_id: Optional[str] = None)
     elif result is None:
         state = "REVIEWS_READY" if review_count else "ANALYSIS_NOT_STARTED"
     elif status == "completed":
-        # A completed compatibility row is not enough.  The semantic layer
-        # must have validated classifications attached to the same run.
-        state = "ANALYSIS_READY" if semantic_ready else "ANALYSIS_INCOMPATIBLE"
+        # A completed run is renderable when either the quantitative Research
+        # Report or the validated semantic result is available.  Semantic
+        # unavailability (for example, no configured provider) is a valid
+        # quantitative-only completion state, not an incompatible run.
+        state = "ANALYSIS_READY" if (research_ready or semantic_ready) else "ANALYSIS_INCOMPATIBLE"
+
     else:
         state = "ANALYSIS_NOT_STARTED" if review_count else "ANALYSIS_INCOMPATIBLE"
+
+    result_available = research_ready or semantic_ready
 
     return {
         "app_id": app_id,
@@ -137,7 +142,7 @@ def build_dashboard_payload(app_id: int, requested_run_id: Optional[str] = None)
             "classification_coverage": round(coverage_rate, 6),
             "run_id": run_id,
             "run_status": status or None,
-            "result_available": bool(status == "completed" and insights and immutable_result),
+            "result_available": result_available,
             "research_result_available": research_ready,
             "semantic_result_available": semantic_ready,
             "analysis_mode": metadata.get("mode"),

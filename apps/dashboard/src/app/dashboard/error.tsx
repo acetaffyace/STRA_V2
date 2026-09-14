@@ -1,6 +1,7 @@
-"use client";
+'use client';
 
-import { useEffect } from "react";
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function DashboardError({
   error,
@@ -9,29 +10,25 @@ export default function DashboardError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const router = useRouter();
+
   useEffect(() => {
-    console.error("Dashboard error:", error);
+    // Keep the stack available during development without exposing it in the
+    // ordinary user-facing error state.
+    console.error('Dashboard render error', error);
   }, [error]);
 
   return (
-    <div className="flex min-h-[60vh] flex-col items-center justify-center gap-6 px-4 text-center">
-      <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-8 max-w-lg">
-        <h2 className="text-xl font-semibold text-red-400 mb-2">
-          Dashboard Error
-        </h2>
-        <p className="text-sm text-slate-400 mb-2">
-          Failed to load the dashboard. This could be a temporary issue.
-        </p>
-        <p className="text-xs text-slate-500 mb-6 font-mono break-all">
-          {error.message}
-        </p>
-        <button
-          onClick={reset}
-          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 transition-colors"
-        >
-          Retry
-        </button>
-      </div>
-    </div>
+    <main className="flex min-h-screen items-center justify-center bg-slate-950 px-6 text-slate-100">
+      <section className="w-full max-w-lg rounded-xl border border-rose-400/30 bg-slate-900/80 p-6 shadow-2xl">
+        <p className="text-xs uppercase tracking-[0.24em] text-rose-300">Dashboard error</p>
+        <h1 className="mt-3 text-2xl font-semibold">无法显示分析结果</h1>
+        <p className="mt-3 text-sm leading-6 text-slate-400">页面渲染时发生错误。分析数据仍保存在本地，可以重新加载或返回分析首页。</p>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <button type="button" onClick={() => reset()} className="rounded border border-sky-400/40 bg-sky-400/10 px-4 py-2 text-sm text-sky-200 hover:bg-sky-400/20">重新加载</button>
+          <button type="button" onClick={() => router.push('/dashboard')} className="rounded border border-white/15 px-4 py-2 text-sm text-slate-300 hover:bg-white/5">返回分析首页</button>
+        </div>
+      </section>
+    </main>
   );
 }

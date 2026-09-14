@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAnalysis } from '@/contexts/AnalysisContext';
-import { buildDashboardRunUrl, buildVersionReviewRunUrl, fetchActiveAnalysisRuns, type AnalysisHistoryItem } from '@/lib/api';
+import { buildDashboardRunUrl, buildVersionReviewRunUrl, fetchActiveAnalysisRuns, fetchRecentAnalysisSummary, type AnalysisHistoryItem, type RecentAnalysisSummaryItem } from '@/lib/api';
 import { SteamImage } from './SteamImage';
 import clsx from 'clsx';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -32,6 +32,7 @@ export function AnalysisWidget() {
       : { queue: 'Analysis Queue', expand: 'Expand', minimize: 'Minimize', cancel: 'Cancel analysis', remove: 'Remove from queue', dismiss: 'Dismiss', waiting: 'Waiting in queue', another: 'another analysis', fetching: 'Fetching reviews from Steam', fetched: 'reviews fetched', connecting: 'Connecting to Steam API...', researchCore: 'Running quantitative research', classifying: 'Classifying reviews semantically', analyzed: 'reviews analyzed', preparingClassify: 'Preparing classification...', building: 'Building insights', aggregating: 'Organizing semantic insights...', finalizing: 'Saving analysis result', saving: 'Saving results...', starting: 'Starting analysis', preparing: 'Preparing...', remaining: 'Est. remaining', fetch: 'Fetch', research: 'Research', classify: 'Classify', insights: 'Insights', save: 'Save', complete: 'Analysis complete', view: 'View' };
   const [isMinimized, setIsMinimized] = useState(false);
   const [remoteRuns, setRemoteRuns] = useState<AnalysisHistoryItem[]>([]);
+  const [recentSummaries, setRecentSummaries] = useState<RecentAnalysisSummaryItem[]>([]);
   const [queueError, setQueueError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -42,6 +43,14 @@ export function AnalysisWidget() {
     refresh();
     const timer = window.setInterval(refresh, 3000);
     return () => { cancelled = true; window.clearInterval(timer); };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchRecentAnalysisSummary()
+      .then((response) => { if (!cancelled) setRecentSummaries(response.items); })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
@@ -261,17 +270,24 @@ export function AnalysisWidget() {
                     </div>
                   )}
 
-                  {task.status === 'completed' && (
+                  {task.status === 'completed' && (() => {
+                    const exactRunId = task.result?.run_id ?? task.progress?.run_id ?? null;
+                    const fallbackReopenUrl = recentSummaries.find((item) => item.app_id === appId)?.reopen_url;
+                    const resultHref = exactRunId
+                      ? buildDashboardRunUrl(appId, exactRunId)
+                      : fallbackReopenUrl ?? `/dashboard?game=${appId}`;
+                    return (
                     <div className="flex items-center gap-2 text-xs text-emerald-400">
                       <span>{ui.complete} · {task.result?.metadata.analysis_population_count ?? task.result?.metadata.retrieved ?? task.progress?.analysis_population_count ?? task.requestedLimit} {language === 'zh' ? '条评论' : 'reviews'}</span>
                       <Link
-                        href={`/dashboard?game=${appId}`}
+                        href={resultHref}
                         className="ml-auto text-sky-400 hover:text-sky-300 hover:underline"
                       >
                         {ui.view}
                       </Link>
                     </div>
-                  )}
+                    );
+                  })()}
 
                         {task.status === 'error' && (
                           <div className="mt-1 rounded-md border border-rose-500/30 bg-rose-500/10 px-2.5 py-1.5 text-xs text-rose-400">

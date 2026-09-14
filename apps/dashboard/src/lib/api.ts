@@ -1008,10 +1008,82 @@ export interface AnalysisEvidenceResponse {
   }>;
 }
 
+function normalizeMetricGroup(group: unknown): DashboardMetricGroup {
+  const candidate = group && typeof group === "object"
+    ? group as { items?: unknown; total_count?: unknown }
+    : {};
+  const items = Array.isArray(candidate.items) ? candidate.items as DashboardMetricRow[] : [];
+  const total = typeof candidate.total_count === "number" && Number.isFinite(candidate.total_count)
+    ? candidate.total_count
+    : items.length;
+  return { items, total_count: total };
+}
+
+/**
+ * Keep the canonical dashboard renderable when an older or partially persisted
+ * payload omits optional semantic/provenance structures. This does not invent
+ * semantic metrics; it only supplies safe unavailable/empty containers.
+ */
+export function normalizeDashboardPresentation(
+  presentation: DashboardPresentation | null | undefined,
+  appId: number,
+  runId?: string | null,
+): DashboardPresentation | null {
+  if (!presentation || typeof presentation !== "object") return null;
+  const raw = presentation as Partial<DashboardPresentation>;
+  const snapshot = raw.research_snapshot ?? {} as DashboardPresentation["research_snapshot"];
+  const semantic = raw.semantic ?? {} as DashboardPresentation["semantic"];
+  const voice = raw.player_voice ?? {} as DashboardPresentation["player_voice"];
+  const discovery = raw.discovery ?? {} as DashboardPresentation["discovery"];
+  const evidence = raw.evidence ?? {} as DashboardPresentation["evidence"];
+  const run = raw.run ?? { app_id: appId, status: "unknown", stale: false };
+  return {
+    ...raw,
+    run: { ...run, app_id: run.app_id ?? appId, run_id: run.run_id ?? runId ?? null },
+    research_snapshot: {
+      ...snapshot,
+      collection_scope: snapshot.collection_scope ?? {},
+      language_distribution: snapshot.language_distribution ?? {},
+      stage2e_activity: snapshot.stage2e_activity ?? {},
+    },
+    semantic: {
+      ...semantic,
+      available: semantic.available === true,
+      status: semantic.status ?? "unavailable",
+      limitations: Array.isArray(semantic.limitations) ? semantic.limitations : [],
+    },
+    player_voice: {
+      ...voice,
+      actionable_topics: normalizeMetricGroup(voice.actionable_topics),
+      issues: normalizeMetricGroup(voice.issues),
+      requests: normalizeMetricGroup(voice.requests),
+      context_topics: normalizeMetricGroup(voice.context_topics),
+      primary_topics: Array.isArray(voice.primary_topics) ? voice.primary_topics : [],
+    },
+    discovery: {
+      ...discovery,
+      available: discovery.available === true,
+      regions: Array.isArray(discovery.regions) ? discovery.regions : [],
+      interpretation: discovery.interpretation ?? {},
+    },
+    evidence: {
+      ...evidence,
+      endpoint: evidence.endpoint ?? `/analysis/${appId}/evidence`,
+      source_reviews_are_frozen: evidence.source_reviews_are_frozen === true,
+    },
+    limitations: Array.isArray(raw.limitations) ? raw.limitations : [],
+    legacy: raw.legacy ?? { available: false },
+  } as DashboardPresentation;
+}
+
 export async function fetchDashboardPayload(appId: number, runId?: string | null): Promise<DashboardPayload> {
   const query = runId ? `?run=${encodeURIComponent(runId)}` : "";
   const response = await apiFetch(apiUrl(`/analysis/${appId}/dashboard${query}`), { cache: "no-store" });
-  return handleResponse<DashboardPayload>(response);
+  const payload = await handleResponse<DashboardPayload>(response);
+  return {
+    ...payload,
+    presentation: normalizeDashboardPresentation(payload.presentation, appId, runId ?? payload.readiness.run_id),
+  };
 }
 
 export async function fetchAnalysisEvidence(
@@ -1132,6 +1204,9 @@ export interface RecentAnalysisSummaryItem {
   analysis_population_count?: number | null;
   classified_count?: number | null;
   recommendation_rate?: number | null;
+  research_ready?: boolean;
+  semantic_ready?: boolean;
+  result_available?: boolean;
   reopen_url: string;
 }
 

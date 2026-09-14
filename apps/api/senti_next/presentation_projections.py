@@ -177,7 +177,38 @@ def _recommendation_rate(result: dict[str, Any]) -> float | None:
     if isinstance(value, (int, float)):
         return float(value)
     value = insights.get("recommendation")
+    if isinstance(value, (int, float)):
+        return float(value)
+    report = result.get("research_report") or {}
+    population = (report.get("recommendation") or {}).get("population") if isinstance(report, dict) else None
+    value = population.get("recommendation_rate") if isinstance(population, dict) else None
     return float(value) if isinstance(value, (int, float)) else None
+
+
+def _summary_readiness(run: dict[str, Any], result: dict[str, Any]) -> tuple[bool, bool]:
+    if run.get("status") != "completed":
+        return False, False
+    research_report = result.get("research_report")
+    research_ready = bool(
+        isinstance(research_report, dict)
+        and research_report.get("schema_version") == "research-report-v1"
+        and result.get("run_id") == run.get("run_id")
+    )
+    insights = result.get("insights")
+    provenance = (insights or {}).get("metric_provenance") if isinstance(insights, dict) else None
+    coverage = (provenance or {}).get("classification_coverage") if isinstance(provenance, dict) else None
+    classified_count = (coverage or {}).get("numerator") if isinstance(coverage, dict) else None
+    if classified_count is None:
+        classified_count = run.get("classified_count")
+    semantic_status = result.get("semantic_status")
+    semantic_state = semantic_status.get("status") if isinstance(semantic_status, dict) else None
+    semantic_ready = bool(
+        insights
+        and (insights.get("five_questions") if isinstance(insights, dict) else None)
+        and int(classified_count or 0) > 0
+        and semantic_state in (None, "available")
+    )
+    return research_ready, semantic_ready
 
 
 def recent_analysis_summary(limit: int = 20) -> dict[str, Any]:
@@ -189,6 +220,7 @@ def recent_analysis_summary(limit: int = 20) -> dict[str, Any]:
         run_id = str(history["run_id"])
         run = storage.get_analysis_run(run_id) or {}
         result = storage.get_analysis_run_result(run_id) or {}
+        research_ready, semantic_ready = _summary_readiness(run, result)
         game = games.get(int(history["app_id"])) or {}
         metadata = result.get("metadata") or {}
         game_metadata = game.get("metadata") or {}
@@ -206,6 +238,9 @@ def recent_analysis_summary(limit: int = 20) -> dict[str, Any]:
             "analysis_population_count": run.get("analysis_population_count") if run.get("analysis_population_count") is not None else metadata.get("analysis_population_count"),
             "classified_count": run.get("classified_count"),
             "recommendation_rate": _recommendation_rate(result),
+            "research_ready": research_ready,
+            "semantic_ready": semantic_ready,
+            "result_available": research_ready or semantic_ready,
             "reopen_url": f"/dashboard?game={int(history['app_id'])}&run={run_id}",
         })
     return {"projection": "recent_analysis_summary", "projection_version": PROJECTION_VERSION, "items": items}

@@ -109,3 +109,71 @@ def test_dashboard_exposes_independent_research_and_semantic_readiness(monkeypat
     assert payload["readiness"]["semantic_ready"] is False
     assert payload["readiness"]["research_result_available"] is True
     assert payload["readiness"]["semantic_result_available"] is False
+    assert payload["readiness"]["result_available"] is True
+    assert payload["readiness"]["state"] == "ANALYSIS_READY"
+
+
+def test_quantitative_only_500_review_fixture_is_reopenable(monkeypatch):
+    report = {
+        "schema_version": "research-report-v1",
+        "population": {
+            "review_count": 500,
+            "sampling_contract": {"languages": ["all"], "max_reviews": 500},
+            "collection_complete": False,
+            "truncated_by_max_reviews": True,
+            "stop_reason": "max_reviews_reached",
+        },
+        "recommendation": {
+            "population": {
+                "valid_n": 500,
+                "recommended_n": 460,
+                "not_recommended_n": 40,
+                "recommendation_rate": 0.92,
+            }
+        },
+    }
+    semantic_status = {"status": "unavailable", "reason": "no_provider"}
+    run_id = "a04d20626bd3471da2098b83eb474d53"
+    monkeypatch.setattr(web_contract.storage, "count_reviews", lambda app_id: 500)
+    monkeypatch.setattr(web_contract.storage, "get_active_general_analysis", lambda app_id: None)
+    monkeypatch.setattr(web_contract.storage, "get_analysis_design", lambda run_id: {"run_id": run_id})
+    monkeypatch.setattr(web_contract.storage, "get_analysis_run", lambda run_id: {
+        "status": "completed",
+        "target_app_id": 2638890,
+        "classified_count": 0,
+    })
+    monkeypatch.setattr(web_contract.storage, "get_analysis_run_result", lambda run_id: {
+        "run_id": run_id,
+        "metadata": {"app_id": 2638890, "retrieved": 500},
+        "research_report": report,
+        "semantic_status": semantic_status,
+        "insights": None,
+        "reviews": [],
+    })
+    monkeypatch.setattr(web_contract.storage, "load_analysis_result", lambda app_id: {
+        "status": "completed",
+        "run_id": run_id,
+        "metadata": {"app_id": app_id, "retrieved": 500},
+        "research_report": report,
+        "semantic_status": semantic_status,
+        "insights": None,
+        "reviews": [],
+        "error": None,
+    })
+
+    payload = web_contract.build_dashboard_payload(2638890, requested_run_id=run_id)
+
+    assert payload["readiness"]["state"] == "ANALYSIS_READY"
+    assert payload["readiness"]["research_ready"] is True
+    assert payload["readiness"]["research_result_available"] is True
+    assert payload["readiness"]["semantic_ready"] is False
+    assert payload["readiness"]["semantic_result_available"] is False
+    assert payload["readiness"]["result_available"] is True
+    presentation = payload["presentation"]
+    assert presentation is not None
+    assert presentation["research_snapshot"]["population_n"] == 500
+    assert presentation["research_snapshot"]["valid_n"] == 500
+    assert presentation["research_snapshot"]["recommended_n"] == 460
+    assert presentation["research_snapshot"]["not_recommended_n"] == 40
+    assert presentation["research_snapshot"]["recommendation_rate"] == 0.92
+    assert presentation["semantic"]["available"] is False

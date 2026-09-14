@@ -89,3 +89,27 @@ def test_recent_summary_keeps_exact_reopen_identity(monkeypatch):
     item = projections.recent_analysis_summary()["items"][0]
     assert item["reopen_url"] == "/dashboard?game=10&run=run-a"
     assert item["recommendation_rate"] == 0.75
+    assert item["result_available"] is False
+
+
+def test_recent_summary_marks_quantitative_only_run_reopenable(monkeypatch):
+    history = [{"run_id": "run-q", "app_id": 10, "run_type": "general_analysis", "status": "completed"}]
+    quantitative_result = {
+        "run_id": "run-q",
+        "metadata": {},
+        "research_report": {
+            "schema_version": "research-report-v1",
+            "recommendation": {"population": {"recommendation_rate": 0.92}},
+        },
+        "semantic_status": {"status": "unavailable", "reason": "no_provider"},
+        "insights": None,
+    }
+    monkeypatch.setattr(projections.storage, "load_starred_games", lambda: [])
+    monkeypatch.setattr(projections.storage, "list_analysis_history", lambda limit: history)
+    monkeypatch.setattr(projections.storage, "get_analysis_run", lambda run_id: run("run-q"))
+    monkeypatch.setattr(projections.storage, "get_analysis_run_result", lambda run_id: quantitative_result)
+    item = projections.recent_analysis_summary()["items"][0]
+    assert item["research_ready"] is True
+    assert item["semantic_ready"] is False
+    assert item["result_available"] is True
+    assert item["recommendation_rate"] == 0.92

@@ -242,6 +242,10 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
             const newTasks = new Map(prev);
             const existing = newTasks.get(appId);
             if (existing) {
+              const completedRunId = analysis.run_id
+                ?? currentTask.progress?.run_id
+                ?? currentTask.result?.run_id
+                ?? null;
               newTasks.set(appId, {
                 ...existing,
                 status: 'completed',
@@ -257,6 +261,9 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
                   research_report: analysis.research_report,
                   semantic_status: analysis.semantic_status,
                   reviews: analysis.reviews,
+                  // Completed tasks must retain the immutable run identity so
+                  // result navigation cannot silently fall back to app scope.
+                  run_id: completedRunId,
                 } as AnalyzeResponse,
                 progress: null,
                 error: null,

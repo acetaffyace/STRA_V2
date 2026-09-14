@@ -1,9 +1,15 @@
 /** @type {import('next').NextConfig} */
 const isDev = process.env.NODE_ENV !== "production";
 const isDesktop = process.env.DESKTOP_BUILD === "1";
+const apiConnectOrigin =
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  process.env.SENTINEXT_BACKEND_ORIGIN ||
+  "http://127.0.0.1:8000";
 
 const nextConfig = {
   reactStrictMode: true,
+  // Keep local Windows builds in-process; the sandbox blocks Next's compiler worker.
+  experimental: { webpackBuildWorker: false },
   // Desktop: static export with unoptimized images
   ...(isDesktop && { output: 'export' }),
   images: isDesktop
@@ -45,7 +51,7 @@ if (!isDesktop) {
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
             "font-src 'self' https://fonts.gstatic.com",
             "img-src 'self' data: blob: https://cdn.cloudflare.steamstatic.com https://shared.akamai.steamstatic.com",
-            "connect-src 'self' " + (process.env.NEXT_PUBLIC_API_BASE_URL || ""),
+            "connect-src 'self' " + apiConnectOrigin,
             "frame-src 'self'",
           ].join("; "),
         },
