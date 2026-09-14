@@ -643,6 +643,9 @@ function DashboardContent() {
   }, [runParam, selectedStarredGame?.app_id, selectedStarredGame?.metadata, selectedStarredGame?.insights, refreshGames, setAnalysis]);
 
   useEffect(() => {
+    // An explicit historical run is authoritative.  Do not let a newer
+    // in-memory task completion replace the run selected by the URL.
+    if (runParam) return;
     if (currentTask?.status === "completed" && currentTask.result) {
       setAnalysis(currentTask.result);
       refreshGames().catch(() => null);

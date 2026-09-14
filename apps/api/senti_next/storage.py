@@ -1813,8 +1813,8 @@ def finalize_general_analysis_run(
         if transitioned.rowcount != 1:
             raise ValueError("General analysis run completion transition failed")
     try:
-        from .research_run_store import transition_research_run
-        transition_research_run(run_id, "completed")
+        from .research_run_store import finalize_research_run
+        finalize_research_run(run_id, immutable_result_ref=f"analysis_run_results:{run_id}")
     except Exception:
         logger.debug("Canonical ResearchRun completion bridge unavailable for %s", run_id, exc_info=True)
 

@@ -7,6 +7,8 @@ import pytest
 from sqlalchemy import text
 
 from apps.api.senti_next import db
+from apps.api.senti_next import storage
+from apps.api.senti_next.web_contract import build_dashboard_payload
 from apps.api.senti_next.research_contracts import resolve_formal_window
 from apps.api.senti_next.population_compatibility import check_population_compatibility
 from apps.api.senti_next.research_run_store import (
@@ -82,6 +84,44 @@ def test_research_run_idempotency_rejects_different_population_and_snapshots_are
     with db.get_connection() as conn:
         with pytest.raises(Exception, match="population_snapshot_immutable"):
             conn.execute(text("UPDATE population_snapshots SET population_hash='tampered' WHERE population_snapshot_id=:id"), {"id": first["population_snapshot_id"]})
+
+
+def test_canonical_result_reference_is_attached_and_exact_dashboard_payload_reopens():
+    run_id = "run_m0_reopen"
+    storage.create_general_analysis_run(
+        run_id,
+        10,
+        config={"sampling_contract": {"app_id": 10, "languages": ["english"]}},
+        requested_languages=["english"],
+    )
+    storage.transition_general_analysis_run(run_id, "running")
+    canonical = create_research_run(
+        run_id=run_id,
+        app_id=10,
+        sampling_contract={"app_id": 10, "languages": ["english"]},
+        reviews=_reviews(),
+        anchor_time="2026-09-14T00:00:00Z",
+        acquisition_provenance={"source": "fixture", "collection_complete": True},
+        status="RUNNING",
+    )
+    storage.finalize_general_analysis_run(
+        run_id,
+        10,
+        {"app_id": 10, "run_id": run_id, "mode": "fixture"},
+        {"five_questions": {"q1": "answer"}},
+        _reviews(),
+        research_report={"schema_version": "research-report-v1"},
+    )
+    finalized = get_research_run(run_id)
+    assert finalized is not None
+    assert finalized["status"] == "READY"
+    assert finalized["immutable_result_ref"] == f"analysis_run_results:{run_id}"
+    assert canonical["population_snapshot_id"] == finalized["population_snapshot_id"]
+
+    payload = build_dashboard_payload(10, requested_run_id=run_id)
+    assert payload["readiness"]["run_id"] == run_id
+    assert payload["run"]["run_id"] == run_id
+    assert payload["metadata"]["run_id"] == run_id
 
 
 def test_job_idempotency_transition_and_restart_recovery():

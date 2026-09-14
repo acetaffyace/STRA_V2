@@ -255,6 +255,39 @@ def transition_research_run(run_id: str, status: str) -> dict[str, Any] | None:
     return get_research_run(run_id)
 
 
+def finalize_research_run(run_id: str, *, immutable_result_ref: str) -> dict[str, Any] | None:
+    """Attach the insert-once result row and close a canonical run.
+
+    The legacy result writer owns the atomic result insert.  This narrow
+    bridge makes the canonical identity graph point at that exact immutable
+    row without replacing or rewriting any analytical payload.
+    """
+    result_ref = str(immutable_result_ref).strip()
+    if not result_ref:
+        raise ValueError("immutable_result_ref_required")
+    with db.get_connection() as conn:
+        row = conn.execute(
+            text("SELECT status, immutable_result_ref FROM research_runs WHERE run_id=:run_id"),
+            {"run_id": str(run_id)},
+        ).mappings().first()
+        if not row:
+            return None
+        current = str(row["status"])
+        existing_ref = row["immutable_result_ref"]
+        if current in {"FAILED", "CANCELLED", "PARTIAL"}:
+            raise ValueError("research_run_terminal_status_immutable")
+        if existing_ref and str(existing_ref) not in {result_ref, f"research-run:{run_id}"}:
+            raise ValueError("immutable_result_ref_conflict")
+        conn.execute(
+            text("""UPDATE research_runs
+                    SET status='READY', completed_at=COALESCE(completed_at, :completed_at),
+                        immutable_result_ref=:result_ref
+                    WHERE run_id=:run_id"""),
+            {"run_id": str(run_id), "completed_at": utc_iso(None), "result_ref": result_ref},
+        )
+    return get_research_run(run_id)
+
+
 _JOB_TRANSITIONS = {"QUEUED": {"QUEUED", "RUNNING", "CANCELLED", "FAILED"}, "RUNNING": {"RUNNING", "SUCCEEDED", "PARTIAL", "FAILED", "CANCELLED"}, "SUCCEEDED": {"SUCCEEDED"}, "PARTIAL": {"PARTIAL"}, "FAILED": {"FAILED", "QUEUED"}, "CANCELLED": {"CANCELLED"}}
 
 
@@ -353,4 +386,4 @@ def recover_interrupted_jobs(*, stale_after_seconds: int = 300) -> int:
     return int(result.rowcount or 0)
 
 
-__all__ = ["create_job", "create_population_snapshot", "create_research_run", "get_job", "get_population_snapshot", "get_research_run", "get_review_snapshot", "recover_interrupted_jobs", "request_job_cancel", "save_review_snapshot", "transition_job", "transition_research_run"]
+__all__ = ["create_job", "create_population_snapshot", "create_research_run", "finalize_research_run", "get_job", "get_population_snapshot", "get_research_run", "get_review_snapshot", "recover_interrupted_jobs", "request_job_cancel", "save_review_snapshot", "transition_job", "transition_research_run"]
