@@ -34,15 +34,19 @@ Completed:
   - M1-WP1: exact-run Workbench presentation now exposes deterministic
     Overview, language/at-review-playtime Segments, exact Trends and run-scoped
     Evidence without a StarredGame/sample fallback for formal views.
+  - M2-WP1: immutable SemanticRun configuration identity now binds each run
+    to the canonical ResearchRun population hash; canonical config hashing,
+    idempotency, lifecycle, partial progress and result references persist.
+  - M2-WP2: immutable SemanticUnit and SemanticMention evidence tables now
+    preserve UTF-8 byte offsets, exact text snapshots, source hashes, one-core
+    topic cardinality, optional secondary topics/signals and assignment
+    provenance.
 
 Current work item:
-  - implement immutable SemanticRun identity and semantic_config_hash
-    idempotency/lifecycle persistence
+  - connect SemanticRun generation to durable semantic Jobs and exact-run
+    status/reopen UI
 
 Next:
-  - add SemanticUnit/SemanticMention immutable schema and UTF-8 evidence
-    offsets
-  - connect SemanticRun to durable semantic Jobs and exact-run status UI
   - validate taxonomy/catalog/configuration identity against M2 benchmark
     gates
 
@@ -53,12 +57,13 @@ Required items:
   - none waived
 
 Last verified commit:
-  - 0780531 — deterministic workbench Segments projection
+  - 54e4ba9 — stabilize schema and provider identity assertions
 
 Last validation:
-  - 21 M0/migration tests and 21 M1 workbench/core tests passed; dashboard
-    typecheck and elevated production build passed; lint passed with five
-    pre-existing warnings and no errors.
+  - full pytest passed (with two expected skips); the M2 SemanticRun and
+    SemanticUnit/SemanticMention suites and migration upgrade tests passed;
+    dashboard typecheck and elevated production build passed; lint passed
+    with five pre-existing warnings and no errors.
 
 M1 exit evidence:
   - quantitative-only Research Reports now carry exact language and

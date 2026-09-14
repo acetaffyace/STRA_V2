@@ -33,3 +33,32 @@
   result table remains the compatibility storage boundary during M1.
 - Affected contracts/files: `research_run_store.py` and `storage.py`.
 - Commit: `d7ce72f`.
+
+## 2026-09-14 — Version SemanticRun configuration independently from results
+
+- Decision: persist an immutable SemanticRun for each canonical ResearchRun
+  and canonical semantic configuration hash, with explicit lifecycle,
+  population binding, progress and result-reference fields.
+- Reason: semantic outputs must be reproducible and reopenable; changing any
+  material engine, taxonomy, embedding, calibration, segmentation or
+  assignment identity must create a new run instead of mutating prior output.
+- Migration impact: additive migration 25; existing research and legacy
+  analysis rows remain readable and are not inferred into semantic runs.
+- Affected contracts/files: `semantic_run_schema.py`,
+  `semantic_run_store.py`, `research_contracts.py`, `db.py`.
+- Commit: `34d76f3`.
+
+## 2026-09-14 — Store semantic evidence as immutable UTF-8 byte ranges
+
+- Decision: SemanticUnit offsets are UTF-8 byte offsets into the exact
+  ReviewSnapshot content, and SemanticMention stores one required core topic
+  with optional secondary topic, signal and adjudication provenance.
+- Reason: byte-addressed evidence prevents normalization drift and makes UI
+  evidence links auditable; immutable mention identity prevents silent topic
+  reassignment in a completed run.
+- Migration impact: additive migration 26 with update/delete immutability
+  triggers; invalid UTF-8 boundaries and text-snapshot conflicts are rejected
+  before persistence.
+- Affected contracts/files: `semantic_unit_schema.py`,
+  `semantic_run_store.py`, `research_contracts.py`, `db.py`.
+- Commit: `34d76f3`.
