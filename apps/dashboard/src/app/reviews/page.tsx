@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { useGameContext } from "@/contexts/GameContext";
 import { useUiPreferences } from "@/contexts/UiPreferencesContext";
 import { formatTaxonomyLabelZh } from "@/lib/taxonomyLabels";
+import { fetchRunReviews, RunReviewItem } from "@/lib/api";
 
 function titleize(value: string): string {
   return value
@@ -76,6 +77,12 @@ function ReviewsContent() {
   const appId = parseInt(searchParams.get("appId") || "0");
   const filterType = searchParams.get("filterType") || "";
   const filterValue = searchParams.get("filterValue") || "";
+  const runId = searchParams.get("run");
+  const metricType = searchParams.get("metric_type");
+  const taxonomyKey = searchParams.get("taxonomy_key");
+  const [runReviews, setRunReviews] = useState<RunReviewItem[] | null>(null);
+  const [runReviewCount, setRunReviewCount] = useState<number | null>(null);
+  const [runReviewsError, setRunReviewsError] = useState<string | null>(null);
   const hasActiveFilters =
     quickSentiment !== "all" || quickType !== "all" || !!filterType || !!filterValue;
 
@@ -92,6 +99,14 @@ function ReviewsContent() {
     if (!appId) return null;
     return games.find((entry) => entry.app_id === appId) || null;
   }, [appId, games]);
+
+  useEffect(() => {
+    if (!runId || !appId) return;
+    setRunReviewsError(null);
+    fetchRunReviews(appId, runId, metricType, taxonomyKey, 100)
+      .then((payload) => { setRunReviews(payload.items); setRunReviewCount(payload.matched_review_count); })
+      .catch(() => setRunReviewsError("This historical run's frozen reviews are unavailable."));
+  }, [appId, runId, metricType, taxonomyKey]);
 
   useEffect(() => {
     if (!appId) {
@@ -111,7 +126,16 @@ function ReviewsContent() {
 
   const compact = density === "compact";
 
-  const sample = game?.sample ?? [];
+  const sample: any[] = runReviews
+    ? runReviews.map((review) => ({
+        ...review,
+        review: review.review || "",
+        llm_subcategories: review.labels?.topics || [],
+        llm_issue_subcategories: review.labels?.issues || [],
+        llm_request_subcategories: review.labels?.requests || [],
+        llm_subcategory_evidence: {},
+      }))
+    : (game?.sample ?? []);
   const baseReviews = useMemo(() => sample, [sample]);
   const scopedReviews = useMemo(() => {
     return baseReviews.filter((review: any) => {
@@ -230,6 +254,7 @@ function ReviewsContent() {
     <AppLayout>
       <PageTransition>
         <div className="mx-auto max-w-7xl space-y-8 sm:space-y-6 px-4 py-10">
+          {runId && <div className="rounded-lg border border-sky-400/20 bg-sky-400/5 px-4 py-3 text-sm text-slate-300"><div className="flex flex-wrap items-center justify-between gap-3"><span>Frozen run <code className="text-sky-200">{runId}</code>{taxonomyKey ? ` · ${formatTaxonomyLabel(taxonomyKey)}` : ""}{metricType ? ` · ${metricType} reviews` : ""}</span><Button onClick={() => router.push(`/dashboard?game=${appId}&run=${encodeURIComponent(runId)}`)} variant="secondary" size="sm">← Back to Dashboard</Button></div>{runReviewsError && <p className="mt-2 text-amber-200">{runReviewsError}</p>}</div>}
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h1 className="text-3xl font-bold">
@@ -238,7 +263,8 @@ function ReviewsContent() {
                 </span>
               </h1>
               <p className="mt-1 text-sm text-slate-400">
-                {hasActiveFilters
+                {runId ? `${runReviewCount ?? sample.length} frozen reviews`
+                  : hasActiveFilters
                   ? `Filtered reviews: ${scopedReviews.length} / ${(game.sample || []).length}`
                   : `${(game.sample || []).length} reviews`}{" "}
                 - Showing: {quickFilteredReviews.length}
@@ -450,7 +476,7 @@ function ReviewsContent() {
                   <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Evidence</p>
                   {selectedReview.llm_subcategory_evidence && Object.keys(selectedReview.llm_subcategory_evidence).length ? (
                     <div className="mt-3 space-y-3 text-sm text-slate-200">
-                      {Object.entries(selectedReview.llm_subcategory_evidence).map(([subcategory, snippets]) => (
+                      {Object.entries(selectedReview.llm_subcategory_evidence as Record<string, string[]>).map(([subcategory, snippets]) => (
                         <div key={subcategory} className="rounded-xl border border-white/5 bg-white/5 p-3">
                           <p className="text-xs font-semibold text-slate-300">{formatTaxonomyLabel(subcategory)}</p>
                           <div className="mt-2 space-y-2 text-xs text-slate-200">

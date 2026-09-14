@@ -477,6 +477,13 @@ function DashboardContent() {
   const [error, setError] = useState<string | null>(null);
   const [updateSuccess, setUpdateSuccess] = useState<string | null>(null);
   const [pendingAnalyzeGame, setPendingAnalyzeGame] = useState<SearchResult | null>(null);
+  const [setupGame, setSetupGame] = useState<SearchResult | null>(null);
+  const [setupMaxReviews, setSetupMaxReviews] = useState<number>(1000);
+  const [setupLanguages, setSetupLanguages] = useState<string[]>(["english"]);
+  const [setupReviewType, setSetupReviewType] = useState<"all" | "positive" | "negative">("all");
+  const [setupPurchaseType, setSetupPurchaseType] = useState<"all" | "steam" | "non_steam_purchase">("all");
+  const [setupOrder, setSetupOrder] = useState<"recent" | "updated" | "helpful">("recent");
+  const [setupOfftopic, setSetupOfftopic] = useState(false);
   const fetchFilter = "recent"; // Fixed to recent (latest reviews)
   const [mounted, setMounted] = useState(false);
   const [analysisHistory, setAnalysisHistory] = useState<import("@/lib/api").AnalysisHistoryItem[]>([]);
@@ -672,6 +679,17 @@ function DashboardContent() {
         languages: undefined,
         filter: fetchFilter,
         output_language: "zh",
+        sampling: {
+          app_id: game.appid,
+          start_time: null,
+          end_time: null,
+          languages: setupLanguages.length ? setupLanguages : ["all"],
+          review_type: setupReviewType,
+          purchase_type: setupPurchaseType,
+          collection_order: setupOrder,
+          include_offtopic_activity: setupOfftopic,
+          max_reviews: reviewCount,
+        },
       });
     } catch (err) {
       const msg = (err as Error).message || "Failed to start analysis";
@@ -732,6 +750,23 @@ function DashboardContent() {
 
   return (
     <AppLayout>
+      {setupGame && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true" aria-labelledby="analysis-setup-title">
+          <div className="w-full max-w-2xl rounded-lg border border-white/10 bg-slate-900 p-5 shadow-2xl">
+            <div className="flex items-start justify-between gap-4"><div><p className="text-xs uppercase tracking-widest text-slate-500">Analysis setup</p><h2 id="analysis-setup-title" className="mt-1 text-xl font-semibold text-white">Sampling contract</h2><p className="mt-1 text-sm text-slate-400">范围基于评论的 timestamp_created；提交后使用现有 Analysis Queue。</p></div><button className="text-slate-400 hover:text-white" aria-label="Close" onClick={() => setSetupGame(null)}>×</button></div>
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <label className="text-sm text-slate-300">Maximum reviews<select className="mt-1 w-full rounded border border-white/10 bg-slate-950 p-2" value={setupMaxReviews} onChange={(e) => setSetupMaxReviews(Number(e.target.value))}><option value={100}>100</option><option value={500}>500</option><option value={1000}>1,000</option><option value={5000}>5,000</option><option value={0}>Unlimited</option></select></label>
+              <label className="text-sm text-slate-300">Languages<select className="mt-1 w-full rounded border border-white/10 bg-slate-950 p-2" value={setupLanguages[0] || "all"} onChange={(e) => setSetupLanguages([e.target.value])}><option value="all">All languages</option><option value="english">English</option><option value="schinese">Simplified Chinese</option><option value="tchinese">Traditional Chinese</option><option value="japanese">Japanese</option><option value="koreana">Korean</option></select></label>
+              <label className="text-sm text-slate-300">Review type<select className="mt-1 w-full rounded border border-white/10 bg-slate-950 p-2" value={setupReviewType} onChange={(e) => setSetupReviewType(e.target.value as typeof setupReviewType)}><option value="all">All</option><option value="positive">Recommended</option><option value="negative">Not recommended</option></select></label>
+              <label className="text-sm text-slate-300">Purchase type<select className="mt-1 w-full rounded border border-white/10 bg-slate-950 p-2" value={setupPurchaseType} onChange={(e) => setSetupPurchaseType(e.target.value as typeof setupPurchaseType)}><option value="all">All</option><option value="steam">Steam purchase</option><option value="non_steam_purchase">Non-Steam purchase</option></select></label>
+              <label className="text-sm text-slate-300">Collection order<select className="mt-1 w-full rounded border border-white/10 bg-slate-950 p-2" value={setupOrder} onChange={(e) => setSetupOrder(e.target.value as typeof setupOrder)}><option value="recent">Recent</option><option value="updated">Updated</option><option value="helpful">Helpful</option></select></label>
+              <label className="flex items-center gap-2 self-end text-sm text-slate-300"><input type="checkbox" checked={setupOfftopic} onChange={(e) => setSetupOfftopic(e.target.checked)} /> Include off-topic activity</label>
+            </div>
+            <div className="mt-5 rounded border border-white/10 bg-white/[0.03] p-3 text-sm text-slate-300"><p className="font-medium text-white">Research population preview</p><p className="mt-1">{setupLanguages.join(" + ")} · {setupOrder} · {setupReviewType} · {setupPurchaseType} · maximum {setupMaxReviews || "unlimited"} reviews · off-topic {setupOfftopic ? "included" : "excluded"}</p></div>
+            <div className="mt-5 flex justify-end gap-2"><Button variant="secondary" onClick={() => setSetupGame(null)}>Cancel</Button><Button variant="primary" onClick={() => { const game = setupGame; setSetupGame(null); setPendingAnalyzeGame(null); void handleAnalyze(game, setupMaxReviews); }}>Start analysis</Button></div>
+          </div>
+        </div>
+      )}
       <PageTransition key={transitionKey}>
         <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-6 space-y-8 sm:space-y-6">
           {selectedGame ? (
@@ -839,9 +874,9 @@ function DashboardContent() {
                                   <div className="mt-3 flex items-center gap-2">
                                     <span className="text-xs text-slate-400">{userLanguage === 'zh' ? '评论数：' : 'Reviews:'}</span>
                                     {REVIEW_COUNT_OPTIONS.map((count) => (
-                                      <Button
-                                        key={count}
-                                        onClick={() => handleAnalyze(game, count)}
+                                    <Button
+                                      key={count}
+                                      onClick={() => { setSetupMaxReviews(count); setSetupGame(game); }}
                                         variant={isAlreadyAnalyzed ? "update" : "primary"}
                                         size="sm"
                                       >
@@ -851,7 +886,7 @@ function DashboardContent() {
                                   </div>
                                 ) : (
                                   <Button
-                                    onClick={() => setPendingAnalyzeGame(game)}
+                                    onClick={() => { setPendingAnalyzeGame(game); setSetupGame(game); }}
                                     disabled={isAnalyzingGame}
                                     variant={isAlreadyAnalyzed ? "update" : "primary"}
                                     size="sm"
@@ -1044,10 +1079,10 @@ function DashboardContent() {
         )}
 
         {dashboardPresentation && selectedGame && !isAnalyzing && (
-          <CanonicalDashboard presentation={dashboardPresentation} appName={selectedGame.name} appId={selectedGame.appid} />
+          <CanonicalDashboard presentation={dashboardPresentation} appName={selectedGame.name} appId={selectedGame.appid} showHeader={false} onConfigureSampling={() => setSetupGame(selectedGame)} />
         )}
 
-        {!dashboardPresentation && analysis?.research_report && !isAnalyzing && (
+        {dashboardPresentation && analysis?.research_report && !isAnalyzing && (
           <ResearchOverview
             report={analysis.research_report}
             semanticStatus={analysis.semantic_status}
@@ -1057,7 +1092,7 @@ function DashboardContent() {
           />
         )}
 
-        {!dashboardPresentation && analysis && analysis.insights && (!dashboardReadiness || dashboardReadiness.semantic_ready || (!dashboardReadiness.research_ready && dashboardReadiness.state === "ANALYSIS_READY")) && (
+        {analysis && analysis.insights && (!dashboardReadiness || dashboardReadiness.semantic_ready || (!dashboardReadiness.research_ready && dashboardReadiness.state === "ANALYSIS_READY")) && (
           <>
             {!analysis.research_report && (!dashboardReadiness || dashboardReadiness.semantic_ready) && (
               <div className="mx-auto max-w-6xl px-4 pb-4">
@@ -1076,27 +1111,10 @@ function DashboardContent() {
               onUpdate={async () => {
               if (!selectedGame) return;
 
-              // Clear previous messages
               setError(null);
               setUpdateSuccess(null);
-
-              // Trigger a fresh analysis against the latest available reviews.
-              try {
-                await startAnalysis(selectedGame, {
-                  refresh: true,
-                  review_count: analysis.metadata.requested ?? 1000,
-                  language: "all",
-                  languages: undefined,
-                  filter: fetchFilter,
-                  output_language: userLanguage,
-                });
-                // Don't show "You are up to date" here — the analysis runs
-                // in the background. The completion effect will update the
-                // dashboard (and Last run date) when the job finishes.
-              } catch (err) {
-                const msg = (err as Error).message || "Failed to update analysis";
-                setError(msg);
-              }
+              setSetupMaxReviews(analysis.metadata.requested ?? 1000);
+              setSetupGame(selectedGame);
               }}
             />
           </>

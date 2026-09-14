@@ -49,9 +49,15 @@ def _research_snapshot(report: Mapping[str, Any] | None) -> dict[str, Any]:
     population = report.get("population") or {}
     recommendation = report.get("recommendation") or {}
     rec_population = recommendation.get("population") or {}
-    rate = recommendation.get("recommendation_rate")
+    # research-report-v1 owns recommendation metrics under the recommendation
+    # population object.  Do not fall back to a guessed/root-level field: a
+    # missing canonical value must remain missing in the presentation layer.
+    rate = rec_population.get("recommendation_rate")
     interval = recommendation.get("model_based_interval") or recommendation.get("confidence_interval")
     sampling = population.get("sampling_contract") or {}
+    complete = population.get("collection_complete")
+    truncated = population.get("truncated_by_max_reviews")
+    collection_status = "complete" if complete is True else ("limited" if truncated is True else "unknown")
     return {
         "population_n": _number(population.get("review_count") or report.get("population_n")),
         "valid_n": _number(rec_population.get("valid_n")),
@@ -60,15 +66,27 @@ def _research_snapshot(report: Mapping[str, Any] | None) -> dict[str, Any]:
         "recommendation_rate": rate,
         "confidence_interval": interval,
         "collection_scope": {
-            "language": sampling.get("language") or population.get("language"),
-            "filter": sampling.get("filter") or population.get("filter"),
+            "start_time": sampling.get("start_time"),
+            "end_time": sampling.get("end_time"),
+            "languages": list(sampling.get("languages") or []),
+            "review_type": sampling.get("review_type"),
+            "purchase_type": sampling.get("purchase_type"),
+            "collection_order": sampling.get("collection_order"),
+            "include_offtopic_activity": sampling.get("include_offtopic_activity"),
             "max_reviews": sampling.get("max_reviews"),
-            "review_order": sampling.get("review_order") or sampling.get("order"),
+            # Compatibility display fields are intentionally derived from the
+            # explicit contract, never used as the canonical source.
+            "language": sampling.get("languages"),
+            "filter": sampling.get("review_type"),
+            "review_order": sampling.get("collection_order"),
         },
-        "acquisition_coverage": report.get("acquisition_coverage"),
-        "collection_complete": report.get("collection_complete"),
-        "truncated_by_max_reviews": report.get("truncated_by_max_reviews"),
-        "stop_reason": report.get("stop_reason"),
+        "acquisition_coverage": population.get("coverage_status"),
+        "collection_complete": population.get("collection_complete"),
+        "truncated_by_max_reviews": population.get("truncated_by_max_reviews"),
+        "collection_status": collection_status,
+        "stop_reason": population.get("stop_reason"),
+        "coverage_start_time": population.get("coverage_start_time"),
+        "coverage_end_time": population.get("coverage_end_time"),
         "language_distribution": report.get("language_distribution") or {},
         "stage2e_activity": report.get("stage2e_activity") or report.get("activity") or {},
     }
@@ -205,7 +223,8 @@ def build_dashboard_presentation(
         "evidence": {
             "run_id": run.get("run_id") or result.get("run_id"),
             "endpoint": f"/analysis/{app_id}/evidence",
-            "verified_evidence_available": bool(semantic_result),
+            "verified_evidence_available": None,
+            "verified_evidence_count": None,
             "source_reviews_are_frozen": bool(run.get("run_id") or result.get("run_id")),
         },
         "provenance": {

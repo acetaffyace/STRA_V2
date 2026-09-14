@@ -24,6 +24,7 @@ from apps.api.senti_next.classification_materialization import (
 from apps.api.senti_next.classifier_taxonomy import baseline_classifier_taxonomy
 from apps.api.senti_next.llm import classification_identity
 from apps.api.senti_next.research_population_snapshot import freeze_analysis_run_population
+from apps.api.senti_next.research_core import build_snapshot_research_report
 from apps.api.senti_next.semantic_measurement_bundle import create_measurement_bundle
 
 
@@ -32,13 +33,9 @@ APP_ID = 553850
 
 
 def _report() -> dict:
-    return {
-        "schema_version": "research-report-v1",
-        "population": {"review_count": 80, "sampling_contract": {"language": "english", "filter": "recent", "max_reviews": 80, "review_order": "newest"}},
-        "recommendation": {"population": {"valid_n": 80, "recommended_n": 70, "not_recommended_n": 10}, "recommendation_rate": 0.875, "model_based_interval": {"method": "wilson", "lower": 0.7849719790084033, "upper": 0.9306644238399513}},
-        "acquisition_coverage": "incomplete", "collection_complete": False, "truncated_by_max_reviews": True, "stop_reason": "max_reviews_reached",
-        "language_distribution": {"english": 80}, "stage2e_activity": {"activity_spike_detected": False, "coordinated_expression_detected": False, "exact_duplicate_share": 0.025},
-    }
+    population = [{"recommendationid": f"fixture-{index:03d}", "review": f"Synthetic frozen source review {index} for local presentation acceptance.", "language": "english", "voted_up": index < 70, "timestamp_created": 1700000000 - index, "timestamp_updated": 1700000000 - index, "steam_purchase": True, "author": {"playtime_at_review": 10, "playtime_forever": 100}} for index in range(80)]
+    metadata = {"collection_complete": False, "truncated_by_max_reviews": True, "stop_reason": "max_reviews_reached", "coverage_start_time": None, "coverage_end_time": None, "coverage_status": "incomplete", "sampling_contract": {"app_id": APP_ID, "start_time": None, "end_time": None, "languages": ["english"], "review_type": "all", "purchase_type": "all", "collection_order": "recent", "include_offtopic_activity": False, "max_reviews": 80}}
+    return build_snapshot_research_report(population, metadata=metadata)
 
 
 def _semantic(population_fingerprint: str, materialization_id: str) -> dict:

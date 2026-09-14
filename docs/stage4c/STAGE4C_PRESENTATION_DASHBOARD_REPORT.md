@@ -53,3 +53,36 @@ The fallback browser renderer exposed one default desktop viewport; it did not e
 - Browser console and exact multi-viewport checks remain environment-blocked by the unavailable primary browser bridge; no browser-side error was observed in the inspected CUA accessibility state.
 
 Deferred work remains Stage 4D: Version / Compare / Agent / Reports convergence.
+
+## Stage 4C-R1 — Full Product Integration, Sampling UI & Visual Seal
+
+### Canonical projection repair
+
+The first Stage 4C projection used pre-`research-report-v1` paths. R1 now reads `recommendation.population.recommendation_rate`, `population.collection_complete`, `population.truncated_by_max_reviews`, `population.stop_reason`, `population.coverage_*`, and the explicit `population.sampling_contract`. Collection state is three-valued: `complete`, `limited`, or `unknown`; unknown is never presented as complete. The contract test now builds its source report through `build_snapshot_research_report()` and asserts the 80/70/10/0.875 canonical values.
+
+### Existing capability inventory
+
+Preserved: global navigation, game search, analysis queue, run history, game header/Steam image, current-player context, quick and advanced review filters, Health Overview, recommendation/review trends, issue/request/topic views, player/language/playtime/purchase/activity segmentation, review drill-down, Reports, Compare, Version Review, Database, and Settings. Improved: the canonical research layer, exact-run evidence, and metric-specific review links. Intentionally deferred: Stage 4D convergence work. No legacy capability was removed; the existing ResearchOverview and AnalysisResults continue to render alongside the canonical layer.
+
+### Sampling and Review Explorer
+
+The Analysis Setup modal exposes max reviews, language, review type, purchase type, collection order, and off-topic activity, shows a scope preview, and submits the explicit `sampling` object while reusing the existing Analysis Queue. Canonical Player Voice links to `/reviews?appId=...&run=...&metric_type=topic|issue|request&taxonomy_key=...`. Run-aware review reads use the immutable population plus frozen materialization and do not fall back to the mutable latest sample. Evidence remains distinct from Source Reviews; metric type is now applied to topic/issue/request filtering.
+
+### Visual convergence and QA
+
+The canonical workspace no longer creates a duplicate game header when embedded and its surfaces use restrained STRA borders/surfaces rather than the earlier gradient/shadow-heavy treatment. Three QA loops remain required for the final local browser run: structural capability review, information hierarchy review, and polish review. The previous bridge limitation remains recorded above; R1's implementation adds the exact viewport/run-aware paths needed for the authorized Playwright acceptance pass.
+
+### R1 verification
+
+- `pytest -q tests/unit/test_dashboard_presentation.py`: passed after the real-schema projection fix.
+- `npm run typecheck`: passed after SamplingContract and run-aware Reviews integration.
+- Migration remains 24; no schema change was introduced.
+- Completed in R1: full backend suite, production build, independent Chromium screenshots at 1440×900, 1366×768, and 1024×768, console/network audit. Remote CI is run after push.
+
+### R1 final browser acceptance
+
+The authorized local Playwright/Chromium path was used after the primary browser bridge was unavailable. The runner rendered independent 1440×900, 1366×768, and 1024×768 viewports and executed three render → screenshot → inspect loops. Loop 1 checked structure and legacy Research Core continuity; Loop 2 checked hierarchy, scope, `PROVISIONAL`, 80/80 coverage, Context / Other, and secondary Discovery; Loop 3 checked polish, the Sampling Setup modal, long status wrapping, Review Explorer density, and exact-run navigation. The final artifacts are in `docs/stage4c/screenshots/`.
+
+The browser console and page-error audit returned zero errors, and the recorded responses had no 404/500 failures. The exact-run Review Explorer returned 11 frozen topic reviews for the synthetic acceptance fixture and displayed the raw review and frozen labels; source review evidence remained separate and empty rather than being mislabeled as verified evidence. Opening the dashboard caused only read-side requests; the analysis modal was not submitted during QA, so no classification/research/discovery side effect was triggered.
+
+The local acceptance fixture is synthetic and untracked; it preserves the reviewed aggregate acceptance values (80 population, 70/10 recommendation split, 87.5%, 80/80 semantic coverage, Context / Other 23 and 15) without committing real Steam text or credentials.

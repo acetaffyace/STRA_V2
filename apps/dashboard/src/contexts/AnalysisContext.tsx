@@ -31,6 +31,17 @@ interface StartAnalysisOptions {
   day_range?: number | null;
   refresh_days?: number | null;
   output_language?: 'zh' | 'en' | 'ja';
+  sampling?: {
+    app_id: number;
+    start_time: number | null;
+    end_time: number | null;
+    languages: string[];
+    review_type: 'all' | 'positive' | 'negative';
+    purchase_type: 'all' | 'steam' | 'non_steam_purchase';
+    collection_order: 'recent' | 'updated' | 'helpful';
+    include_offtopic_activity: boolean;
+    max_reviews: number;
+  };
 }
 
 interface QueuedEntry {
@@ -122,6 +133,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
     const refreshDays = refresh ? options.refresh_days : undefined;
     const outputLanguage = options.output_language ?? 'zh';
     const dayRange = options.day_range ?? undefined;
+    const sampling = options.sampling;
 
     try {
       saveDefaultAnalysisReviewCount(reviewCount);
@@ -136,6 +148,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
         refresh,
         refresh_days: refreshDays,
         output_language: outputLanguage,
+        sampling,
       });
 
       setTasks((prev) => {
@@ -427,6 +440,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
     const refreshDays = refresh ? options.refresh_days : undefined;
     const outputLanguage = options.output_language ?? 'zh';
     const dayRange = options.day_range ?? undefined;
+    const sampling = options.sampling;
 
     // Check if already analyzing/queued OR if an API call is already in-flight
     const existing = tasks.get(appId);
@@ -440,7 +454,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
     );
     if (runningTask) {
       // Add to queue
-      queueRef.current.push({ game, options: { persist, refresh, review_count: reviewCount, language, languages, filter, day_range: dayRange, refresh_days: refreshDays, output_language: outputLanguage } });
+      queueRef.current.push({ game, options: { persist, refresh, review_count: reviewCount, language, languages, filter, day_range: dayRange, refresh_days: refreshDays, output_language: outputLanguage, sampling } });
       setTasks((prev) => {
         const newTasks = new Map(prev);
         newTasks.set(appId, {
@@ -490,6 +504,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
         refresh,
         refresh_days: refreshDays,
         output_language: outputLanguage,
+        sampling,
       });
 
       // API accepted — update the task with the result (keeps status 'analyzing')

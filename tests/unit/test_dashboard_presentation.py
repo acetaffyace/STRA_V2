@@ -1,23 +1,24 @@
 from __future__ import annotations
 
 from apps.api.senti_next.dashboard_presentation import build_dashboard_presentation
+from apps.api.senti_next.research_core import build_snapshot_research_report
 
 
 def _report():
-    return {
-        "schema_version": "research-report-v1",
-        "population": {"review_count": 80, "sampling_contract": {"language": "english", "filter": "recent", "max_reviews": 80}},
-        "recommendation": {
-            "population": {"valid_n": 80, "recommended_n": 70, "not_recommended_n": 10},
-            "recommendation_rate": 0.875,
-            "model_based_interval": {"lower": 0.78, "upper": 0.93},
-        },
-        "acquisition_coverage": "incomplete",
-        "collection_complete": False,
-        "truncated_by_max_reviews": True,
-        "stop_reason": "max_reviews_reached",
-        "language_distribution": {"english": 80},
+    population = [
+        {"recommendationid": f"r-{index}", "review": f"synthetic review {index} with enough text", "voted_up": index < 70,
+         "timestamp_created": 1_700_000_000 + index, "timestamp_updated": 1_700_000_000 + index,
+         "language": "english", "steam_purchase": True, "author": {"playtime_at_review": 10, "playtime_forever": 100}}
+        for index in range(80)
+    ]
+    metadata = {
+        "collection_complete": False, "truncated_by_max_reviews": True, "stop_reason": "max_reviews_reached",
+        "coverage_start_time": 1_700_000_000, "coverage_end_time": 1_700_000_079, "coverage_status": "incomplete",
+        "sampling_contract": {"app_id": 553850, "start_time": None, "end_time": None, "languages": ["english"],
+                              "review_type": "all", "purchase_type": "all", "collection_order": "recent",
+                              "include_offtopic_activity": False, "max_reviews": 80},
     }
+    return build_snapshot_research_report(population, metadata=metadata)
 
 
 def _semantic():
@@ -54,6 +55,14 @@ def test_projection_owns_canonical_metrics_and_separates_context() -> None:
     )
     assert presentation["schema_version"] == "dashboard-presentation-v1"
     assert presentation["research_snapshot"]["recommendation_rate"] == 0.875
+    assert presentation["research_snapshot"]["valid_n"] == 80
+    assert presentation["research_snapshot"]["recommended_n"] == 70
+    assert presentation["research_snapshot"]["not_recommended_n"] == 10
+    assert presentation["research_snapshot"]["collection_complete"] is False
+    assert presentation["research_snapshot"]["truncated_by_max_reviews"] is True
+    assert presentation["research_snapshot"]["stop_reason"] == "max_reviews_reached"
+    assert presentation["research_snapshot"]["collection_status"] == "limited"
+    assert presentation["research_snapshot"]["collection_scope"]["languages"] == ["english"]
     assert [row["taxonomy_key"] for row in presentation["player_voice"]["actionable_topics"]["items"]] == ["gameplay/balance"]
     assert [(row["taxonomy_key"], row["n"]) for row in presentation["player_voice"]["context_topics"]["items"]] == [("other/meme", 23), ("other/general", 15)]
     assert presentation["semantic"]["claim_status"] == "PROVISIONAL"

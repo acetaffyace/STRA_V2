@@ -31,7 +31,7 @@ from ..classification_materialization import (
     load_materialized_review_labels,
 )
 from ..semantic_measurement_runtime import ResolvedMeasurementContext, resolve_measurement_context
-from ..research_population_snapshot import freeze_analysis_run_population, get_analysis_run_population_metadata
+from ..research_population_snapshot import freeze_analysis_run_population, get_analysis_run_population_metadata, get_analysis_run_population
 from ..topic_measurement import build_semantic_measurement_result
 from ..unified_research_result import build_unified_research_result
 from .. import (
@@ -140,6 +140,7 @@ class EvidenceResponse(BaseModel):
     run_id: Optional[str] = None
     app_id: int
     taxonomy_key: str
+    metric_type: Optional[str] = None
     matched_review_count: int
     verified_evidence_count: int
     page_count: int
@@ -1377,6 +1378,7 @@ def get_analysis_evidence(
     date_filter: str = "all",
     sentiment: str = "all",
     language: str = "all",
+    metric_type: Optional[str] = None,
     limit: int = 20,
     offset: int = 0,
 ) -> EvidenceResponse:
@@ -1411,7 +1413,15 @@ def get_analysis_evidence(
             labels = list(payload.get("subcategories") or [])
             issue_labels = list(payload.get("issue_subcategories") or payload.get("issues") or [])
             request_labels = list(payload.get("request_subcategories") or payload.get("requests") or [])
-            if taxonomy_key not in labels and taxonomy_key not in issue_labels and taxonomy_key not in request_labels:
+            if metric_type == "topic":
+                matches_metric = taxonomy_key in labels
+            elif metric_type == "issue":
+                matches_metric = taxonomy_key in issue_labels
+            elif metric_type == "request":
+                matches_metric = taxonomy_key in request_labels
+            else:
+                matches_metric = taxonomy_key in labels or taxonomy_key in issue_labels or taxonomy_key in request_labels
+            if not matches_metric:
                 continue
             if language != "all" and str(review.get("language") or "") != language:
                 continue
@@ -1451,11 +1461,63 @@ def get_analysis_evidence(
         })
     verified_count = sum(len(item["evidence"]) for item in items)
     return EvidenceResponse(
-        run_id=run or result.get("run_id"), app_id=app_id, taxonomy_key=taxonomy_key,
+        run_id=run or result.get("run_id"), app_id=app_id, taxonomy_key=taxonomy_key, metric_type=metric_type,
         matched_review_count=len(all_matches), verified_evidence_count=verified_count,
         page_count=(len(all_matches) + limit - 1) // limit if all_matches else 0,
         page_size=limit, offset=offset, items=items,
     )
+
+
+@router.get("/analysis/{app_id}/reviews")
+def get_run_reviews(
+    app_id: int,
+    run: str,
+    metric_type: Optional[str] = None,
+    taxonomy_key: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> dict[str, Any]:
+    """Read a paginated, exact-run review explorer projection.
+
+    When ``run`` is present this endpoint never reads the mutable app review
+    cache; labels and review payloads come from the frozen population and
+    ClassificationMaterialization for that run.
+    """
+    if metric_type not in {None, "topic", "issue", "request"}:
+        raise HTTPException(status_code=400, detail="metric_type must be topic, issue, or request")
+    if metric_type and not taxonomy_key:
+        raise HTTPException(status_code=400, detail="taxonomy_key is required with metric_type")
+    row = storage.get_analysis_run(run)
+    if not row or int(row.get("target_app_id")) != int(app_id):
+        raise HTTPException(status_code=404, detail="The requested analysis run is not available for this app.")
+    population = get_analysis_run_population(run)
+    materialization = get_materialization_for_run(run)
+    if population is None or materialization is None:
+        raise HTTPException(status_code=409, detail="research_population_snapshot_unavailable")
+    labels_by_id = {str(item.get("review_id")): item for item in materialization.get("items") or []}
+    matches: list[dict[str, Any]] = []
+    for review in population.get("reviews") or []:
+        review_id = str(review.get("review_id") or review.get("recommendationid") or "")
+        payload = (labels_by_id.get(review_id) or {}).get("payload") or {}
+        topics = list(payload.get("subcategories") or [])
+        issues = list(payload.get("issue_subcategories") or payload.get("issues") or [])
+        requests = list(payload.get("request_subcategories") or payload.get("requests") or [])
+        selected = topics if metric_type == "topic" else issues if metric_type == "issue" else requests if metric_type == "request" else []
+        if taxonomy_key and taxonomy_key not in selected:
+            continue
+        matches.append({
+            **review,
+            "review_id": review_id,
+            "labels": {"topics": topics, "issues": issues, "requests": requests},
+            "evidence": (payload.get("evidence") or {}).get(taxonomy_key or "", []),
+        })
+    safe_limit = max(1, min(int(limit), 100))
+    safe_offset = max(0, int(offset))
+    return {
+        "run_id": run, "app_id": app_id, "metric_type": metric_type, "taxonomy_key": taxonomy_key,
+        "matched_review_count": len(matches), "page_size": safe_limit, "offset": safe_offset,
+        "items": matches[safe_offset:safe_offset + safe_limit],
+    }
 
 
 @router.get("/analysis/{app_id}", response_model=AnalysisStatusResponse)

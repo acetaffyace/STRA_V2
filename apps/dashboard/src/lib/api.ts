@@ -127,6 +127,17 @@ export interface AnalyzePayload {
   refresh?: boolean;
   refresh_days?: number | null;
   output_language?: "zh" | "en" | "ja";
+  sampling?: {
+    app_id: number;
+    start_time: number | null;
+    end_time: number | null;
+    languages: string[];
+    review_type: "all" | "positive" | "negative";
+    purchase_type: "all" | "steam" | "non_steam_purchase";
+    collection_order: "recent" | "updated" | "helpful";
+    include_offtopic_activity: boolean;
+    max_reviews: number;
+  };
 }
 
 export async function analyzeGame(payload: AnalyzePayload): Promise<AnalyzeResponse> {
@@ -855,6 +866,7 @@ export interface DashboardPresentation {
     acquisition_coverage?: string | null;
     collection_complete?: boolean | null;
     truncated_by_max_reviews?: boolean | null;
+    collection_status?: "complete" | "limited" | "unknown" | string;
     stop_reason?: string | null;
     language_distribution: Record<string, number>;
     stage2e_activity: Record<string, unknown>;
@@ -902,7 +914,8 @@ export interface DashboardPresentation {
   evidence: {
     run_id?: string | null;
     endpoint: string;
-    verified_evidence_available: boolean;
+    verified_evidence_available?: boolean | null;
+    verified_evidence_count?: number | null;
     source_reviews_are_frozen: boolean;
   };
   provenance: Record<string, string | null | undefined>;
@@ -939,11 +952,43 @@ export async function fetchAnalysisEvidence(
   runId?: string | null,
   limit = 5,
   offset = 0,
+  metricType?: string | null,
 ): Promise<AnalysisEvidenceResponse> {
   const params = new URLSearchParams({ taxonomy_key: taxonomyKey, limit: String(limit), offset: String(offset) });
   if (runId) params.set("run", runId);
+  if (metricType) params.set("metric_type", metricType);
   const response = await apiFetch(apiUrl(`/analysis/${appId}/evidence?${params.toString()}`), { cache: "no-store" });
   return handleResponse<AnalysisEvidenceResponse>(response);
+}
+
+export interface RunReviewItem {
+  review_id: string;
+  review?: string;
+  voted_up?: boolean | null;
+  timestamp_created?: number | string | null;
+  author?: Record<string, unknown>;
+  labels?: { topics?: string[]; issues?: string[]; requests?: string[] };
+  evidence?: Array<Record<string, unknown>>;
+  [key: string]: unknown;
+}
+
+export interface RunReviewsResponse {
+  run_id: string;
+  app_id: number;
+  metric_type?: string | null;
+  taxonomy_key?: string | null;
+  matched_review_count: number;
+  page_size: number;
+  offset: number;
+  items: RunReviewItem[];
+}
+
+export async function fetchRunReviews(appId: number, runId: string, metricType?: string | null, taxonomyKey?: string | null, limit = 100, offset = 0): Promise<RunReviewsResponse> {
+  const params = new URLSearchParams({ run: runId, limit: String(limit), offset: String(offset) });
+  if (metricType) params.set("metric_type", metricType);
+  if (taxonomyKey) params.set("taxonomy_key", taxonomyKey);
+  const response = await apiFetch(apiUrl(`/analysis/${appId}/reviews?${params.toString()}`), { cache: "no-store" });
+  return handleResponse<RunReviewsResponse>(response);
 }
 
 export interface AnalysisHistoryItem {
