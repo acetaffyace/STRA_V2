@@ -41,29 +41,53 @@ Completed:
     preserve UTF-8 byte offsets, exact text snapshots, source hashes, one-core
     topic cardinality, optional secondary topics/signals and assignment
     provenance.
+  - M2-WP3: SemanticRun creation is attached to an idempotent durable
+    semantic_v2_generation Job; generation persists progress and truthful
+    READY/PARTIAL/CANCELLED/FAILED state, and the Dashboard restores exact
+    semantic_run_id status after refresh/restart.
+  - M2-WP4: Core Taxonomy V2 is present as a validated machine-readable
+    50-topic source; versioned Game/Archetype Topic catalogs have explicit
+    draft/publish/retire governance and immutable content-addressed entries.
+  - M2-WP5: SemanticRun review-level topic and signal rollups are materialized
+    with de-duplicated `(semantic_run_id, review_snapshot_id, core_topic_id)`
+    identity and exact signal dimensions.
+  - M2-WP6: deterministic local prototype matching is wired into SemanticRun
+    execution behind an explicit backend configuration; model-unavailable or
+    unpinned paths remain unresolved/PARTIAL, and structured adjudication
+    outputs are validated with prompt-injection-safe review data handling.
+  - M2-WP7: EmergingTopicCandidate persistence has deterministic identity and
+    explicit DETECTED/REVIEWED/PENDING/ACCEPTED/MERGED/REJECTED/DEFERRED
+    governance; acceptance requires a separate target topic decision.
+  - M2-WP8: §12 benchmark manifest validation and reproducible evaluation
+    report generation now exist, including multilingual slices, decision bands,
+    unresolved/coverage, confusion, discovery and escalation metrics.
 
 Current work item:
-  - connect SemanticRun generation to durable semantic Jobs and exact-run
-    status/reopen UI
+  - obtain and validate the required human-labeled Semantic V2 boundary suite
+    and disjoint evaluation holdout, then run the declared local-model and
+    adjudication evaluation against the §12 gates
 
 Next:
-  - validate taxonomy/catalog/configuration identity against M2 benchmark
-    gates
+  - after the benchmark assets are supplied, produce the versioned §12 report
+    and resolve any failed product gate through defensible tuning or an
+    explicit Master Spec decision; continue non-gate integration work safely
+    while the asset blocker remains open
 
 Release blockers:
-  - none identified yet
+  - M2-BENCH-001: the required V2 human-labeled boundary regression suite and
+    disjoint holdout are not present; see `docs/execution/BLOCKERS.md`.
 
 Required items:
   - none waived
 
 Last verified commit:
-  - 54e4ba9 — stabilize schema and provider identity assertions
+  - 6706d4f — connect semantic jobs to prototype matching
 
 Last validation:
-  - full pytest passed (with two expected skips); the M2 SemanticRun and
-    SemanticUnit/SemanticMention suites and migration upgrade tests passed;
-    dashboard typecheck and elevated production build passed; lint passed
-    with five pre-existing warnings and no errors.
+  - full pytest passed (with two expected skips); prototype integration,
+    benchmark validator and evaluation-report tests passed; Dashboard
+    typecheck and elevated production build passed; lint passed with five
+    pre-existing warnings and no errors.
 
 M1 exit evidence:
   - quantitative-only Research Reports now carry exact language and

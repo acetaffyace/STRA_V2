@@ -48,6 +48,33 @@
   `semantic_run_store.py`, `research_contracts.py`, `db.py`.
 - Commit: `34d76f3`.
 
+## 2026-09-14 — Treat semantic execution as a durable resource operation
+
+- Decision: `POST /research-runs/{run_id}/semantic-runs` creates or resolves
+  one exact SemanticRun and one idempotent `semantic_v2_generation` Job; the
+  deterministic evidence stage runs behind that Job and exposes the Job with
+  `GET /semantic-runs/{semantic_run_id}`.
+- Reason: a client retry or backend restart must retain the same semantic
+  identity and progress state. Reviews without a validated assignment remain
+  unresolved and produce `PARTIAL`, never an invented topic.
+- Affected contracts/files: `research_runs.py`, `semantic_run_store.py`,
+  Dashboard API client and exact status panel.
+- Commit: `bc6accc`.
+
+## 2026-09-14 — Keep Game/Archetype catalogs separate from Core Taxonomy
+
+- Decision: persist content-addressed `game` and `archetype` catalog versions
+  with immutable entries and explicit `DRAFT → PUBLISHED → RETIRED` status
+  transitions. Game catalogs require an app binding; archetype catalogs cannot
+  be app-bound.
+- Reason: Core Taxonomy V2 remains stable and broad, while accepted specific
+  topics are persistent, scoped and governed rather than regenerated per run.
+- Migration impact: additive migration 27; no historical taxonomy or review
+  labels are rewritten.
+- Affected contracts/files: `topic_catalog_schema.py`,
+  `topic_catalog_store.py`, `db.py`, `migrations.py`.
+- Commit: `60b874a`.
+
 ## 2026-09-14 — Store semantic evidence as immutable UTF-8 byte ranges
 
 - Decision: SemanticUnit offsets are UTF-8 byte offsets into the exact
@@ -62,3 +89,55 @@
 - Affected contracts/files: `semantic_unit_schema.py`,
   `semantic_run_store.py`, `research_contracts.py`, `db.py`.
 - Commit: `34d76f3`.
+
+## 2026-09-14 — Materialize review-level semantic rollups separately from mentions
+
+- Decision: persist unique review/topic and review/topic/signal rollups keyed
+  by the exact SemanticRun and ReviewSnapshot, while keeping immutable
+  SemanticMention rows as evidence-level truth.
+- Reason: topic prevalence is a review-level metric; mention multiplicity or
+  repeated spans must never inflate the formal numerator.
+- Migration impact: additive migration 28 with uniqueness and immutability
+  triggers; existing mentions and historical results are unchanged.
+- Affected contracts/files: `semantic_rollup_schema.py`,
+  `semantic_run_store.py`, `db.py`, `migrations.py`.
+- Commit: `12cf7d4`.
+
+## 2026-09-14 — Keep local prototype uncertainty explicit
+
+- Decision: SemanticRun execution may explicitly enable a local or deterministic
+  fake prototype backend; only HIGH/MEDIUM matches create mentions, and missing,
+  unpinned or invalid local model artifacts leave reviews unresolved and mark
+  the run PARTIAL with a machine-readable reason.
+- Reason: local-first processing must be reproducible and must not turn model
+  availability or raw similarity into an invented probability or catch-all
+  topic.
+- Affected contracts/files: `semantic_prototypes.py`, `embedding_backend.py`,
+  `semantic_run_store.py`, `semantic_adjudication.py`.
+- Commits: `ac38a96`, `6706d4f`.
+
+## 2026-09-14 — Govern emerging topics as reviewable candidates
+
+- Decision: discovery emits content-addressed EmergingTopicCandidate rows with
+  explicit lifecycle transitions; accepting a candidate requires a separately
+  chosen target topic and never mutates Core or Game catalogs automatically.
+- Reason: clustering is a discovery/refinement tool, not final label authority;
+  promotion must remain auditable and reversible at the governance boundary.
+- Migration impact: additive migration 29 with immutable identity and no-delete
+  triggers.
+- Affected contracts/files: `emerging_topic_schema.py`,
+  `emerging_topic_store.py`, `db.py`, `migrations.py`.
+- Commit: `a63a3ca`.
+
+## 2026-09-14 — Version benchmark assets and measured evaluation output
+
+- Decision: require a manifest with dataset/taxonomy/code identity and SHA-256
+  asset hashes before accepting Semantic V2 benchmark evidence; evaluation
+  reports expose support-aware §12 metrics and language slices.
+- Reason: existing V1 labels and the 60-review unlabeled smoke fixture cannot
+  establish the M2 product gates. The validator therefore fails closed instead
+  of silently reusing incompatible assets.
+- Affected contracts/files: `tooling/evals/semantic_v2/`,
+  `tests/unit/test_m2_semantic_benchmark_assets.py`,
+  `tests/unit/test_m2_semantic_evaluation_report.py`.
+- Commit: `bb97bbd`, `564b167`.
