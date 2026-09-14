@@ -61,6 +61,11 @@ Completed:
   - M2-WP8: §12 benchmark manifest validation and reproducible evaluation
     report generation now exist, including multilingual slices, decision bands,
     unresolved/coverage, confusion, discovery and escalation metrics.
+  - M2-WP9: deterministic Discovery Pool selection now covers LOW, sampled
+    MEDIUM, high-volume HIGH, temporal burst and novelty/outlier sources;
+    cluster evidence sampling returns central, diverse and boundary sets.
+    Selected-cluster adjudication receives bounded data-only context and
+    rejects malformed output.
 
 Current work item:
   - obtain and validate the required human-labeled Semantic V2 boundary suite
@@ -81,13 +86,13 @@ Required items:
   - none waived
 
 Last verified commit:
-  - 6706d4f — connect semantic jobs to prototype matching
+  - 4145497 — add safe semantic cluster adjudication boundary
 
 Last validation:
-  - full pytest passed (with two expected skips); prototype integration,
-    benchmark validator and evaluation-report tests passed; Dashboard
-    typecheck and elevated production build passed; lint passed with five
-    pre-existing warnings and no errors.
+  - full pytest passed at `6706d4f` (with two expected skips); subsequent
+    prototype, benchmark, evaluation-report, Discovery Pool and adjudication
+    tests passed; Dashboard typecheck and elevated production build passed;
+    lint passed with five pre-existing warnings and no errors.
 
 M1 exit evidence:
   - quantitative-only Research Reports now carry exact language and

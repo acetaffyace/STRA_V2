@@ -141,3 +141,23 @@
   `tests/unit/test_m2_semantic_benchmark_assets.py`,
   `tests/unit/test_m2_semantic_evaluation_report.py`.
 - Commit: `bb97bbd`, `564b167`.
+
+## 2026-09-14 — Make Discovery Pool coverage explicit and deterministic
+
+- Decision: construct a reason-coded Discovery Pool from LOW, sampled MEDIUM,
+  high-volume HIGH, recent-burst and novelty/outlier sources; sample each
+  candidate cluster through central, diverse and boundary evidence sets.
+- Reason: discovery must not be limited to LOW confidence or arbitrary first-N
+  reviews, because broad HIGH topics can contain emerging substructure.
+- Affected contracts/files: `semantic_discovery_pool.py` and its unit tests.
+- Commit: `5e8f088`.
+
+## 2026-09-14 — Keep cluster adjudication data-only and selective
+
+- Decision: expose a provider-neutral adjudication boundary that sends only a
+  selected cluster's bounded structured context, wraps review text as data,
+  and schema-validates the response before any mention/candidate mutation.
+- Reason: provider calls must be selective, prompt-injection-safe and unable to
+  mutate production taxonomy directly; malformed output is rejected closed.
+- Affected contracts/files: `semantic_adjudication.py` and its unit tests.
+- Commit: `4145497`.
