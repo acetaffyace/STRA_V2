@@ -1,0 +1,346 @@
+{
+  "results": [
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "state": "compare",
+      "loop": 1,
+      "screenshot": "D:\\project\\STRA_V2\\docs\\stage4d\\screenshots\\compare-loop1-1440x900.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedResponses": [],
+      "checks": {
+        "rendered": true,
+        "noHorizontalOverflow": true,
+        "hasComparisonSurface": true,
+        "hasVersionSurface": true,
+        "hasCanonicalWarningOrMetric": true
+      }
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "state": "version-review",
+      "loop": 1,
+      "screenshot": "D:\\project\\STRA_V2\\docs\\stage4d\\screenshots\\version-review-loop1-1440x900.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedResponses": [],
+      "checks": {
+        "rendered": true,
+        "noHorizontalOverflow": true,
+        "hasComparisonSurface": true,
+        "hasVersionSurface": true,
+        "hasCanonicalWarningOrMetric": true
+      }
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "state": "compare",
+      "loop": 2,
+      "screenshot": "D:\\project\\STRA_V2\\docs\\stage4d\\screenshots\\compare-loop2-1440x900.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedResponses": [],
+      "checks": {
+        "rendered": true,
+        "noHorizontalOverflow": true,
+        "hasComparisonSurface": true,
+        "hasVersionSurface": true,
+        "hasCanonicalWarningOrMetric": true
+      }
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "state": "version-review",
+      "loop": 2,
+      "screenshot": "D:\\project\\STRA_V2\\docs\\stage4d\\screenshots\\version-review-loop2-1440x900.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedResponses": [],
+      "checks": {
+        "rendered": true,
+        "noHorizontalOverflow": true,
+        "hasComparisonSurface": true,
+        "hasVersionSurface": true,
+        "hasCanonicalWarningOrMetric": true
+      }
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "state": "compare",
+      "loop": 3,
+      "screenshot": "D:\\project\\STRA_V2\\docs\\stage4d\\screenshots\\compare-loop3-1440x900.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedResponses": [],
+      "checks": {
+        "rendered": true,
+        "noHorizontalOverflow": true,
+        "hasComparisonSurface": true,
+        "hasVersionSurface": true,
+        "hasCanonicalWarningOrMetric": true
+      }
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "state": "version-review",
+      "loop": 3,
+      "screenshot": "D:\\project\\STRA_V2\\docs\\stage4d\\screenshots\\version-review-loop3-1440x900.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedResponses": [],
+      "checks": {
+        "rendered": true,
+        "noHorizontalOverflow": true,
+        "hasComparisonSurface": true,
+        "hasVersionSurface": true,
+        "hasCanonicalWarningOrMetric": true
+      }
+    },
+    {
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "state": "compare",
+      "loop": 1,
+      "screenshot": "D:\\project\\STRA_V2\\docs\\stage4d\\screenshots\\compare-loop1-1366x768.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedResponses": [],
+      "checks": {
+        "rendered": true,
+        "noHorizontalOverflow": true,
+        "hasComparisonSurface": true,
+        "hasVersionSurface": true,
+        "hasCanonicalWarningOrMetric": true
+      }
+    },
+    {
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "state": "version-review",
+      "loop": 1,
+      "screenshot": "D:\\project\\STRA_V2\\docs\\stage4d\\screenshots\\version-review-loop1-1366x768.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedResponses": [],
+      "checks": {
+        "rendered": true,
+        "noHorizontalOverflow": true,
+        "hasComparisonSurface": true,
+        "hasVersionSurface": true,
+        "hasCanonicalWarningOrMetric": true
+      }
+    },
+    {
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "state": "compare",
+      "loop": 2,
+      "screenshot": "D:\\project\\STRA_V2\\docs\\stage4d\\screenshots\\compare-loop2-1366x768.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedResponses": [],
+      "checks": {
+        "rendered": true,
+        "noHorizontalOverflow": true,
+        "hasComparisonSurface": true,
+        "hasVersionSurface": true,
+        "hasCanonicalWarningOrMetric": true
+      }
+    },
+    {
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "state": "version-review",
+      "loop": 2,
+      "screenshot": "D:\\project\\STRA_V2\\docs\\stage4d\\screenshots\\version-review-loop2-1366x768.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedResponses": [],
+      "checks": {
+        "rendered": true,
+        "noHorizontalOverflow": true,
+        "hasComparisonSurface": true,
+        "hasVersionSurface": true,
+        "hasCanonicalWarningOrMetric": true
+      }
+    },
+    {
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "state": "compare",
+      "loop": 3,
+      "screenshot": "D:\\project\\STRA_V2\\docs\\stage4d\\screenshots\\compare-loop3-1366x768.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedResponses": [],
+      "checks": {
+        "rendered": true,
+        "noHorizontalOverflow": true,
+        "hasComparisonSurface": true,
+        "hasVersionSurface": true,
+        "hasCanonicalWarningOrMetric": true
+      }
+    },
+    {
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "state": "version-review",
+      "loop": 3,
+      "screenshot": "D:\\project\\STRA_V2\\docs\\stage4d\\screenshots\\version-review-loop3-1366x768.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedResponses": [],
+      "checks": {
+        "rendered": true,
+        "noHorizontalOverflow": true,
+        "hasComparisonSurface": true,
+        "hasVersionSurface": true,
+        "hasCanonicalWarningOrMetric": true
+      }
+    },
+    {
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "state": "compare",
+      "loop": 1,
+      "screenshot": "D:\\project\\STRA_V2\\docs\\stage4d\\screenshots\\compare-loop1-1024x768.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedResponses": [],
+      "checks": {
+        "rendered": true,
+        "noHorizontalOverflow": true,
+        "hasComparisonSurface": true,
+        "hasVersionSurface": true,
+        "hasCanonicalWarningOrMetric": true
+      }
+    },
+    {
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "state": "version-review",
+      "loop": 1,
+      "screenshot": "D:\\project\\STRA_V2\\docs\\stage4d\\screenshots\\version-review-loop1-1024x768.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedResponses": [],
+      "checks": {
+        "rendered": true,
+        "noHorizontalOverflow": true,
+        "hasComparisonSurface": true,
+        "hasVersionSurface": true,
+        "hasCanonicalWarningOrMetric": true
+      }
+    },
+    {
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "state": "compare",
+      "loop": 2,
+      "screenshot": "D:\\project\\STRA_V2\\docs\\stage4d\\screenshots\\compare-loop2-1024x768.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedResponses": [],
+      "checks": {
+        "rendered": true,
+        "noHorizontalOverflow": true,
+        "hasComparisonSurface": true,
+        "hasVersionSurface": true,
+        "hasCanonicalWarningOrMetric": true
+      }
+    },
+    {
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "state": "version-review",
+      "loop": 2,
+      "screenshot": "D:\\project\\STRA_V2\\docs\\stage4d\\screenshots\\version-review-loop2-1024x768.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedResponses": [],
+      "checks": {
+        "rendered": true,
+        "noHorizontalOverflow": true,
+        "hasComparisonSurface": true,
+        "hasVersionSurface": true,
+        "hasCanonicalWarningOrMetric": true
+      }
+    },
+    {
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "state": "compare",
+      "loop": 3,
+      "screenshot": "D:\\project\\STRA_V2\\docs\\stage4d\\screenshots\\compare-loop3-1024x768.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedResponses": [],
+      "checks": {
+        "rendered": true,
+        "noHorizontalOverflow": true,
+        "hasComparisonSurface": true,
+        "hasVersionSurface": true,
+        "hasCanonicalWarningOrMetric": true
+      }
+    },
+    {
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "state": "version-review",
+      "loop": 3,
+      "screenshot": "D:\\project\\STRA_V2\\docs\\stage4d\\screenshots\\version-review-loop3-1024x768.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedResponses": [],
+      "checks": {
+        "rendered": true,
+        "noHorizontalOverflow": true,
+        "hasComparisonSurface": true,
+        "hasVersionSurface": true,
+        "hasCanonicalWarningOrMetric": true
+      }
+    }
+  ]
+}

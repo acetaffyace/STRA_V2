@@ -25,6 +25,7 @@ from ..adaptive_analysis import (
 )
 from ..version_review_autopilot import build_review_acquisition_plan, choose_previous_comparable, deterministic_stratified_sample, lifecycle_interval, resolve_event
 from ..comparative_intelligence import evaluate_window_coverage, lifecycle_window, reviews_in_window, build_comparative_result, window_sensitivity, MIN_SEMANTIC_REVIEWS
+from ..research_comparison import build_version_window_comparison
 
 
 router = APIRouter(tags=["version-runs"])
@@ -443,20 +444,26 @@ def get_run_comparison(run_id: str, window_days: int = 7) -> dict:
         if window_days not in (3, 7, 14):
             raise HTTPException(status_code=400, detail="window_days must be 3, 7, or 14")
         run = storage.get_analysis_run(run_id) or {}
-        event = storage.get_version_event(run.get("event_id"))
-        cfg = (run.get("config") or {}).get("analysis") or {}
-        other = storage.get_version_event(str(cfg.get("comparison_event_id"))) if cfg.get("comparison_event_id") else None
-        if event and other:
-            a_event, b_event = (other, event) if str(other.get("event_date")) <= str(event.get("event_date")) else (event, other)
-            reviews = storage.load_reviews(int(run["target_app_id"]), limit=None)
-            labels = storage.load_review_labels(int(run["target_app_id"]))
-            cc = (metrics.get("coverage_contract") or {})
-            ca = cc.get("a") or evaluate_window_coverage(reviews, a_event, window_days, crawl_complete_for_window=None)
-            cb = cc.get("b") or evaluate_window_coverage(reviews, b_event, window_days, crawl_complete_for_window=None)
-            if window_days > int(cfg.get("post_window_days") or 7):
-                ca, cb = evaluate_window_coverage(reviews, a_event, window_days, crawl_complete_for_window=None), evaluate_window_coverage(reviews, b_event, window_days, crawl_complete_for_window=None)
-            result = build_comparative_result(a_event, b_event, reviews_in_window(reviews, lifecycle_window(a_event, window_days)), reviews_in_window(reviews, lifecycle_window(b_event, window_days)), labels, window_days=window_days, coverage_a=ca, coverage_b=cb, semantic_limit=int(cfg.get("semantic_limit") or 1000))
-            return {"run_id": run_id, "window_days": window_days, "comparison": result}
+        v2 = metrics.get("version_review_v2") or {}
+        canonical = build_version_window_comparison(
+            run_id=run_id,
+            app_id=int(run.get("target_app_id") or 0),
+            left={
+                "reviews": (v2.get("raw_metrics_a") or {}).get("reviews"),
+                "recommendation_rate": (v2.get("raw_metrics_a") or {}).get("recommendation_rate"),
+                "coverage_status": v2.get("a_coverage_status"),
+                "collection_complete": v2.get("a_coverage_status") == "COMPLETE",
+            },
+            right={
+                "reviews": (v2.get("raw_metrics_b") or {}).get("reviews"),
+                "recommendation_rate": (v2.get("raw_metrics_b") or {}).get("recommendation_rate"),
+                "coverage_status": v2.get("b_coverage_status"),
+                "collection_complete": v2.get("b_coverage_status") == "COMPLETE",
+            },
+        )
+        # Keep version-review-v2 as a compatibility payload for the existing
+        # workspace, while making the shared projection the official source.
+        return {"run_id": run_id, "window_days": window_days, "comparison": {**v2, "canonical_comparison": canonical}}
     return {
         "run_id": run_id,
         "contract": metrics.get("comparison_contract"),

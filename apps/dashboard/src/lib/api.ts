@@ -828,6 +828,72 @@ export interface DashboardPayload {
   presentation?: DashboardPresentation | null;
 }
 
+export interface ResearchComparisonSide {
+  source_kind: "analysis_run" | "version_window" | string;
+  source_id: string;
+  app_id: number;
+  scope: Record<string, unknown>;
+  quantitative: {
+    available: boolean;
+    population_n: number;
+    valid_n: number;
+    recommended_n: number;
+    not_recommended_n: number;
+    recommendation_rate: number | null;
+    confidence_interval?: unknown;
+    scope: Record<string, unknown>;
+    collection_complete?: boolean | null;
+    truncated_by_max_reviews?: boolean | null;
+    stop_reason?: string | null;
+    coverage?: string | null;
+  };
+  semantic: {
+    available: boolean;
+    population_n?: number;
+    classified_n?: number;
+    coverage?: number | null;
+    claim_status?: string | null;
+    measurement_status?: string | null;
+    topics: Array<{ taxonomy_key: string; n: number; share: number | null; validation?: unknown }>;
+    issues: Array<{ taxonomy_key: string; n: number; share: number | null; validation?: unknown }>;
+    requests: Array<{ taxonomy_key: string; n: number; share: number | null; validation?: unknown }>;
+    primary_topics: Array<{ taxonomy_key: string; n: number; share: number | null; validation?: unknown }>;
+    identity: Record<string, unknown>;
+  };
+  availability: { quantitative: boolean; semantic: boolean };
+  internal_provenance: Record<string, unknown>;
+}
+
+export interface ResearchComparison {
+  schema_version: "research-comparison-v1" | string;
+  left: ResearchComparisonSide;
+  right: ResearchComparisonSide;
+  compatibility: {
+    quantitative_comparable: boolean;
+    sampling_method_equivalent: boolean;
+    scope_equivalent: boolean;
+    semantic_side_by_side_available: boolean;
+    semantic_delta_comparable: boolean;
+    reasons: string[];
+  };
+  quantitative: { recommendation_rate_delta_pp: number | null };
+  semantic: {
+    delta_comparable: boolean;
+    delta: {
+      topics: Array<Record<string, unknown>>;
+      issues: Array<Record<string, unknown>>;
+      requests: Array<Record<string, unknown>>;
+      primary_topics: Array<Record<string, unknown>>;
+    } | null;
+  };
+}
+
+export async function fetchResearchComparison(leftRunId: string, rightRunId: string): Promise<ResearchComparison> {
+  const query = new URLSearchParams({ left_run: leftRunId, right_run: rightRunId });
+  const response = await apiFetch(apiUrl(`/comparison?${query.toString()}`), { cache: "no-store" });
+  return handleResponse<ResearchComparison>(response);
+}
+
 export interface DashboardRun {
   run_id?: string | null;
   app_id: number;
@@ -1668,6 +1734,7 @@ export interface VersionRunMetrics {
 
 export interface VersionReviewV2Result {
   schema_version?: string;
+  canonical_comparison?: ResearchComparison;
   window_days: number;
   event_a_id?: string;
   event_b_id?: string;

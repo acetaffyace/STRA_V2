@@ -15,7 +15,7 @@ import {
   Filler,
 } from "chart.js";
 import { Chart } from "react-chartjs-2";
-import { removeStarredGame, generateComparisonSummary } from "@/lib/api";
+import { removeStarredGame, generateComparisonSummary, fetchResearchComparison, ResearchComparison } from "@/lib/api";
 import { useStarredGames } from "@/contexts/StarredGamesContext";
 import { StarredGameDTO, SubcategoryInsight, GameComparisonData, ReviewRow, TrendPoint } from "@/types";
 import { AppLayout } from "@/components/AppLayout";
@@ -33,7 +33,7 @@ import { ComparisonSummaryDisplay } from "@/components/compare/ComparisonSummary
 import { PageTransition } from "@/components/PageTransition";
 import { LANGUAGE_OPTIONS } from "@/lib/languageOptions";
 import { formatTaxonomyLabelZh, MAIN_CATEGORY_LABELS_ZH } from "@/lib/taxonomyLabels";
-import { compatibleMetricObservations, getMetricObservation, metricValue } from "@/lib/metricProvenance";
+import { getMetricObservation, metricValue } from "@/lib/metricProvenance";
 
 const MAX_SELECTION = 2;
 
@@ -563,6 +563,8 @@ function ComparisonDashboard({
   const [highPlaytime, setHighPlaytime] = useState(false);
   const [highHelpful, setHighHelpful] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [canonicalComparison, setCanonicalComparison] = useState<ResearchComparison | null>(null);
+  const [canonicalComparisonLoading, setCanonicalComparisonLoading] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -581,10 +583,39 @@ function ComparisonDashboard({
   };
 
   const filtersActive = compareFiltersActive(filters) || searchQuery.trim().length > 0 || negativeOnly || highPlaytime || highHelpful;
+  const selectedRunIds = useMemo(
+    () => games.map((game) => game.insights?.metric_provenance?.recommendation_rate?.run_id || null),
+    [games],
+  );
+
+  useEffect(() => {
+    const [leftRunId, rightRunId] = selectedRunIds;
+    if (!leftRunId || !rightRunId || leftRunId === rightRunId) {
+      setCanonicalComparison(null);
+      setCanonicalComparisonLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setCanonicalComparisonLoading(true);
+    fetchResearchComparison(leftRunId, rightRunId)
+      .then((comparison) => { if (!cancelled) setCanonicalComparison(comparison); })
+      .catch(() => { if (!cancelled) setCanonicalComparison(null); })
+      .finally(() => { if (!cancelled) setCanonicalComparisonLoading(false); });
+    return () => { cancelled = true; };
+  }, [selectedRunIds]);
+
+  const canonicalSidesByAppId = useMemo(() => {
+    const sides = new Map<number, ResearchComparison["left"]>();
+    if (canonicalComparison) {
+      sides.set(canonicalComparison.left.app_id, canonicalComparison.left);
+      sides.set(canonicalComparison.right.app_id, canonicalComparison.right);
+    }
+    return sides;
+  }, [canonicalComparison]);
+
   const formalRecommendationCompatible = useMemo(() => {
-    const observations = games.map((game) => getMetricObservation(game.insights, "recommendation_rate"));
-    return observations.length > 1 && observations.every((observation) => compatibleMetricObservations(observations[0], observation));
-  }, [games]);
+    return Boolean(canonicalComparison?.compatibility.quantitative_comparable);
+  }, [canonicalComparison]);
 
   // Lock body scroll when modal is open
   useEffect(() => {
@@ -642,16 +673,16 @@ function ComparisonDashboard({
         subcategoriesByMain.set(key, list);
       }
 
-      const localRecommendation = filteredSample.length
-        ? filteredSample.reduce((sum, review) => sum + (review.voted_up ? 1 : 0), 0) / filteredSample.length
-        : null;
+      const canonicalSide = canonicalSidesByAppId.get(game.app_id);
       const recommendationObservation = getMetricObservation(game.insights, "recommendation_rate");
-      const recommendation = filtersActive
-        ? (localRecommendation ?? 0)
-        : (metricValue(game.insights, "recommendation_rate", game.insights?.recommendation) ?? 0);
+      // Official comparison cards are always sourced from the exact-run
+      // comparison projection.  Filtered samples remain descriptive only.
+      const recommendation = canonicalSide?.quantitative.recommendation_rate
+        ?? metricValue(game.insights, "recommendation_rate", game.insights?.recommendation) ?? 0;
 
       return {
         appId: game.app_id,
+        runId: canonicalSide?.source_id || recommendationObservation?.run_id || null,
         name: game.name,
         metadata: game.metadata,
         recommendation,
@@ -663,7 +694,7 @@ function ComparisonDashboard({
         sample: filteredSample,
       };
     });
-  }, [games, filters, filtersActive, searchQuery, negativeOnly, highPlaytime, highHelpful]);
+  }, [games, filters, filtersActive, searchQuery, negativeOnly, highPlaytime, highHelpful, canonicalSidesByAppId]);
 
   const categories = useMemo(() => {
     let cats = CATEGORY_KEYS.map((key) => {
@@ -921,9 +952,12 @@ function ComparisonDashboard({
     <div className="space-y-8">
       {/* Quick Filters and Filters Toggle */}
       <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+        {canonicalComparisonLoading && (
+          <span className="w-full text-xs text-slate-500">Loading canonical comparison…</span>
+        )}
         {!filtersActive && !formalRecommendationCompatible && games.some((game) => game.insights?.metric_provenance) && (
           <span className="w-full text-xs text-amber-300/80">
-            Recommendation comparison is unavailable: selected runs use incompatible metric provenance.
+            Official comparison is unavailable for the selected exact runs. Filtered values remain descriptive only.
           </span>
         )}
         <button
@@ -1081,7 +1115,7 @@ function ComparisonDashboard({
       <Card variant="glass" className={`p-6 ${mounted ? 'animate-fade-slide-up animation-delay-100' : 'opacity-0'}`}>
         <div className="mb-6">
           <h3 className="text-lg font-semibold text-white">Category Comparison</h3>
-          <p className="mt-1 text-sm text-slate-400">Compare recommendation rates across categories</p>
+          <p className="mt-1 text-sm text-slate-400">Filtered descriptive view; official recommendation stays sourced from the exact-run comparison above.</p>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -1347,6 +1381,14 @@ function ComparisonDashboard({
                 return (
                   <div key={game.appId} className="rounded-xl border border-white/10 bg-slate-900/50 p-4">
                     <h4 className="text-sm font-semibold text-sky-300 mb-3">{game.name}</h4>
+                    {game.runId && (
+                      <a
+                        href={`/reviews?appId=${encodeURIComponent(String(game.appId))}&run=${encodeURIComponent(String(game.runId))}&metric_type=topic&taxonomy_key=${encodeURIComponent(reviewsModal.subcategory)}`}
+                        className="mb-3 inline-flex text-xs text-cyan-300 hover:text-cyan-200"
+                      >
+                        Open exact-run reviews →
+                      </a>
+                    )}
                     {exampleReviews.length === 0 ? (
                       <p className="text-xs text-slate-500">No reviews tagged with this subcategory</p>
                     ) : (
