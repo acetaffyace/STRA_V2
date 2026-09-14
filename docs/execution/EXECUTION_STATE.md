@@ -66,6 +66,9 @@ Completed:
     cluster evidence sampling returns central, diverse and boundary sets.
     Selected-cluster adjudication receives bounded data-only context and
     rejects malformed output.
+  - M2-WP10: SemanticRun resources now expose exact topic/signal evidence
+    links with immutable ReviewSnapshot IDs, source hashes, UTF-8 byte ranges
+    and text snapshots; the Dashboard renders the persisted evidence directly.
 
 Current work item:
   - obtain and validate the required human-labeled Semantic V2 boundary suite
@@ -86,13 +89,13 @@ Required items:
   - none waived
 
 Last verified commit:
-  - 4145497 — add safe semantic cluster adjudication boundary
+  - b54ae00 — expose semantic evidence links
 
 Last validation:
-  - full pytest passed at `6706d4f` (with two expected skips); subsequent
-    prototype, benchmark, evaluation-report, Discovery Pool and adjudication
-    tests passed; Dashboard typecheck and elevated production build passed;
-    lint passed with five pre-existing warnings and no errors.
+  - full pytest passed at `b54ae00` (with two expected skips); benchmark,
+    evaluation-report, Discovery Pool, adjudication and evidence-link tests
+    passed; Dashboard typecheck and elevated production build passed; lint
+    passed with five pre-existing warnings and no errors.
 
 M1 exit evidence:
   - quantitative-only Research Reports now carry exact language and

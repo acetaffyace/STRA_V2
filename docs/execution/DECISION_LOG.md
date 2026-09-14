@@ -161,3 +161,14 @@
   mutate production taxonomy directly; malformed output is rejected closed.
 - Affected contracts/files: `semantic_adjudication.py` and its unit tests.
 - Commit: `4145497`.
+
+## 2026-09-14 — Make SemanticRun evidence directly addressable
+
+- Decision: expose immutable SemanticMention plus SemanticUnit source identity
+  and UTF-8 offsets through the SemanticRun resource, with topic/signal
+  filters available in the persistence service and the Dashboard.
+- Reason: Signals and Evidence must drill into the exact run-scoped source;
+  a status-only resource cannot satisfy auditability or evidence inspection.
+- Affected contracts/files: `semantic_run_store.py`, `research_runs.py`,
+  Dashboard API/types/rendering and evidence tests.
+- Commit: `b54ae00`.
