@@ -171,7 +171,7 @@ def test_semantic_mention_preserves_one_core_topic_with_optional_secondary_and_i
 
 
 def test_migration_registry_and_schema_include_evidence_tables():
-    assert migrations.latest_known_schema_version() == 28
+    assert migrations.latest_known_schema_version() == 29
     with db.get_connection() as conn:
         tables = {row[0] for row in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'")).all()}
     assert {"semantic_runs", "semantic_units", "semantic_mentions"} <= tables

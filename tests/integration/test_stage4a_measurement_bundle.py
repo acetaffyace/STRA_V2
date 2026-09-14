@@ -87,7 +87,7 @@ def test_migration_21_is_idempotent_and_preserves_validation_history():
         columns = {row[1] for row in conn.execute(text("PRAGMA table_info(classifier_validation_runs)")).fetchall()}
         assert {"execution_mode", "actual_model_id", "execution_identity_fingerprint"} <= columns
     db.init_db()
-    assert migrations.latest_known_schema_version() == 28
+    assert migrations.latest_known_schema_version() == 29
 
 
 def test_migration_20_to_21_preserves_existing_validation_rows():
