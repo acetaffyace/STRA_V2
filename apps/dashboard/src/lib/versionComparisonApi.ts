@@ -129,7 +129,9 @@ export interface VersionComparisonMetrics {
     topics: VersionComparisonTopic[];
     problems: VersionComparisonTopic[];
     requests: VersionComparisonTopic[];
+    general?: VersionComparisonTopic[];
     positives: VersionComparisonTopic[];
+    positive_topic_denominator?: string;
   };
   warnings: string[];
   progress?: { stage?: string; cohort?: string; completed?: number; total?: number };
@@ -160,6 +162,20 @@ async function handleResponse<T>(response: Response): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+function normalizePhase(phase?: string | null): string | null | undefined {
+  if (!phase) return phase;
+  const match = phase.match(/^acquiring_(?:population|primary|sensitivity_\d+d)_(a_pre|a_post|b_pre|b_post)$/);
+  return match ? `acquiring_${match[1]}` : phase;
+}
+
+function normalizeRunForUi(run: VersionComparisonRun): VersionComparisonRun {
+  // The current page polls while status === 'running'. Treat backend queue
+  // states as active client states so a freshly-created run cannot strand the
+  // UI before the BackgroundTask has had a chance to transition it.
+  const status = run.status === 'created' || run.status === 'queued' ? 'running' : run.status;
+  return { ...run, status, phase: normalizePhase(run.phase) };
+}
+
 export async function createVersionComparisonPlan(payload: VersionComparisonRequest): Promise<VersionComparisonPlan> {
   const response = await apiFetch(apiUrl('/version-comparison/plan'), {
     method: 'POST',
@@ -175,16 +191,18 @@ export async function startVersionComparison(payload: VersionComparisonRequest):
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  return handleResponse<{ run: VersionComparisonRun; plan: VersionComparisonPlan }>(response);
+  const result = await handleResponse<{ run: VersionComparisonRun; plan: VersionComparisonPlan }>(response);
+  return { ...result, run: normalizeRunForUi(result.run) };
 }
 
 export async function fetchVersionComparisonRun(runId: string): Promise<VersionComparisonRun> {
   const response = await apiFetch(apiUrl(`/version-comparison/runs/${encodeURIComponent(runId)}`), { cache: 'no-store' });
-  return handleResponse<VersionComparisonRun>(response);
+  return normalizeRunForUi(await handleResponse<VersionComparisonRun>(response));
 }
 
 export async function fetchVersionComparisonRuns(appId?: number): Promise<VersionComparisonRun[]> {
   const query = appId ? `?app_id=${appId}` : '';
   const response = await apiFetch(apiUrl(`/version-comparison/runs${query}`), { cache: 'no-store' });
-  return handleResponse<VersionComparisonRun[]>(response);
+  const runs = await handleResponse<VersionComparisonRun[]>(response);
+  return runs.map(normalizeRunForUi);
 }
