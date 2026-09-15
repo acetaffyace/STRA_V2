@@ -432,6 +432,134 @@ def _fetch_targeted_language(
         cursor = next_cursor
 
 
+def _fetch_balanced_languages_fallback(
+    contract: SamplingContract,
+    *,
+    progress_callback: Optional[Callable[[int], None]] = None,
+) -> Tuple[List[dict], dict]:
+    """Fallback multi-language crawl with a bounded *total* request budget.
+
+    The legacy multi-language helper lets each language consume the full
+    ``max_reviews`` cap before trimming the merged result.  That can multiply
+    network and local work by the number of selected languages.  Acquisition V1
+    instead gives each language an equal first-pass quota, so the sum of the
+    per-language caps is at most the requested total (apart from integer
+    rounding by fewer than the language count).
+    """
+    languages = list(contract.languages)
+    if not languages:
+        return [], {
+            "retrieved_reviews": 0,
+            "retrieved_count": 0,
+            "deduplicated_count": 0,
+            "population_reviews_after_scope": 0,
+            "collection_complete": False,
+            "scope_complete": False,
+            "truncated_by_max_reviews": False,
+            "stop_reason": "invalid_response",
+            "language_stats": {},
+        }
+
+    per_language_cap = 0 if contract.max_reviews == 0 else max(1, ceil(contract.max_reviews / len(languages)))
+    combined: List[dict] = []
+    seen_ids: set[str] = set()
+    language_stats: Dict[str, dict] = {}
+    retrieved_total = 0
+    available_values: List[int] = []
+    progress_total = 0
+
+    for language in languages:
+        language_contract = contract.model_copy(
+            update={"languages": [language], "max_reviews": per_language_cap}
+        )
+        local_stats: Dict[str, Any] = {}
+        last_reported = 0
+
+        def language_progress(value: int) -> None:
+            nonlocal last_reported, progress_total
+            increment = max(0, int(value) - last_reported)
+            if increment <= 0:
+                return
+            last_reported = int(value)
+            progress_total += increment
+            if progress_callback is not None:
+                progress_callback(progress_total)
+
+        rows = steam_api.fetch_reviews(
+            contract.app_id,
+            count=per_language_cap,
+            language=language,
+            filter_type=contract.collection_order,
+            sampling_contract=language_contract,
+            progress_callback=language_progress,
+            stats_callback=lambda stats, target=local_stats: target.update(stats),
+        )
+
+        retrieved = int(local_stats.get("retrieved_reviews") or local_stats.get("retrieved_count") or len(rows))
+        retrieved_total += retrieved
+        available = local_stats.get("available_matching_reviews")
+        if available is not None:
+            available_values.append(int(available))
+        complete = bool(local_stats.get("collection_complete", local_stats.get("scope_complete", False)))
+        truncated = bool(local_stats.get("truncated_by_max_reviews", False))
+        stop_reason = local_stats.get("stop_reason")
+        language_stats[language] = {
+            "status": "complete" if complete else "incomplete",
+            "retrieved": retrieved,
+            "population_after_scope": int(local_stats.get("population_reviews_after_scope") or len(rows)),
+            "collection_complete": complete,
+            "truncated_by_max_reviews": truncated,
+            "stop_reason": stop_reason,
+        }
+        if local_stats.get("error"):
+            language_stats[language]["status"] = "failed"
+            language_stats[language]["error"] = local_stats.get("error")
+
+        for review in rows:
+            review_id = str(review.get("recommendationid") or "")
+            if review_id and review_id in seen_ids:
+                continue
+            if review_id:
+                seen_ids.add(review_id)
+            combined.append(review)
+
+    combined = _sort_reviews(combined, contract.collection_order)
+    if contract.max_reviews > 0:
+        combined = combined[: contract.max_reviews]
+
+    aggregate_complete = bool(
+        len(language_stats) == len(languages)
+        and all(item.get("collection_complete") is True for item in language_stats.values())
+    )
+    any_failed = any(item.get("status") == "failed" for item in language_stats.values())
+    any_truncated = any(bool(item.get("truncated_by_max_reviews")) for item in language_stats.values())
+    if any_failed:
+        aggregate_stop_reason = "api_failure"
+    elif any_truncated:
+        aggregate_stop_reason = "max_reviews_reached"
+    elif aggregate_complete:
+        aggregate_stop_reason = "end_of_results"
+    else:
+        aggregate_stop_reason = next(
+            (item.get("stop_reason") for item in language_stats.values() if item.get("stop_reason")),
+            "invalid_response",
+        )
+
+    return combined, {
+        "retrieved_reviews": retrieved_total,
+        "retrieved_count": retrieved_total,
+        "deduplicated_count": len(combined),
+        "population_reviews_after_scope": len(combined),
+        "collection_complete": aggregate_complete,
+        "scope_complete": aggregate_complete,
+        "truncated_by_max_reviews": any_truncated,
+        "stop_reason": aggregate_stop_reason,
+        "language_stats": language_stats,
+        "available_matching_reviews": sum(available_values) if len(available_values) == len(languages) else None,
+        "deduplication_policy": "transport review-id duplicates only; duplicate text is retained",
+    }
+
+
 def _fetch_from_steam(
     contract: SamplingContract,
     *,
@@ -505,16 +633,10 @@ def _fetch_from_steam(
                 }
 
     fallback_stats: Dict[str, Any] = {}
-    fallback_contract = contract
     if len(contract.languages) > 1:
-        reviews = steam_api.fetch_reviews_multi_language(
-            contract.app_id,
-            count=contract.max_reviews,
-            languages=contract.languages,
-            filter_type=contract.collection_order,
-            sampling_contract=fallback_contract,
+        reviews, fallback_stats = _fetch_balanced_languages_fallback(
+            contract,
             progress_callback=progress_callback,
-            stats_callback=lambda stats: fallback_stats.update(stats),
         )
     else:
         reviews = steam_api.fetch_reviews(
@@ -522,7 +644,7 @@ def _fetch_from_steam(
             count=contract.max_reviews,
             language=contract.languages[0],
             filter_type=contract.collection_order,
-            sampling_contract=fallback_contract,
+            sampling_contract=contract,
             progress_callback=progress_callback,
             stats_callback=lambda stats: fallback_stats.update(stats),
         )
