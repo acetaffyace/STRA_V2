@@ -78,13 +78,90 @@ from .steam_api import (
     REVIEW_METADATA_FIELDS,
     STEAM_LANGUAGES,
     SteamAPIError,
-    fetch_reviews,
-    fetch_reviews_multi_language,
+    fetch_reviews as _steam_fetch_reviews,
+    fetch_reviews_multi_language as _steam_fetch_reviews_multi_language,
     iter_author_fields,
     iter_review_fields,
     resolve_app_id,
     search_applications,
 )
+
+
+def _analysis_acquisition_enabled(sampling_contract, progress_callback, stats_callback) -> bool:
+    """Return whether this call is a real acquisition stage rather than preview.
+
+    `/analyze` supplies progress/stat callbacks, while estimate/utility callers
+    do not.  Keeping preview calls on the raw Steam functions preserves their
+    current no-cache-mutation semantics without changing the public function
+    signature used across older modules.
+    """
+    return sampling_contract is not None and (progress_callback is not None or stats_callback is not None)
+
+
+def fetch_reviews(
+    app_id: int,
+    count: int = 100,
+    language: str = "english",
+    filter_type: str = "recent",
+    day_range=None,
+    include_review_bombs: bool = False,
+    stop_before_timestamp=None,
+    progress_callback=None,
+    stats_callback=None,
+    sampling_contract=None,
+):
+    """Compatibility fetch entrypoint with cache reuse for real analysis runs."""
+    if _analysis_acquisition_enabled(sampling_contract, progress_callback, stats_callback):
+        from .analysis_acquisition import ensure_reviews
+
+        result = ensure_reviews(sampling_contract, progress_callback=progress_callback)
+        if stats_callback is not None:
+            stats_callback(result.stats)
+        return result.reviews
+    return _steam_fetch_reviews(
+        app_id,
+        count=count,
+        language=language,
+        filter_type=filter_type,
+        day_range=day_range,
+        include_review_bombs=include_review_bombs,
+        stop_before_timestamp=stop_before_timestamp,
+        progress_callback=progress_callback,
+        stats_callback=stats_callback,
+        sampling_contract=sampling_contract,
+    )
+
+
+def fetch_reviews_multi_language(
+    app_id: int,
+    count: int = 100,
+    languages=None,
+    filter_type: str = "recent",
+    day_range=None,
+    include_review_bombs: bool = False,
+    progress_callback=None,
+    stats_callback=None,
+    sampling_contract=None,
+):
+    """Multi-language compatibility entrypoint with shared acquisition cache."""
+    if _analysis_acquisition_enabled(sampling_contract, progress_callback, stats_callback):
+        from .analysis_acquisition import ensure_reviews
+
+        result = ensure_reviews(sampling_contract, progress_callback=progress_callback)
+        if stats_callback is not None:
+            stats_callback(result.stats)
+        return result.reviews
+    return _steam_fetch_reviews_multi_language(
+        app_id,
+        count=count,
+        languages=languages,
+        filter_type=filter_type,
+        day_range=day_range,
+        include_review_bombs=include_review_bombs,
+        progress_callback=progress_callback,
+        stats_callback=stats_callback,
+        sampling_contract=sampling_contract,
+    )
 
 
 def __getattr__(name: str):
