@@ -1,8 +1,9 @@
 """Four-cohort deterministic version comparison primitives.
 
-Raw metrics use complete acquired cohort populations. Semantic classification is
-separate and uses a reproducible common-support sample balanced on language and
-relative lifecycle day. Recommendation outcome is never a balancing variable.
+Acquisition and semantic sampling are intentionally separate. Raw metrics use
+all acquired reviews. Semantic classification uses a reproducible manifest
+balanced only on language and relative lifecycle day; recommendation outcome is
+never a balancing variable.
 """
 from __future__ import annotations
 
@@ -21,10 +22,6 @@ COHORTS = ("A_PRE", "A_POST", "B_PRE", "B_POST")
 SENSITIVITY_WINDOWS = (3, 7, 14)
 DAY_SECONDS = 86_400
 SEMANTIC_SAMPLING_METHOD = "pooled_common_support_language_relative_day_v1"
-_MAJOR_CONFOUNDER_TYPES = {
-    "launch", "major_patch", "major_update", "season", "expansion", "dlc",
-    "content_update", "content_drop", "pricing", "outage", "controversy",
-}
 
 
 def _utc_datetime(value: Any) -> datetime | None:
@@ -76,21 +73,6 @@ def event_anchor(event: Mapping[str, Any]) -> dict[str, Any]:
     return {"timestamp": anchor, "date_only": date_only, "precision": "day" if date_only else "timestamp"}
 
 
-def event_is_usable(event: Mapping[str, Any]) -> tuple[bool, str | None]:
-    status = str(event.get("event_status") or "").strip().lower()
-    if status in {"conflicted", "insufficient", "unresolved"} and not event.get("effective_at"):
-        return False, f"event_status={status}"
-    start = _utc_datetime(event.get("effective_at_start"))
-    end = _utc_datetime(event.get("effective_at_end"))
-    if start and end and start != end and not event.get("effective_at"):
-        return False, "ambiguous_effective_at_range"
-    try:
-        event_anchor(event)
-    except ValueError:
-        return False, "missing_event_anchor"
-    return True, None
-
-
 def chronological_events(event_a: Mapping[str, Any], event_b: Mapping[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
     a, b = dict(event_a), dict(event_b)
     return (a, b) if event_anchor(a)["timestamp"] <= event_anchor(b)["timestamp"] else (b, a)
@@ -131,20 +113,6 @@ def cohort_windows(event_a: Mapping[str, Any], event_b: Mapping[str, Any], windo
             "boundary_mode": boundary_mode,
         }
     return output
-
-
-def cohort_overlap_report(event_a: Mapping[str, Any], event_b: Mapping[str, Any], window_days: int) -> dict[str, Any]:
-    windows = cohort_windows(event_a, event_b, window_days)
-    overlaps: list[dict[str, Any]] = []
-    labels = list(COHORTS)
-    for index, left in enumerate(labels):
-        for right in labels[index + 1 :]:
-            a, b = windows[left], windows[right]
-            start = max(int(a["start_time"]), int(b["start_time"]))
-            end = min(int(a["end_time_exclusive"]), int(b["end_time_exclusive"]))
-            if start < end:
-                overlaps.append({"cohort_a": left, "cohort_b": right, "start_time": start, "end_time_exclusive": end, "overlap_seconds": end - start})
-    return {"status": "overlap" if overlaps else "disjoint", "overlaps": overlaps}
 
 
 def build_sampling_contracts(app_id: int, event_a: Mapping[str, Any], event_b: Mapping[str, Any], *, window_days: int = 14, languages: Sequence[str] = ("all",), max_reviews_per_cohort: int = 10_000) -> dict[str, SamplingContract]:
@@ -203,18 +171,12 @@ def _relative_day(review: Mapping[str, Any], event: Mapping[str, Any], side: str
 
 
 def _relative_day_bucket(day: int | None) -> str:
-    if day is None or day <= 0:
-        return "unknown"
-    if day == 1:
-        return "D1"
-    if day == 2:
-        return "D2"
-    if day <= 4:
-        return "D3-4"
-    if day <= 7:
-        return "D5-7"
-    if day <= 14:
-        return "D8-14"
+    if day is None or day <= 0: return "unknown"
+    if day == 1: return "D1"
+    if day == 2: return "D2"
+    if day <= 4: return "D3-4"
+    if day <= 7: return "D5-7"
+    if day <= 14: return "D8-14"
     return "D15+"
 
 
@@ -235,7 +197,7 @@ def _allocate_quotas(total: int, weights: Mapping[str, int], capacities: Mapping
     if weight_sum <= 0:
         return {key: 0 for key in keys}
     exact = {key: total * max(0, int(weights[key])) / weight_sum for key in keys}
-    quotas = {key: min(int(capacities.get(key, 0)), int(floor(exact[key])))) for key in keys}
+    quotas = {key: min(int(capacities.get(key, 0)), int(floor(exact[key]))) for key in keys}
     remaining = total - sum(quotas.values())
     while remaining > 0:
         candidates = [key for key in keys if quotas[key] < int(capacities.get(key, 0))]
@@ -244,18 +206,17 @@ def _allocate_quotas(total: int, weights: Mapping[str, int], capacities: Mapping
         candidates.sort(key=lambda key: (exact[key] - floor(exact[key]), weights[key], key), reverse=True)
         progressed = False
         for key in candidates:
-            if remaining <= 0:
-                break
+            if remaining <= 0: break
             if quotas[key] < int(capacities.get(key, 0)):
                 quotas[key] += 1
                 remaining -= 1
                 progressed = True
-        if not progressed:
-            break
+        if not progressed: break
     return quotas
 
 
 def build_semantic_sample_manifest(cohorts: Mapping[str, Sequence[Mapping[str, Any]]], event_a: Mapping[str, Any], event_b: Mapping[str, Any], *, total_budget: int = 4_000, seed: str = "version-comparison-v1") -> dict[str, Any]:
+    """Build equal-size samples with identical language × relative-day quotas."""
     buckets_by_cohort: dict[str, dict[str, list[dict[str, Any]]]] = {}
     counts: dict[str, Counter[str]] = {}
     for cohort in COHORTS:
@@ -267,47 +228,39 @@ def build_semantic_sample_manifest(cohorts: Mapping[str, Sequence[Mapping[str, A
         buckets_by_cohort[cohort] = buckets
         counts[cohort] = Counter({key: len(rows) for key, rows in buckets.items()})
     common = set(counts[COHORTS[0]])
-    for cohort in COHORTR[1:]:
+    for cohort in COHORTS[1:]:
         common &= set(counts[cohort])
     common = {key for key in common if "relative_day=unknown" not in key}
     capacities = {key: min(counts[cohort][key] for cohort in COHORTS) for key in sorted(common)}
     pooled = {key: sum(counts[cohort][key] for cohort in COHORTS) for key in sorted(common)}
-    target_per_cohort = min(max(0, total_budget // 4), sum(capacities.values())
+    target_per_cohort = min(max(0, total_budget // 4), sum(capacities.values()))
     quotas = _allocate_quotas(target_per_cohort, pooled, capacities)
     selected_ids: dict[str, list[str]] = {cohort: [] for cohort in COHORTS}
     entries: list[dict[str, Any]] = []
     for cohort in COHORTS:
         for stratum, quota in sorted(quotas.items()):
             available = buckets_by_cohort[cohort][stratum]
-            if quota <= 0:
-                continue
+            if quota <= 0: continue
             ranked = sorted(available, key=lambda row: sha256(f"{seed}|{stratum}|{_review_id(row)}".encode()).hexdigest())
             probability = quota / len(available) if available else 0.0
             for row in ranked[:quota]:
                 rid = _review_id(row)
-                if rid:
-                    selected_ids[cohort].append(rid)
-                entries.append({"cohort": cohort, "review_id": rid, "language": _language(row), "relative_day_bucket": stratum.split("relative_day=", 1)[-1], "stratum": stratum, "selection_probability": round(probability, 8), "sampling_weight": round(len(available) / quota, 8) if quota else None})
+                if rid: selected_ids[cohort].append(rid)
+                entries.append({
+                    "cohort": cohort, "review_id": rid, "language": _language(row),
+                    "relative_day_bucket": stratum.split("relative_day=", 1)[-1], "stratum": stratum,
+                    "selection_probability": round(probability, 8),
+                    "sampling_weight": round(len(available) / quota, 8) if quota else None,
+                })
     ready = target_per_cohort > 0 and all(len(selected_ids[c]) == target_per_cohort for c in COHORTS)
-    pooled_total = sum(pooled.values()) or 1
-    quota_total = sum(quotas.values()) or 1
+    denominator = sum(pooled.values()) or 1
     return {
-        "schema_version": "semantic-sample-manifest-v1",
-        "status": "ready" if ready else "insufficient_common_support",
-        "method": SEMANTIC_SAMPLING_METHOD,
-        "seed": seed,
-        "total_budget": total_budget,
-        "target_per_cohort": target_per_cohort,
-        "actual_total": sum(map(len, selected_ids.values())),
-        "balancing_dimensions": ["language", "relative_day_bucket"],
-        "outcome_balanced": False,
-        "common_support_strata": sorted(common),
-        "requested_target_distribution": {key: round(pooled[key] / pooled_total, 8) for key in sorted(pooled)},
-        "realized_target_distribution": {key: round(quotas[key] / quota_total, 8) for key in sorted(quotas) if quotas[key] > 0},
-        "target_distribution": {key: round(quotas[key] / quota_total, 8) for key in sorted(quotas) if quotas[key] > 0},
-        "quotas": quotas,
-        "selected_review_ids": selected_ids,
-        "entries": entries,
+        "schema_version": "semantic-sample-manifest-v1", "status": "ready" if ready else "insufficient_common_support",
+        "method": SEMANTIC_SAMPLING_METHOD, "seed": seed, "total_budget": total_budget,
+        "target_per_cohort": target_per_cohort, "actual_total": sum(map(len, selected_ids.values())),
+        "balancing_dimensions": ["language", "relative_day_bucket"], "outcome_balanced": False,
+        "common_support_strata": sorted(common), "target_distribution": {k: round(pooled[k] / denominator, 8) for k in sorted(pooled)},
+        "quotas": quotas, "selected_review_ids": selected_ids, "entries": entries,
     }
 
 
@@ -317,28 +270,22 @@ def semantic_reviews_from_manifest(cohorts: Mapping[str, Sequence[Mapping[str, A
     for cohort in COHORTS:
         for row in cohorts.get(cohort, []):
             rid = _review_id(row)
-            if rid and rid in wanted:
-                unique[rid] = dict(row)
+            if rid and rid in wanted: unique[rid] = dict(row)
     return list(unique.values())
 
 
 def _bool(value: Any) -> bool | None:
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, (int, float)) and value in (0, 1):
-        return bool(value)
+    if isinstance(value, bool): return value
+    if isinstance(value, (int, float)) and value in (0, 1): return bool(value)
     if isinstance(value, str):
         text = value.strip().lower()
-        if text in {"true", "1", "yes", "positive", "recommended"}:
-            return True
-        if text in {"false", "0", "no", "negative", "not recommended", "not_recommended"}:
-            return False
+        if text in {"true", "1", "yes", "positive", "recommended"}: return True
+        if text in {"false", "0", "no", "negative", "not recommended", "not_recommended"}: return False
     return None
 
 
 def _wilson(recommended: int, total: int, confidence: float = 0.95) -> tuple[float | None, float | None]:
-    if total <= 0:
-        return None, None
+    if total <= 0: return None, None
     z = NormalDist().inv_cdf(0.5 + confidence / 2)
     p = recommended / total
     denom = 1 + z * z / total
@@ -352,7 +299,9 @@ def cohort_summary(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     recommended = sum(value is True for value in valid)
     rate = recommended / len(valid) if valid else None
     low, high = _wilson(recommended, len(valid))
-    return {"reviews": len(rows), "outcome_valid_n": len(valid), "recommended": recommended, "not_recommended": len(valid) - recommended, "recommendation_rate": rate, "recommendation_ci95": [low, high], "languages": dict(sorted(Counter(_language(row) for row in rows).items()))}
+    return {"reviews": len(rows), "outcome_valid_n": len(valid), "recommended": recommended,
+            "not_recommended": len(valid) - recommended, "recommendation_rate": rate,
+            "recommendation_ci95": [low, high], "languages": dict(sorted(Counter(_language(row) for row in rows).items()))}
 
 
 def _rate(summary: Mapping[str, Any]) -> float | None:
@@ -367,112 +316,88 @@ def _pp(value: float | None) -> float | None:
 def raw_comparison(cohorts: Mapping[str, Sequence[Mapping[str, Any]]]) -> dict[str, Any]:
     summaries = {cohort: cohort_summary(cohorts.get(cohort, [])) for cohort in COHORTS}
     rates = {cohort: _rate(summary) for cohort, summary in summaries.items()}
-
     def diff(left: str, right: str) -> float | None:
         return rates[right] - rates[left] if rates[left] is not None and rates[right] is not None else None
-
     delta_a, delta_b = diff("A_PRE", "A_POST"), diff("B_PRE", "B_POST")
     did = delta_b - delta_a if delta_a is not None and delta_b is not None else None
-    return {"cohorts": summaries, "deltas": {"a_pre_to_post_pp": _pp(delta_a), "b_pre_to_post_pp": _pp(delta_b), "b_post_minus_a_post_pp": _pp(diff("A_POST", "B_POST")), "difference_in_differences_pp": _pp(did)}, "interpretation": "Observational comparison. Difference-in-differences is descriptive and not a causal estimate."}
+    return {"cohorts": summaries, "deltas": {
+        "a_pre_to_post_pp": _pp(delta_a), "b_pre_to_post_pp": _pp(delta_b),
+        "b_post_minus_a_post_pp": _pp(diff("A_POST", "B_POST")), "difference_in_differences_pp": _pp(did),
+    }, "interpretation": "Observational comparison. Difference-in-differences is descriptive and not a causal estimate."}
 
 
 def _safe_compare(reference: Sequence[Mapping[str, Any]], comparison: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
-    try:
-        return compare_populations(reference, comparison)
-    except Exception as exc:
-        return {"comparability": {"level": "unknown", "warnings": [f"comparability_error:{type(exc).__name__}"]}}
+    try: return compare_populations(reference, comparison)
+    except Exception as exc: return {"comparability": {"level": "unknown", "warnings": [f"comparability_error:{type(exc).__name__}"]}}
 
 
 def comparability_matrix(cohorts: Mapping[str, Sequence[Mapping[str, Any]]]) -> dict[str, Any]:
-    return {"A_PRE_vs_A_POST": _safe_compare(cohorts.get("A_PRE", []), cohorts.get("A_POST", [])), "B_PRE_vs_B_POST": _safe_compare(cohorts.get("B_PRE", []), cohorts.get("B_POST", [])), "A_POST_vs_B_POST": _safe_compare(cohorts.get("A_POST", []), cohorts.get("B_POST", []))}
+    return {
+        "A_PRE_vs_A_POST": _safe_compare(cohorts.get("A_PRE", []), cohorts.get("A_POST", [])),
+        "B_PRE_vs_B_POST": _safe_compare(cohorts.get("B_PRE", []), cohorts.get("B_POST", [])),
+        "A_POST_vs_B_POST": _safe_compare(cohorts.get("A_POST", []), cohorts.get("B_POST", [])),
+    }
 
 
 def _safe_standardize(reference: Sequence[Mapping[str, Any]], comparison: Sequence[Mapping[str, Any]], variables: Sequence[str]) -> dict[str, Any]:
-    try:
-        return standardize_populations(reference, comparison, variables=variables, target="pooled", include_single_dimension_sensitivity=False)
-    except Exception as exc:
-        return {"status": "unavailable", "error": type(exc).__name__, "variables": list(variables)}
+    try: return standardize_populations(reference, comparison, variables=variables, target="pooled", include_single_dimension_sensitivity=False)
+    except Exception as exc: return {"status": "unavailable", "error": type(exc).__name__, "variables": list(variables)}
 
 
 def standardization_sensitivity(cohorts: Mapping[str, Sequence[Mapping[str, Any]]]) -> dict[str, Any]:
-    pairs = {"A_PRE_vs_A_POST": (cohorts.get("A_PRE", []), cohorts.get("A_POST", [])), "B_PRE_vs_B_POST": (cohorts.get("B_PRE", []), cohorts.get("B_POST", [])), "A_POST_vs_B_POST": (cohorts.get("A_POST", []), cohorts.get("B_POST", []))}
-    return {name: {"language": _safe_standardize(a, b, ["language"]), "language_plus_playtime": _safe_standardize(a, b, ["language", "playtime_cohort"])} for name, (a, b) in pairs.items()}
+    pairs = {"A_PRE_vs_A_POST": (cohorts.get("A_PRE", []), cohorts.get("A_POST", [])),
+             "B_PRE_vs_B_POST": (cohorts.get("B_PRE", []), cohorts.get("B_POST", [])),
+             "A_POST_vs_B_POST": (cohorts.get("A_POST", []), cohorts.get("B_POST", []))}
+    return {name: {"language": _safe_standardize(a, b, ["language"]),
+                   "language_plus_playtime": _safe_standardize(a, b, ["language", "playtime_cohort"])} for name, (a, b) in pairs.items()}
 
 
-def _valid_label(labels: Mapping[str, Mapping[str, Any]], review: Mapping[str, Any]) -> Mapping[str, Any] | None:
-    raw = labels.get(_review_id(review))
-    if not isinstance(raw, Mapping) or raw.get("label_origin") != "llm" or raw.get("validated") is not True:
-        return None
-    payload = raw.get("payload")
-    return payload if isinstance(payload, Mapping) and payload else None
+def _label_payload(labels: Mapping[str, Mapping[str, Any]], review: Mapping[str, Any]) -> Mapping[str, Any]:
+    raw = labels.get(_review_id(review), {}) or {}
+    payload = raw.get("payload", raw) if isinstance(raw, Mapping) else {}
+    return payload if isinstance(payload, Mapping) else {}
 
 
 def _values(payload: Mapping[str, Any], key: str) -> set[str]:
     values = payload.get(key) or payload.get(f"llm_{key}") or []
-    if isinstance(values, str):
-        values = [values]
-    return {str(value).strip() for value in values if str(value).strip() and not str(value).startswith("other/")}
-
-
-def _aggregate_semantic_family(valid_samples: Mapping[str, Sequence[tuple[Mapping[str, Any], Mapping[str, Any]]]], selector) -> list[dict[str, Any]]:
-    topic_sets: dict[str, dict[str, set[str]]] = {cohort: {} for cohort in COHORTS}
-    topics: set[str] = set()
-    for cohort in COHORTS:
-        for review, payload in valid_samples[cohort]:
-            rid = _review_id(review)
-            for topic in selector(payload):
-                topics.add(topic)
-                topic_sets[cohort].setdefault(topic, set()).add(rid)
-    rows: list[dict[str, Any]] = []
-    denominators = {cohort: len(valid_samples[cohort]) for cohort in COHORTS}
-    for topic in sorted(topics):
-        supports = {cohort: len(topic_sets[cohort].get(topic, set())) for cohort in COHORTS}
-        rates = {cohort: supports[cohort] / denominators[cohort] if denominators[cohort] else None for cohort in COHORTS}
-        da = rates["A_POST"] - rates["A_PRE"] if rates["A_POST"] is not None and rates["A_PRE"] is not None else None
-        db = rates["B_POST"] - rates["B_PRE"] if rates["B_POST"] is not None and rates["B_PRE"] is not None else None
-        did = db - da if da is not None and db is not None else None
-        rows.append({"topic_id": topic, "display_name": topic.split("/", 1)[-1], "support": supports, "rates": rates, "a_change_pp": _pp(da), "b_change_pp": _pp(db), "difference_in_differences_pp": _pp(did)})
-    rows.sort(key=lambda row: abs(row.get("difference_in_differences_pp") or 0), reverse=True)
-    return rows
+    if isinstance(values, str): values = [values]
+    return {str(value).strip() for value in values if str(value).strip()}
 
 
 def semantic_comparison(cohorts: Mapping[str, Sequence[Mapping[str, Any]]], labels: Mapping[str, Mapping[str, Any]], manifest: Mapping[str, Any]) -> dict[str, Any]:
     selected = manifest.get("selected_review_ids") or {}
     selected_sets = {cohort: set(selected.get(cohort) or []) for cohort in COHORTS}
     samples = {cohort: [row for row in cohorts.get(cohort, []) if _review_id(row) in selected_sets[cohort]] for cohort in COHORTS}
-    valid_samples: dict[str, list[tuple[Mapping[str, Any], Mapping[str, Any]]]] = {cohort: [] for cohort in COHORTS}
+    topics: set[str] = set()
+    topic_sets: dict[str, dict[str, set[str]]] = {cohort: {} for cohort in COHORTS}
+    families: dict[str, str] = {}
     for cohort in COHORTS:
         for row in samples[cohort]:
-            payload = _valid_label(labels, row)
-            if payload is not None:
-                valid_samples[cohort].append((row, payload))
-    sample_counts = {cohort: len(samples[cohort]) for cohort in COHORTS}
-    classified_counts = {cohort: len(valid_samples[cohort]) for cohort in COHORTS}
-    coverage = {cohort: (classified_counts[cohort] / sample_counts[cohort] if sample_counts[cohort] else 0.0) for cohort in COHORTS}
-    if manifest.get("status") != "ready":
-        status = "insufficient_common_support"
-    elif not all(classified_counts.values()):
-        status = "classification_failed"
-    elif min(coverage.values()) < 0.95:
-        status = "partial_classification"
-    else:
-        status = "ready"
-    issues = _aggregate_semantic_family(valid_samples, lambda payload: _values(payload, "issue_subcategories"))
-    requests = _aggregate_semantic_family(valid_samples, lambda payload: _values(payload, "request_subcategories"))
-    general = _aggregate_semantic_family(valid_samples, lambda payload: _values(payload, "subcategories") - _values(payload, "issue_subcategories") - _values(payload, "request_subcategories"))
-    return {
-        "status": status,
-        "sample_counts": sample_counts,
-        "classified_counts": classified_counts,
-        "classification_coverage": coverage,
-        "invalid_label_counts": {cohort: sample_counts[cohort] - classified_counts[cohort] for cohort in COHORTS},
-        "topics": issues + requests + general,
-        "problems": issues,
-        "requests": requests,
-        "general": general,
-        "positives": general,
-        "rate_denominator": "validated_llm_labels_only",
-    }
+            payload = _label_payload(labels, row)
+            issues, requests = _values(payload, "issue_subcategories"), _values(payload, "request_subcategories")
+            rid = _review_id(row)
+            for topic in _values(payload, "subcategories") | issues | requests:
+                if topic.startswith("other/"): continue
+                topics.add(topic); topic_sets[cohort].setdefault(topic, set()).add(rid)
+                families[topic] = "request" if topic in requests else "problem" if topic in issues else families.get(topic, "positive")
+    rows: list[dict[str, Any]] = []
+    for topic in sorted(topics):
+        supports, rates = {}, {}
+        for cohort in COHORTS:
+            supports[cohort] = len(topic_sets[cohort].get(topic, set()))
+            rates[cohort] = supports[cohort] / len(samples[cohort]) if samples[cohort] else None
+        da = rates["A_POST"] - rates["A_PRE"] if rates["A_POST"] is not None and rates["A_PRE"] is not None else None
+        db = rates["B_POST"] - rates["B_PRE"] if rates["B_POST"] is not None and rates["B_PRE"] is not None else None
+        did = db - da if da is not None and db is not None else None
+        rows.append({"topic_id": topic, "display_name": topic.split("/", 1)[-1], "family": families.get(topic, "positive"),
+                     "support": supports, "rates": rates, "a_change_pp": _pp(da), "b_change_pp": _pp(db),
+                     "difference_in_differences_pp": _pp(did)})
+    rows.sort(key=lambda row: abs(row.get("difference_in_differences_pp") or 0), reverse=True)
+    classified = {cohort: sum(bool(_label_payload(labels, row)) for row in samples[cohort]) for cohort in COHORTS}
+    return {"status": "ready" if manifest.get("status") == "ready" else "insufficient_common_support",
+            "sample_counts": {cohort: len(samples[cohort]) for cohort in COHORTS}, "classified_counts": classified,
+            "topics": rows, "problems": [r for r in rows if r["family"] == "problem"],
+            "requests": [r for r in rows if r["family"] == "request"], "positives": [r for r in rows if r["family"] == "positive"]}
 
 
 def window_sensitivity(acquired: Mapping[str, Sequence[Mapping[str, Any]]], event_a: Mapping[str, Any], event_b: Mapping[str, Any]) -> list[dict[str, Any]]:
@@ -487,25 +412,21 @@ def window_sensitivity(acquired: Mapping[str, Sequence[Mapping[str, Any]]], even
 def confounder_events(catalog: Sequence[Mapping[str, Any]], event_a: Mapping[str, Any], event_b: Mapping[str, Any], *, window_days: int) -> list[dict[str, Any]]:
     selected_ids = {str(event_a.get("event_id")), str(event_b.get("event_id"))}
     windows = cohort_windows(event_a, event_b, window_days)
-    ranges = [(int(item["start_time"]), int(item["end_time_exclusive"])) for item in windows.values()]
+    earliest, latest = min(item["start_time"] for item in windows.values()), max(item["end_time_exclusive"] for item in windows.values())
     result = []
     for event in catalog:
-        if str(event.get("event_id")) in selected_ids:
-            continue
-        try:
-            stamp = int(event_anchor(event)["timestamp"].timestamp())
-        except ValueError:
-            continue
-        if any(start <= stamp < end for start, end in ranges):
-            event_type = str(event.get("event_type") or "other").lower()
-            result.append({"event_id": event.get("event_id"), "event_name": event.get("event_name") or event.get("title"), "event_type": event_type, "event_date": event.get("effective_at") or event.get("event_date"), "severity": "major" if event_type in _MAJOR_CONFOUNDER_TYPES else "minor"})
+        if str(event.get("event_id")) in selected_ids: continue
+        try: stamp = int(event_anchor(event)["timestamp"].timestamp())
+        except ValueError: continue
+        if earliest <= stamp < latest:
+            event_type = str(event.get("event_type") or "other")
+            result.append({"event_id": event.get("event_id"), "event_name": event.get("event_name") or event.get("title"),
+                           "event_type": event_type, "event_date": event.get("effective_at") or event.get("event_date"),
+                           "severity": "major" if event_type in {"major_patch", "season", "expansion", "pricing", "outage", "controversy"} else "minor"})
     return sorted(result, key=lambda item: str(item.get("event_date") or ""))
 
 
-__all__ = [
-    "COHORTS", "SENSITIVITY_WINDOWS", "SEMANTIC_SAMPLING_METHOD", "event_anchor", "event_is_usable",
-    "chronological_events", "cohort_windows", "cohort_overlap_report", "build_sampling_contracts", "slice_cohort",
-    "primary_cohorts", "build_semantic_sample_manifest", "semantic_reviews_from_manifest", "cohort_summary",
-    "raw_comparison", "comparability_matrix", "standardization_sensitivity", "semantic_comparison", "window_sensitivity",
-    "confounder_events",
-]
+__all__ = ["COHORTS", "SENSITIVITY_WINDOWS", "SEMANTIC_SAMPLING_METHOD", "event_anchor", "chronological_events",
+           "cohort_windows", "build_sampling_contracts", "slice_cohort", "primary_cohorts", "build_semantic_sample_manifest",
+           "semantic_reviews_from_manifest", "cohort_summary", "raw_comparison", "comparability_matrix",
+           "standardization_sensitivity", "semantic_comparison", "window_sensitivity", "confounder_events"]
