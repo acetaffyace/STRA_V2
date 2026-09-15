@@ -99,6 +99,14 @@ def _values(payload: Mapping[str, Any], key: str) -> set[str]:
     }
 
 
+def _general_topics(payload: Mapping[str, Any]) -> set[str]:
+    return (
+        _values(payload, "subcategories")
+        - _values(payload, "issue_subcategories")
+        - _values(payload, "request_subcategories")
+    )
+
+
 def _pp(value: float | None) -> float | None:
     return round(value * 100, 2) if value is not None else None
 
@@ -184,12 +192,20 @@ def semantic_comparison(
 
     issues = _aggregate_family(valid_samples, lambda payload: _values(payload, "issue_subcategories"))
     requests = _aggregate_family(valid_samples, lambda payload: _values(payload, "request_subcategories"))
-    general = _aggregate_family(
-        valid_samples,
-        lambda payload: _values(payload, "subcategories")
-        - _values(payload, "issue_subcategories")
-        - _values(payload, "request_subcategories"),
-    )
+    general = _aggregate_family(valid_samples, _general_topics)
+
+    # The UI labels this family as positive themes. Make that statement true:
+    # only validated reviews that Steam marks recommended contribute, and the
+    # denominator is the validated recommended sample in each cohort.
+    positive_samples = {
+        cohort: [
+            pair for pair in valid_samples[cohort]
+            if pair[0].get("voted_up") is True
+        ]
+        for cohort in COHORTS
+    }
+    positives = _aggregate_family(positive_samples, _general_topics)
+
     return {
         "status": status,
         "sample_counts": sample_counts,
@@ -202,8 +218,9 @@ def semantic_comparison(
         "problems": issues,
         "requests": requests,
         "general": general,
-        "positives": general,  # compatibility alias for the existing UI; not sentiment polarity.
+        "positives": positives,
         "rate_denominator": "validated_llm_labels_only",
+        "positive_topic_denominator": "validated_llm_labels_on_recommended_reviews_only",
     }
 
 
