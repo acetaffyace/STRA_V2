@@ -1,6 +1,7 @@
 """FastAPI APIRouter modules for the SentiNext backend."""
 
 from .analysis import router as analysis_router
+from .acquisition import router as acquisition_router
 from .games import router as games_router
 from .reviews import router as reviews_router
 from .chat import router as chat_router
@@ -12,6 +13,7 @@ from .presentation import router as presentation_router
 
 all_routers = [
     analysis_router,
+    acquisition_router,
     games_router,
     reviews_router,
     chat_router,
