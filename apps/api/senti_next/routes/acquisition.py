@@ -46,6 +46,36 @@ class CollectionWindowsResponse(BaseModel):
     items: List[Dict[str, Any]] = Field(default_factory=list)
 
 
+def _conservative_cache_cap(payload: Dict[str, Any], sampling: SamplingContract) -> Dict[str, Any]:
+    """Do not claim complete coverage when a cache hit lands exactly on a new cap.
+
+    A complete wider historical ledger row can cover the requested sub-window,
+    while ``load_local_reviews`` applies the caller's smaller max_reviews before
+    the cached result is constructed.  In that case the ledger cannot prove
+    that the current capped population is exhaustive.  Mark it partial rather
+    than exposing a false COMPLETE state to the UI.
+    """
+    if (
+        payload.get("source") == "cache"
+        and sampling.max_reviews > 0
+        and int(payload.get("matched_count") or 0) >= sampling.max_reviews
+        and payload.get("collection_complete")
+        and not payload.get("truncated_by_max_reviews")
+    ):
+        payload = dict(payload)
+        payload["collection_complete"] = False
+        payload["truncated_by_max_reviews"] = True
+        payload["stop_reason"] = "cache_cap_boundary_ambiguous"
+        stats = dict(payload.get("stats") or {})
+        stats["collection_complete"] = False
+        stats["scope_complete"] = False
+        stats["truncated_by_max_reviews"] = True
+        stats["stop_reason"] = "cache_cap_boundary_ambiguous"
+        stats["cache_cap_boundary_ambiguous"] = True
+        payload["stats"] = stats
+    return payload
+
+
 @router.post("/reviews/collect", response_model=CollectReviewsResponse)
 def collect_reviews_endpoint(request: CollectReviewsRequest) -> CollectReviewsResponse:
     """Fetch Steam reviews and persist them locally without any LLM work."""
@@ -58,7 +88,7 @@ def collect_reviews_endpoint(request: CollectReviewsRequest) -> CollectReviewsRe
     except Exception as exc:
         raise HTTPException(status_code=500, detail="Review collection failed.") from exc
 
-    payload = result.to_dict()
+    payload = _conservative_cache_cap(result.to_dict(), request.sampling)
     return CollectReviewsResponse(
         app_id=request.sampling.app_id,
         sampling=request.sampling.to_dict(),
