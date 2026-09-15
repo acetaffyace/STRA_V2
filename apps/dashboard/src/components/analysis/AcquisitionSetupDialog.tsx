@@ -120,8 +120,8 @@ export function AcquisitionSetupDialog({
       setError('开始日期不能晚于结束日期。');
       return;
     }
-    if (!Number.isInteger(maxReviews) || maxReviews < 0 || maxReviews > 10000) {
-      setError('评论数量需要在 0–10,000 之间；0 表示不设数量上限。');
+    if (!Number.isInteger(maxReviews) || maxReviews < 1 || maxReviews > 10000) {
+      setError('评论数量需要在 1–10,000 之间。');
       return;
     }
 
@@ -252,8 +252,8 @@ export function AcquisitionSetupDialog({
                     onChange={(event) => setMaxReviews(Number(event.target.value))}
                     className="mt-1 w-full rounded-xl border border-white/10 bg-slate-900/80 px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-sky-400/60"
                   >
-                    {[500, 1000, 2000, 5000, 10000, 0].map((value) => (
-                      <option key={value} value={value}>{value === 0 ? '不设数量上限' : `${value.toLocaleString()} 条`}</option>
+                    {[500, 1000, 2000, 5000, 10000].map((value) => (
+                      <option key={value} value={value}>{`${value.toLocaleString()} 条`}</option>
                     ))}
                   </select>
                 </label>
