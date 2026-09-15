@@ -8,13 +8,15 @@ from apps.api.senti_next.version_comparison import (
     build_sampling_contracts,
     build_semantic_sample_manifest,
     chronological_events,
-    cohort_overlap_report,
     cohort_windows,
+    raw_comparison,
+    window_sensitivity,
+)
+from apps.api.senti_next.version_comparison_hardening import (
+    cohort_overlap_report,
     confounder_events,
     event_is_usable,
-    raw_comparison,
     semantic_comparison,
-    window_sensitivity,
 )
 
 
@@ -150,8 +152,8 @@ def test_semantic_manifest_is_equal_common_support_deterministic_and_not_outcome
 def test_semantic_comparison_excludes_fallback_labels_from_rate_denominator():
     cohorts = {
         cohort: [
-            {"recommendationid": f"{cohort}-1", "language": "english"},
-            {"recommendationid": f"{cohort}-2", "language": "english"},
+            {"recommendationid": f"{cohort}-1", "language": "english", "voted_up": True},
+            {"recommendationid": f"{cohort}-2", "language": "english", "voted_up": False},
         ]
         for cohort in COHORTS
     }
@@ -184,6 +186,38 @@ def test_semantic_comparison_excludes_fallback_labels_from_rate_denominator():
     assert all(result["invalid_label_counts"][cohort] == 1 for cohort in COHORTS)
     performance = next(row for row in result["problems"] if row["topic_id"] == "technical/performance")
     assert all(performance["rates"][cohort] == 1.0 for cohort in COHORTS)
+
+
+def test_positive_topics_only_use_recommended_validated_reviews():
+    cohorts = {
+        cohort: [
+            {"recommendationid": f"{cohort}-pos", "language": "english", "voted_up": True},
+            {"recommendationid": f"{cohort}-neg", "language": "english", "voted_up": False},
+        ]
+        for cohort in COHORTS
+    }
+    manifest = {
+        "status": "ready",
+        "selected_review_ids": {
+            cohort: [f"{cohort}-pos", f"{cohort}-neg"] for cohort in COHORTS
+        },
+    }
+    labels = {}
+    for cohort in COHORTS:
+        labels[f"{cohort}-pos"] = {
+            "label_origin": "llm",
+            "validated": True,
+            "payload": {"subcategories": ["gameplay/combat"], "issue_subcategories": [], "request_subcategories": []},
+        }
+        labels[f"{cohort}-neg"] = {
+            "label_origin": "llm",
+            "validated": True,
+            "payload": {"subcategories": ["story/pacing"], "issue_subcategories": [], "request_subcategories": []},
+        }
+    result = semantic_comparison(cohorts, labels, manifest)
+    assert {row["topic_id"] for row in result["general"]} == {"gameplay/combat", "story/pacing"}
+    assert {row["topic_id"] for row in result["positives"]} == {"gameplay/combat"}
+    assert result["positive_topic_denominator"] == "validated_llm_labels_on_recommended_reviews_only"
 
 
 def test_raw_comparison_reports_pre_post_post_gap_and_descriptive_did():
