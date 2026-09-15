@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from types import SimpleNamespace
-
 from senti_next import acquisition
 from senti_next.sampling import SamplingContract
 
@@ -165,3 +163,46 @@ def test_multi_language_targeted_path_uses_total_cap(monkeypatch):
     assert requested_caps == [("english", 3), ("japanese", 3)]
     assert len(rows) == 5
     assert stats["truncated_by_max_reviews"] is True
+
+
+def test_multi_language_fallback_bounds_actual_per_language_requests(monkeypatch):
+    contract = SamplingContract(
+        app_id=10,
+        start_time=100,
+        end_time=200,
+        languages=["english", "japanese", "schinese"],
+        collection_order="recent",
+        max_reviews=10,
+    )
+    requested_caps = []
+
+    monkeypatch.setattr(acquisition, "_fetch_targeted_language", lambda *args, **kwargs: None)
+
+    def fake_fetch(app_id, *, count, language, sampling_contract, stats_callback=None, **kwargs):
+        requested_caps.append((language, count, sampling_contract.max_reviews))
+        rows = [_review(f"{language}-{i}", 180 - i, language=language) for i in range(count)]
+        if stats_callback:
+            stats_callback({
+                "retrieved_reviews": len(rows),
+                "retrieved_count": len(rows),
+                "population_reviews_after_scope": len(rows),
+                "collection_complete": False,
+                "scope_complete": False,
+                "truncated_by_max_reviews": True,
+                "stop_reason": "max_reviews_reached",
+            })
+        return rows
+
+    monkeypatch.setattr(acquisition.steam_api, "fetch_reviews", fake_fetch)
+    rows, stats = acquisition._fetch_from_steam(contract)
+
+    # ceil(10/3) = 4, so the fallback asks for 4 per language instead of 10 per language.
+    assert requested_caps == [
+        ("english", 4, 4),
+        ("japanese", 4, 4),
+        ("schinese", 4, 4),
+    ]
+    assert len(rows) == 10
+    assert stats["retrieved_reviews"] == 12
+    assert stats["targeted_date_attempted"] is True
+    assert stats["targeted_date_applied"] is False
