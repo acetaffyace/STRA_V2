@@ -30,6 +30,7 @@ export default function DatabasePage() {
   const [collectorOpen, setCollectorOpen] = useState(false);
   const [collectorBusy, setCollectorBusy] = useState(false);
   const [collectorAppId, setCollectorAppId] = useState<number | null>(null);
+  const [collectorAppIdInput, setCollectorAppIdInput] = useState('');
   const [collectorMessage, setCollectorMessage] = useState<string | null>(null);
   const [collectorError, setCollectorError] = useState<string | null>(null);
 
@@ -42,15 +43,13 @@ export default function DatabasePage() {
       ]);
       setStats(newStats);
       setGames(newGames);
-      if (collectorAppId == null && newGames.length > 0) {
-        setCollectorAppId(newGames[0].app_id);
-      }
+      setCollectorAppId((current) => current ?? newGames[0]?.app_id ?? null);
     } catch (err) {
       console.error('Failed to load database data:', err);
     } finally {
       setLoadingStats(false);
     }
-  }, [collectorAppId]);
+  }, []);
 
   useEffect(() => {
     void loadData();
@@ -66,6 +65,19 @@ export default function DatabasePage() {
     await Promise.all([loadData(), refreshStarred()]);
   }
 
+  function openCollector() {
+    const typedId = Number(collectorAppIdInput.trim());
+    const targetId = Number.isInteger(typedId) && typedId > 0 ? typedId : collectorAppId;
+    if (!targetId) {
+      setCollectorError('请选择本地游戏，或输入有效的 Steam App ID。');
+      return;
+    }
+    setCollectorAppId(targetId);
+    setCollectorError(null);
+    setCollectorMessage(null);
+    setCollectorOpen(true);
+  }
+
   async function handleCollect(sampling: SamplingContract) {
     setCollectorBusy(true);
     setCollectorError(null);
@@ -77,6 +89,7 @@ export default function DatabasePage() {
         `已保存 ${result.matched_count.toLocaleString()} 条匹配评论；Steam 本次返回 ${result.fetched_count.toLocaleString()} 条${fastPath}`,
       );
       setCollectorOpen(false);
+      setCollectorAppIdInput('');
       await loadData();
     } catch (err) {
       setCollectorError(err instanceof Error ? err.message : '评论爬取失败');
@@ -117,37 +130,38 @@ export default function DatabasePage() {
                   </span>
                 </div>
               ))}
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => {
-                  setCollectorError(null);
-                  setCollectorMessage(null);
-                  setCollectorOpen(true);
-                }}
-                disabled={games.length === 0}
-              >
-                爬取评论
-              </Button>
             </div>
           </div>
 
           <Card variant="glass" className="p-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+              <div className="max-w-xl">
                 <p className="text-sm font-medium text-white">本地评论数据</p>
-                <p className="mt-1 text-xs text-slate-500">手动爬取只写入 SQLite，不调用 LLM；之后主分析和版本分析都可以复用。</p>
+                <p className="mt-1 text-xs leading-5 text-slate-500">手动爬取只写入 SQLite，不调用 LLM；之后主分析和版本分析都可以复用。可以选择已有游戏，也可以直接输入新的 Steam App ID。</p>
               </div>
-              <select
-                value={collectorAppId ?? ''}
-                onChange={(event) => setCollectorAppId(event.target.value ? Number(event.target.value) : null)}
-                className="min-w-[220px] rounded-xl border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-slate-200 outline-none focus:border-sky-400/60"
-              >
-                {games.length === 0 && <option value="">暂无本地游戏</option>}
-                {games.map((game) => (
-                  <option key={game.app_id} value={game.app_id}>{game.name} · {game.review_count.toLocaleString()} 条</option>
-                ))}
-              </select>
+              <div className="grid gap-2 sm:grid-cols-[minmax(190px,1fr)_170px_auto]">
+                <select
+                  value={collectorAppId ?? ''}
+                  onChange={(event) => {
+                    setCollectorAppId(event.target.value ? Number(event.target.value) : null);
+                    setCollectorAppIdInput('');
+                  }}
+                  className="rounded-xl border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-slate-200 outline-none focus:border-sky-400/60"
+                >
+                  <option value="">选择本地游戏</option>
+                  {games.map((game) => (
+                    <option key={game.app_id} value={game.app_id}>{game.name ?? `Steam App ${game.app_id}`}</option>
+                  ))}
+                </select>
+                <input
+                  inputMode="numeric"
+                  placeholder="或输入 App ID"
+                  value={collectorAppIdInput}
+                  onChange={(event) => setCollectorAppIdInput(event.target.value.replace(/\D/g, ''))}
+                  className="rounded-xl border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-slate-200 outline-none placeholder:text-slate-600 focus:border-sky-400/60"
+                />
+                <Button variant="primary" size="sm" onClick={openCollector}>爬取评论</Button>
+              </div>
             </div>
             {collectorMessage && <div className="mt-3 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-300">{collectorMessage}</div>}
             {collectorError && <div className="mt-3 rounded-xl border border-rose-500/25 bg-rose-500/10 px-3 py-2 text-xs text-rose-300">{collectorError}</div>}
@@ -167,7 +181,7 @@ export default function DatabasePage() {
             <AcquisitionSetupDialog
               open={collectorOpen}
               appId={collectorAppId}
-              gameName={collectorGame?.name}
+              gameName={collectorGame?.name ?? undefined}
               mode="collect"
               busy={collectorBusy}
               onClose={() => !collectorBusy && setCollectorOpen(false)}
