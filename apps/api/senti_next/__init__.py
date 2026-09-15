@@ -112,7 +112,7 @@ def fetch_reviews(
 ):
     """Compatibility fetch entrypoint with cache reuse for real analysis runs."""
     if _analysis_acquisition_enabled(sampling_contract, progress_callback, stats_callback):
-        from .acquisition import ensure_reviews
+        from .analysis_acquisition import ensure_reviews
 
         result = ensure_reviews(sampling_contract, progress_callback=progress_callback)
         if stats_callback is not None:
@@ -145,7 +145,7 @@ def fetch_reviews_multi_language(
 ):
     """Multi-language compatibility entrypoint with shared acquisition cache."""
     if _analysis_acquisition_enabled(sampling_contract, progress_callback, stats_callback):
-        from .acquisition import ensure_reviews
+        from .analysis_acquisition import ensure_reviews
 
         result = ensure_reviews(sampling_contract, progress_callback=progress_callback)
         if stats_callback is not None:
