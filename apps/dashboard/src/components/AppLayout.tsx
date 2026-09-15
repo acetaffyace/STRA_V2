@@ -61,7 +61,7 @@ export function AppLayout({ children, showSidebar = true, sidebarContent }: AppL
       { href: "/chat", label: t('nav.chat'), mobileLabel: t('nav.chatMobile'), icon: IconChat },
       { href: "/compare", label: t('nav.compare'), icon: IconCompare },
       { href: "/reports", label: t('nav.reports'), icon: IconReports },
-      { href: "/version-review", label: "版本复盘", icon: IconVersionReview },
+      { href: "/version-comparison", label: "版本对比", icon: IconVersionReview },
       { href: "/database", label: t('nav.database'), icon: IconDatabase },
       { href: "/settings", label: t('nav.settings'), icon: IconSettings },
     ];
