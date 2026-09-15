@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+from .. import storage
 from ..acquisition import collect_reviews, list_collection_windows
 from ..sampling import SamplingContract
 from ..steam_api import SteamAPIError
@@ -70,4 +71,9 @@ def collection_windows(app_id: Optional[int] = None, limit: int = 200) -> Collec
     if app_id is not None and app_id <= 0:
         raise HTTPException(status_code=422, detail="app_id must be positive")
     items = list_collection_windows(app_id=app_id, limit=limit)
+    # `review_collection_windows` is provenance, not ownership of raw rows.
+    # A user may delete an app from Database while older provenance remains;
+    # never expose such rows as reusable coverage to later planners.
+    live_app_ids = {item["app_id"] for item in items if storage.count_reviews(int(item["app_id"])) > 0}
+    items = [item for item in items if item.get("app_id") in live_app_ids]
     return CollectionWindowsResponse(app_id=app_id, items=items)
