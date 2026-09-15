@@ -17,21 +17,25 @@ from ..version_comparison import (
     COHORTS,
     SENSITIVITY_WINDOWS,
     build_sampling_contracts,
-    build_semantic_sample_manifest,
+    build_semantic_sample_manifest as _build_semantic_sample_manifest,
     chronological_events,
-    cohort_overlap_report,
     cohort_windows,
     comparability_matrix,
-    confounder_events,
-    event_is_usable,
     primary_cohorts,
     raw_comparison,
-    semantic_comparison,
     semantic_reviews_from_manifest,
     standardization_sensitivity,
 )
+from ..version_comparison_hardening import (
+    cohort_overlap_report,
+    confounder_events,
+    event_is_usable,
+    normalize_semantic_manifest,
+    semantic_comparison,
+)
 
 router = APIRouter(prefix="/version-comparison", tags=["version-comparison-v3"])
+ACQUISITION_WINDOW_DAYS = max(SENSITIVITY_WINDOWS)
 
 
 class VersionComparisonRequest(BaseModel):
@@ -92,6 +96,7 @@ def _plan(request: VersionComparisonRequest) -> dict[str, Any]:
     _request_guard(request)
     event_a, event_b = _events(request)
     primary = cohort_windows(event_a, event_b, request.window_days)
+    acquisition_cohorts = cohort_windows(event_a, event_b, ACQUISITION_WINDOW_DAYS)
     overlap = cohort_overlap_report(event_a, event_b, request.window_days)
     catalog = storage.list_version_events(request.app_id)
     confounders = confounder_events(catalog, event_a, event_b, window_days=request.window_days)
@@ -102,10 +107,10 @@ def _plan(request: VersionComparisonRequest) -> dict[str, Any]:
         "event_b": _event_for_response(event_b),
         "orientation": "A=older,B=newer",
         "window_days": request.window_days,
-        "acquisition_window_days": request.window_days,
+        "acquisition_window_days": ACQUISITION_WINDOW_DAYS,
         "sensitivity_windows": list(SENSITIVITY_WINDOWS),
         "cohorts": primary,
-        "acquisition_cohorts": primary,
+        "acquisition_cohorts": acquisition_cohorts,
         "cohort_overlap": overlap,
         "analysis_mode": request.analysis_mode,
         "max_reviews_per_cohort": request.max_reviews_per_cohort,
@@ -134,12 +139,24 @@ def _reports_complete(reports: dict[str, dict[str, Any]]) -> bool:
     return all(bool(item.get("collection_complete")) and not bool(item.get("truncated_by_max_reviews")) for item in reports.values())
 
 
-def _acquire_window(request: VersionComparisonRequest, event_a: dict[str, Any], event_b: dict[str, Any], days: int, *, run_id: str | None = None, phase_prefix: str = "acquiring") -> tuple[dict[str, list[dict[str, Any]]], dict[str, dict[str, Any]]]:
+def _acquire_population(
+    request: VersionComparisonRequest,
+    event_a: dict[str, Any],
+    event_b: dict[str, Any],
+    *,
+    run_id: str | None = None,
+) -> tuple[dict[str, list[dict[str, Any]]], dict[str, dict[str, Any]]]:
+    """Acquire each cohort once at the maximum sensitivity window.
+
+    All 3/7/14-day outputs are derived locally from this single population
+    snapshot. This prevents repeated Steam requests and guarantees that every
+    sensitivity row uses the same acquisition snapshot.
+    """
     contracts = build_sampling_contracts(
         request.app_id,
         event_a,
         event_b,
-        window_days=days,
+        window_days=ACQUISITION_WINDOW_DAYS,
         languages=request.languages,
         max_reviews_per_cohort=request.max_reviews_per_cohort,
     )
@@ -147,7 +164,17 @@ def _acquire_window(request: VersionComparisonRequest, event_a: dict[str, Any], 
     reports: dict[str, dict[str, Any]] = {}
     for index, cohort in enumerate(COHORTS, start=1):
         if run_id:
-            _update_running(run_id, f"{phase_prefix}_{cohort.lower()}", {"stage": phase_prefix, "window_days": days, "cohort": cohort, "completed": index - 1, "total": len(COHORTS)})
+            _update_running(
+                run_id,
+                f"acquiring_population_{cohort.lower()}",
+                {
+                    "stage": "acquiring_population",
+                    "window_days": ACQUISITION_WINDOW_DAYS,
+                    "cohort": cohort,
+                    "completed": index - 1,
+                    "total": len(COHORTS),
+                },
+            )
         result = acquisition.ensure_reviews(contracts[cohort])
         acquired[cohort] = result.reviews
         report = result.to_dict()
@@ -163,8 +190,16 @@ def _acquire_window(request: VersionComparisonRequest, event_a: dict[str, Any], 
             report["stop_reason"] = "cache_cap_boundary_ambiguous"
             report.setdefault("stats", {})["cache_cap_boundary_ambiguous"] = True
         reports[cohort] = report
-    cohorts = primary_cohorts(acquired, event_a, event_b, days)
-    return cohorts, reports
+    return acquired, reports
+
+
+def _slice_population(
+    acquired: dict[str, list[dict[str, Any]]],
+    event_a: dict[str, Any],
+    event_b: dict[str, Any],
+    days: int,
+) -> dict[str, list[dict[str, Any]]]:
+    return primary_cohorts(acquired, event_a, event_b, days)
 
 
 def _sensitivity_row(days: int, cohorts: dict[str, list[dict[str, Any]]], reports: dict[str, dict[str, Any]]) -> dict[str, Any]:
@@ -186,7 +221,8 @@ def _execute(run_id: str, request_payload: dict[str, Any]) -> None:
         if overlap["status"] != "disjoint":
             raise ValueError("Selected version windows overlap; choose a shorter window or more separated events.")
 
-        primary, primary_reports = _acquire_window(request, event_a, event_b, request.window_days, run_id=run_id, phase_prefix="acquiring_primary")
+        acquired, acquisition_reports = _acquire_population(request, event_a, event_b, run_id=run_id)
+        primary = _slice_population(acquired, event_a, event_b, request.window_days)
         raw = raw_comparison(primary)
         comparability = comparability_matrix(primary)
         standardization = standardization_sensitivity(primary)
@@ -194,19 +230,19 @@ def _execute(run_id: str, request_payload: dict[str, Any]) -> None:
         sensitivity: list[dict[str, Any]] = []
         sensitivity_reports: dict[str, Any] = {}
         for days in SENSITIVITY_WINDOWS:
-            if days == request.window_days:
-                cohorts, reports = primary, primary_reports
-            else:
-                cohorts, reports = _acquire_window(request, event_a, event_b, days, run_id=run_id, phase_prefix=f"acquiring_sensitivity_{days}d")
-            sensitivity.append(_sensitivity_row(days, cohorts, reports))
-            sensitivity_reports[str(days)] = reports
+            cohorts = _slice_population(acquired, event_a, event_b, days)
+            sensitivity.append(_sensitivity_row(days, cohorts, acquisition_reports))
+            sensitivity_reports[str(days)] = {
+                "derived_from_acquisition_window_days": ACQUISITION_WINDOW_DAYS,
+                "reports": acquisition_reports,
+            }
 
         catalog = storage.list_version_events(request.app_id)
         confounders = confounder_events(catalog, event_a, event_b, window_days=request.window_days)
         semantic_manifest = None
         semantic = None
         warnings = _event_warnings(event_a, event_b)
-        primary_complete = _reports_complete(primary_reports)
+        primary_complete = _reports_complete(acquisition_reports)
         if not primary_complete:
             warnings.append("primary_acquisition_incomplete_or_capped: raw rates describe the observed bounded sample, not a complete Steam window.")
         incomplete_sensitivity = [str(row["window_days"]) for row in sensitivity if row["coverage_status"] != "COMPLETE"]
@@ -215,7 +251,15 @@ def _execute(run_id: str, request_payload: dict[str, Any]) -> None:
 
         if request.analysis_mode == "semantic":
             _update_running(run_id, "building_semantic_sample", {"stage": "semantic_sample"})
-            semantic_manifest = build_semantic_sample_manifest(primary, event_a, event_b, total_budget=request.semantic_budget, seed=f"version-comparison:{request.app_id}:{event_a.get('event_id')}:{event_b.get('event_id')}:{request.window_days}")
+            semantic_manifest = normalize_semantic_manifest(
+                _build_semantic_sample_manifest(
+                    primary,
+                    event_a,
+                    event_b,
+                    total_budget=request.semantic_budget,
+                    seed=f"version-comparison:{request.app_id}:{event_a.get('event_id')}:{event_b.get('event_id')}:{request.window_days}",
+                )
+            )
             if semantic_manifest["status"] == "ready":
                 selected_reviews = semantic_reviews_from_manifest(primary, semantic_manifest)
                 if selected_reviews:
@@ -246,10 +290,14 @@ def _execute(run_id: str, request_payload: dict[str, Any]) -> None:
             "event_b": _event_for_response(event_b),
             "orientation": "A=older,B=newer",
             "window_days": request.window_days,
-            "acquisition_window_days": request.window_days,
+            "acquisition_window_days": ACQUISITION_WINDOW_DAYS,
             "analysis_mode": request.analysis_mode,
             "coverage_status": "COMPLETE" if primary_complete else "PARTIAL",
-            "acquisition_report": {"primary": primary_reports, "sensitivity": sensitivity_reports},
+            "acquisition_report": {
+                "acquisition_window_days": ACQUISITION_WINDOW_DAYS,
+                "population": acquisition_reports,
+                "sensitivity": sensitivity_reports,
+            },
             "raw": raw,
             "comparability": comparability,
             "standardization_sensitivity": standardization,
